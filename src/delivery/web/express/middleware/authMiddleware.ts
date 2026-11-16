@@ -10,7 +10,7 @@
 import { Request, RequestHandler, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { AppConfig } from '../../../../shared/infrastructure/config/appConfig';
-import { telegramIdOf } from '../../../../shared/domain/access/telegramAccess';
+import { parseTelegramIds, telegramIdOf } from '../../../../shared/domain/access/telegramAccess';
 import { ShortcutCaptureAccess, shortcutCaptureAccess } from '../../../../shared/domain/access/shortcutCaptureAccess';
 import { createLogger, createRefusalLog, LogCategory } from '../../../../shared/infrastructure/logging';
 
@@ -161,6 +161,22 @@ function devHeadersAllowed(req: Request): boolean {
   return process.env.NODE_ENV !== 'production' && isLocalRequest(req);
 }
 
+/** `X-Dev-User-Id` as sent, when it counts (`devHeadersAllowed`) and is not empty; null otherwise. */
+function devUserIdHeader(req: Request): string | null {
+  if (!devHeadersAllowed(req)) return null;
+  const devUserId = req.headers['x-dev-user-id'];
+  return typeof devUserId === 'string' && devUserId !== '' ? devUserId : null;
+}
+
+/**
+ * The Telegram id the dev header names, by the rule of ALLOWED_TELEGRAM_IDS (`telegramIdOf`, #255): `0131184740` is
+ * 131184740. Null for anything else — `parseInt` read `123abc` as the user 123 and a blank header as NaN.
+ */
+function devTelegramIdOf(devUserId: string): number | null {
+  const id = telegramIdOf(devUserId);
+  return id === null ? null : Number(id);
+}
+
 /**
  * The Telegram user id a request is signed in as, by the same rules as `requireAuth`, without answering the
  * request: `X-Dev-User-Id` outside production from this machine, otherwise valid, unexpired initData in
@@ -170,13 +186,8 @@ function devHeadersAllowed(req: Request): boolean {
  * The general rate limit counts by it (FT-139); it runs before the route's own authentication.
  */
 export function signedInTelegramId(req: Request, botToken: string = AppConfig.TG_BOT_API_KEY): number | null {
-  if (devHeadersAllowed(req)) {
-    const devUserId = req.headers['x-dev-user-id'];
-    if (devUserId && typeof devUserId === 'string') {
-      const id = parseInt(devUserId, 10);
-      return Number.isSafeInteger(id) ? id : null;
-    }
-  }
+  const devUserId = devUserIdHeader(req);
+  if (devUserId !== null) return devTelegramIdOf(devUserId);
 
   if (!req.headers.authorization) {
     return req.webSession?.telegramId ?? null;
@@ -194,7 +205,7 @@ export function signedInTelegramId(req: Request, botToken: string = AppConfig.TG
 /**
  * Closed access (FT-153): a request signed in as someone not in ALLOWED_TELEGRAM_IDS — by Telegram initData, the
  * browser's session cookie or `X-Dev-User-Id` — gets 403 before any route, so no route resolves or creates its user.
- * A dev header that names no Telegram id is refused too: `requireAuth` would sign it in as NaN. A request that proves
+ * A dev header that names no Telegram id is refused too, as `requireAuth` refuses it (#255). A request that proves
  * no user goes on to its route, which answers 401 if it needs sign-in. With an empty list everyone goes on.
  *
  * The 403 comes before the routes' rate limits, so the log is what a stranger could flood: the first refusal of an id
@@ -211,7 +222,7 @@ export function createAllowedUsersMiddleware(): RequestHandler {
     }
 
     const telegramId = signedInTelegramId(req);
-    const provesNoUser = telegramId === null && !(devHeadersAllowed(req) && req.headers['x-dev-user-id']);
+    const provesNoUser = telegramId === null && devUserIdHeader(req) === null;
     const allowed = telegramId !== null && access.allows(telegramId);
     if (provesNoUser || allowed) {
       next();
@@ -251,19 +262,20 @@ function signInWithWebSession(req: Request): boolean {
  * router.use('/api/transactions', requireAuth, transactionRoutes);
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  // Development mode bypass: X-Dev-User-Id, only from this machine (never through the tunnel)
-  if (devHeadersAllowed(req)) {
-    const devUserId = req.headers['x-dev-user-id'];
-    if (devUserId && typeof devUserId === 'string') {
-      logger.debug('Development auth bypass', { devUserId });
-      req.telegramUser = {
-        id: parseInt(devUserId, 10),
-        first_name: 'Dev User',
-      };
-      req.isAuthenticated = true;
-      next();
+  // Development mode bypass: X-Dev-User-Id, only from this machine (never through the tunnel). One that names no
+  // Telegram id is refused, not passed on to the session cookie: a typo must not sign in as someone else (#255)
+  const devUserId = devUserIdHeader(req);
+  if (devUserId !== null) {
+    const id = devTelegramIdOf(devUserId);
+    if (id === null) {
+      res.status(401).json({ success: false, error: 'X-Dev-User-Id must be a Telegram user id', code: 'INVALID_DEV_USER_ID' });
       return;
     }
+    logger.debug('Development auth bypass', { devUserId: id });
+    req.telegramUser = { id, first_name: 'Dev User' };
+    req.isAuthenticated = true;
+    next();
+    return;
   }
 
   // A browser signed in through the bot (FT-128)
@@ -397,8 +409,9 @@ export function verifyOwnership(req: Request, res: Response, next: NextFunction)
 /**
  * Admin-only middleware
  *
- * Restricts access to admin users only.
- * Admin list is configured via ADMIN_TELEGRAM_IDS env variable.
+ * Restricts access to admin users only: the Telegram ids in ADMIN_TELEGRAM_IDS, read per request by the rule of
+ * ALLOWED_TELEGRAM_IDS (#255) — leading zeros name the same admin. An entry that is no Telegram id names nobody; the
+ * start stops on it (AppConfig).
  */
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   // Must be authenticated
@@ -411,13 +424,11 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
     return;
   }
 
-  // Get admin IDs from environment
-  const adminIdsEnv = process.env.ADMIN_TELEGRAM_IDS || '';
-  const adminIds = adminIdsEnv.split(',').map(id => id.trim()).filter(Boolean);
+  const adminIds = parseTelegramIds(process.env.ADMIN_TELEGRAM_IDS).ids;
+  const userTelegramId = String(req.telegramUser.id);
+  const signedIn = telegramIdOf(userTelegramId);
 
-  const userTelegramId = req.telegramUser.id.toString();
-
-  if (!adminIds.includes(userTelegramId)) {
+  if (signedIn === null || !adminIds.includes(signedIn)) {
     logger.warn('Non-admin access attempt', {
       telegramId: userTelegramId,
       path: req.path,

@@ -214,6 +214,13 @@ describe('the API lets in only the allowed (FT-153)', () => {
     expect(await usersInDb()).toEqual([]);
   });
 
+  it('answers 403 to X-Dev-User-Id that only starts with an allowed id: no Telegram id, not that user (#255)', async () => {
+    await serve([String(ALLOWED)]);
+
+    expect((await get('/api/settings', { 'X-Dev-User-Id': `${ALLOWED}abc` })).status).toBe(403);
+    expect(await usersInDb()).toEqual([]);
+  });
+
   it('does not turn a login confirmed while the list was open into a session for someone not on it', async () => {
     const browserSecret = await confirmedLogin(STRANGER);
     await serve([String(ALLOWED)]);

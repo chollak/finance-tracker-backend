@@ -73,6 +73,22 @@ describe('X-Dev-User-Id', () => {
     expect((await call('GET', '/signed', dev)).body).toEqual({ id: 131184740 });
   });
 
+  it('is read by the rule of ALLOWED_TELEGRAM_IDS: leading zeros name the same id (#255)', async () => {
+    const dev = { 'X-Dev-User-Id': '0131184740' };
+    expect((await call('GET', '/required', dev)).body).toEqual({ id: 131184740 });
+    expect((await call('GET', '/signed', dev)).body).toEqual({ id: 131184740 });
+  });
+
+  it('that names no Telegram id is refused, not read as the number it starts with (#255)', async () => {
+    // `parseInt` made `123abc` the user 123, `1e3` the user 1 and `12.5` the user 12
+    for (const header of ['123abc', '1e3', '12.5', '-5', '0', '9007199254740993']) {
+      const dev = { 'X-Dev-User-Id': header };
+      const required = await call('GET', '/required', dev);
+      expect([header, required.status, required.body.code]).toEqual([header, 401, 'INVALID_DEV_USER_ID']);
+      expect((await call('GET', '/signed', dev)).body).toEqual({ id: null });
+    }
+  });
+
   it('is ignored for a request that came through the tunnel', async () => {
     const dev = { 'X-Dev-User-Id': '131184740', ...TUNNEL };
     const required = await call('GET', '/required', dev);
