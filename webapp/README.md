@@ -82,4 +82,4 @@ The root gate is:
 npm run verify
 ```
 
-It includes backend build, test types (`typecheck:tests`), serial Jest tests, webapp Vitest tests, webapp production build, font and token checks, dependency-cruiser, and madge circular checks.
+It includes backend build, test types (`typecheck:tests`), script types (`typecheck:scripts`), serial Jest tests, webapp Vitest tests, webapp production build, font and token checks, and dependency-cruiser (layer rules and circular imports).

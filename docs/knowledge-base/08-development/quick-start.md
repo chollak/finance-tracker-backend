@@ -330,6 +330,7 @@ docker compose down
 npm test                  # Run all tests (Jest does not check types)
 npm run test:ci           # Run tests serially for CI/Hermes verification
 npm run typecheck:tests   # Types of tests/ and src/, one tsc (tsconfig.test.json)
+npm run typecheck:scripts # Types of the TypeScript scripts in scripts/ (tsconfig.scripts.json)
 npm test -- --watch      # Watch mode
 npm test -- --verbose    # Detailed output
 npm test transaction     # Run specific test file
@@ -342,9 +343,8 @@ Jest does not check types: ts-jest only translates each file (#293). A type erro
 
 ```bash
 npm run format           # Format code with Prettier
-npm run check:deps       # Check dependency rules
-npm run check:circular   # Find circular dependencies
-npm run analyze          # Run both checks
+npm run check:deps       # Dependency rules, circular imports included (no-circular)
+npm run analyze          # The architecture step of verify: check:deps
 npm run test:webapp      # Webapp Vitest tests
 npm run verify           # Full pre-commit gate (see below)
 ```
@@ -354,11 +354,13 @@ npm run verify           # Full pre-commit gate (see below)
 1. `npm run build` — backend TypeScript build
 2. `npm run typecheck:tests` — types of the tests and `src` with one `tsc` (`tsconfig.test.json`): Jest only translates
    the files and checks no types (#293)
-3. `npm run test:ci` — Jest tests serially (`jest --runInBand`)
-4. `npm run test:webapp` — webapp Vitest tests
-5. `npm run build:webapp` — webapp production build
-6. `npm run check:fonts`, `npm run check:tokens` — self-hosted fonts in the build, generated Pastel tokens up to date
-7. `npm run analyze` — `dependency-cruiser` + `madge` circular dependency scan
+3. `npm run typecheck:scripts` — types of the TypeScript scripts in `scripts/` (`tsconfig.scripts.json`, #297): ts-node
+   checks a script only when it runs; the Supabase scripts are left out until #324
+4. `npm run test:ci` — Jest tests serially (`jest --runInBand`)
+5. `npm run test:webapp` — webapp Vitest tests
+6. `npm run build:webapp` — webapp production build
+7. `npm run check:fonts`, `npm run check:tokens` — self-hosted fonts in the build, generated Pastel tokens up to date
+8. `npm run analyze` — `dependency-cruiser` (`check:deps`): layer rules and `no-circular`, type-only imports included
 
 In CI the webapp is built twice: `npm ci` runs `postinstall` (`install:webapp` and `build:webapp`), then `verify` builds
 it again. Both stay on purpose: `scripts/live-update.sh` relies on the `postinstall` build, and `verify` has to build the

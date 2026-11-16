@@ -173,9 +173,9 @@ Warning: Circular dependency detected
 ```
 
 **Solution:**
-1. Find circular deps:
+1. Find circular deps — `no-circular` in `.dependency-cruiser.js` prints each cycle:
 ```bash
-npm run check:circular
+npm run check:deps
 ```
 2. Refactor to break cycle:
    - Move shared code to separate file
