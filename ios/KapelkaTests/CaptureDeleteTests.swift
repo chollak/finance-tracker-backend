@@ -100,6 +100,28 @@ struct CaptureDeleteTests {
         #expect(CaptureRow.deleteNote(nil) == "Запись уже отправляется — если сервер её запишет, удали её в «Записях»")
     }
 
+    /// The same delete as the card's «Удалить с телефона», so the card's words when the field has none (#346, decision
+    /// of the coordinator on PR #351).
+    @Test("VoiceOver после свайпа «Удалить»: заметки под полем нет — «Удалено с телефона», как на карточке; есть — её слова")
+    func swipeSpeech() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([.failure(.notConnectedToInternet), .failure(.timedOut)]))
+        let queue = harness.makeQueue()
+        let offline = try await queue.add("кофе 250к")
+        await queue.flush()
+        let said = { (note: String?) in CaptureRow.deleteSpeech(note: note) }
+
+        #expect(said(CaptureRow.deleteNote(try await queue.remove(offline.clientId))) == "Удалено с телефона")
+
+        let timedOut = try await queue.add("такси 18к")
+        await queue.flush()
+        #expect(said(CaptureRow.deleteNote(try await queue.remove(timedOut.clientId)))
+            == "Удалено. Запись уже уходила на сервер — проверь «Записи»")
+        #expect(said(CaptureRow.deleteNote(nil))
+            == "Запись уже отправляется — если сервер её запишет, удали её в «Записях»")
+        let failed = "Не удалилось: \(QueueError.unavailable.localizedDescription)"
+        #expect(said(failed) == failed)
+    }
+
     @Test("номер записи в пути на диск не пишется")
     func sendingIdNotSaved() async throws {
         let answer = Gate()

@@ -59,6 +59,12 @@ struct CaptureRow: Identifiable, Equatable {
         return removed.mayBeOnServer ? "Удалено. Запись уже уходила на сервер — проверь «Записи»" : nil
     }
 
+    /// What VoiceOver hears after the swipe «Удалить» (#346): the words under the field — a note or «Не удалилось: …»;
+    /// none — the card's «Удалено с телефона» for the same delete, since nothing on the screen says the row went.
+    static func deleteSpeech(note: String?) -> String {
+        note ?? LastPhrase.removedText
+    }
+
     /// Newest first.
     static func rows(_ captures: [Capture], sendingId: UUID?, now: Date, calendar: Calendar) -> [CaptureRow] {
         let time = TimeOfInput(now: now, calendar: calendar)

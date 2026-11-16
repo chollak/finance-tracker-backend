@@ -154,7 +154,10 @@ struct CaptureView: View {
                     .swipeActions {
                         if row.canDelete {
                             Button(role: .destructive) {
-                                Task { error = await model.remove(row.id) }
+                                Task {
+                                    let note = await model.remove(row.id)
+                                    swiped(note, said: CaptureRow.deleteSpeech(note: note))
+                                }
                             } label: {
                                 Label("Удалить", systemImage: "trash")
                             }
@@ -164,7 +167,10 @@ struct CaptureView: View {
                         }
                         if row.canDismiss {
                             Button {
-                                Task { error = await model.dismiss(row.id) }
+                                Task {
+                                    let footer = await model.dismiss(row.id)
+                                    swiped(footer, said: footer)
+                                }
                             } label: {
                                 Label("Убрать", systemImage: "xmark")
                             }
@@ -177,6 +183,18 @@ struct CaptureView: View {
                !model.queueState.tokenRefused {
                 Button("Отправить сейчас", action: sendNow)
             }
+        }
+    }
+
+    /// What a swipe on «Требует внимания» could not do or asks to check, under the field; VoiceOver hears `words`
+    /// (#346), each time — the same note after the next swipe is said again. «Удалить» says the footer's words or the
+    /// card's «Удалено с телефона» (`CaptureRow.deleteSpeech`); «Убрать» only the footer — done, nothing said: the row
+    /// goes, as it does for the eye. Not held for the microphone, unlike the card: the swipe is the user's own action,
+    /// and VoiceOver speaks while they reach it anyway.
+    private func swiped(_ footer: String?, said words: String?) {
+        error = footer
+        if let words {
+            AccessibilityNotification.Announcement(words).post()
         }
     }
 
