@@ -326,12 +326,16 @@ docker compose down
 ### Testing
 
 ```bash
-npm test                  # Run all tests
+npm test                  # Run all tests (Jest does not check types)
 npm run test:ci           # Run tests serially for CI/Hermes verification
+npm run typecheck:tests   # Types of tests/ and src/, one tsc (tsconfig.test.json)
 npm test -- --watch      # Watch mode
 npm test -- --verbose    # Detailed output
 npm test transaction     # Run specific test file
 ```
+
+Jest does not check types: ts-jest only translates each file (#293). A type error in a test fails
+`npm run typecheck:tests` (a step of `verify`), not `npm test`.
 
 ### Code Quality
 
