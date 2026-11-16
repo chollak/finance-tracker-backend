@@ -27,7 +27,12 @@ const BUILD: Record<string, string> = {
   'assets/index-BLbtmfHV.js': 'console.info("kapelka")',
   'assets/index-BR9wcpse.css': 'body{margin:0}',
   'assets/react-vendor-DoJl6UPc.js': 'export {}',
+  // A hash may have «-» and «_» in it: 6 of the 40 files of the real build do
+  'assets/empty-state-JWQ5SC-v.js': 'export {}',
+  'assets/createLucideIcon-WF_is0Jc.js': 'export {}',
   'assets/manrope-cyrillic-wght-normal-Dvxsihut.woff2': 'font',
+  // Disappears between stat and open, as at the moment of the swap (scripts/build-webapp.js)
+  'assets/query-vendor-Swapped1.js': 'export {}',
   'assets/logo.png': 'png',
   'manifest.webmanifest': '{"name":"Kapelka"}',
   'sw.js': 'self.addEventListener("install", () => {})',
@@ -64,6 +69,8 @@ describe('the cache of the web app’s files (#380)', () => {
     '/assets/index-BLbtmfHV.js',
     '/assets/index-BR9wcpse.css',
     '/assets/react-vendor-DoJl6UPc.js',
+    '/assets/empty-state-JWQ5SC-v.js',
+    '/assets/createLucideIcon-WF_is0Jc.js',
     '/assets/manrope-cyrillic-wght-normal-Dvxsihut.woff2',
   ])('%s, named by its content, is kept for good', async requestPath => {
     const res = await get(requestPath);
@@ -112,6 +119,7 @@ describe('the cache of the web app’s files (#380)', () => {
     expect(res.status).toBe(404);
     expect(await res.text()).not.toContain('<title>Kapelka</title>');
     expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(res.headers.get('etag')).toBeNull();
   });
 
   it('a page of the web app is still its index.html, a path that only starts like assets/ too', async () => {
@@ -124,7 +132,32 @@ describe('the cache of the web app’s files (#380)', () => {
     }
   });
 
-  it.each(['/api/health', '/api/does-not-exist', '/api/assets/index-BLbtmfHV.js'])(
+  // The moment of the swap: express.static found the file in the old folder, and the folder was renamed before it
+  // opened it. serve-static passes that error on; Express's final handler sent it as 404 with the `immutable` already
+  // set and the old file's ETag — a 404 the phone would keep for good under a name the new build may have too
+  it('a file gone between stat and open is 404 no-store, without the old file’s validators', async () => {
+    const vanishing = path.join(webAppDir, 'assets', 'query-vendor-Swapped1.js');
+    const open = fs.createReadStream;
+    const swap = jest.spyOn(fs, 'createReadStream').mockImplementation(((file: fs.PathLike, options?: never) => {
+      if (String(file) === vanishing) fs.rmSync(vanishing);
+      return open(file, options);
+    }) as typeof fs.createReadStream);
+
+    try {
+      const res = await get('/assets/query-vendor-Swapped1.js');
+
+      expect(swap).toHaveBeenCalledWith(vanishing, expect.anything());
+      expect(res.status).toBe(404);
+      expect(res.headers.get('cache-control')).toBe('no-store');
+      expect(res.headers.get('etag')).toBeNull();
+      expect(res.headers.get('last-modified')).toBeNull();
+      expect(await res.text()).not.toContain('<title>Kapelka</title>');
+    } finally {
+      swap.mockRestore();
+    }
+  });
+
+  it.each(['/api/health','/api/does-not-exist', '/api/assets/index-BLbtmfHV.js'])(
     '%s keeps the API’s no-store',
     async requestPath => {
       const res = await get(requestPath);
@@ -132,4 +165,10 @@ describe('the cache of the web app’s files (#380)', () => {
       expect(res.headers.get('cache-control')).toBe('no-store, no-cache, must-revalidate, proxy-revalidate');
     }
   );
+});
+
+// Vite copies webapp/public/ into the build as is. A file of webapp/public/assets/ would land in assets/ without a hash,
+// and one with eight characters after a dash (`logo-darkmode.svg`) would pass for hashed: kept for good, never updated
+it('webapp/public has no assets/ folder: everything in the build’s assets/ is Vite’s, named by content (#380)', () => {
+  expect(fs.existsSync(path.join(__dirname, '..', 'webapp', 'public', 'assets'))).toBe(false);
 });

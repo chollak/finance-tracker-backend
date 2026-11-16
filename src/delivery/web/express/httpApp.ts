@@ -1,5 +1,5 @@
-import express, { Express, RequestHandler } from 'express';
-import { ServerResponse } from 'http';
+import express, { ErrorRequestHandler, Express, RequestHandler, Response } from 'express';
+import { ServerResponse, STATUS_CODES } from 'http';
 import path from 'path';
 
 /** A file named by its content never changes under that name: the browser keeps it for good (#380). */
@@ -26,13 +26,36 @@ function webAppCacheHeaders(webAppPath: string): (res: ServerResponse, filePath:
 }
 
 /**
+ * A file of `assets/` the server cannot give: nothing in the answer for a cache to keep or to ask about again — no
+ * validators, and `end` rather than `send`, which would add an ETag of its own. `no-store`: the name may be served
+ * again a moment later (after the swap) or with a rollback.
+ */
+function answerWithoutFile(res: Response, status: number): void {
+  res.removeHeader('ETag');
+  res.removeHeader('Last-Modified');
+  res.setHeader('Cache-Control', 'no-store');
+  res.status(status).type('text/plain').end(STATUS_CODES[status]);
+}
+
+/**
  * A file of `assets/` that is not in the build — a chunk of the version before an update — is 404 (#380). As a page of
  * the web app it got index.html with 200, and the service worker's CacheFirst for `.js` (vite.config.ts) kept that HTML
- * as the chunk; the import failed either way. `no-store`: the name may come back with a rollback.
+ * as the chunk; the import failed either way.
  */
-const assetNotInBuild: RequestHandler = (_req, res) => {
-  res.setHeader('Cache-Control', 'no-store');
-  res.sendStatus(404);
+const assetNotInBuild: RequestHandler = (_req, res) => answerWithoutFile(res, 404);
+
+/**
+ * A file of `assets/` found but not read — at the moment of the swap (scripts/build-webapp.js) express.static stats it
+ * in the old folder and opens it after the rename. serve-static passes that error on with `immutable`, ETag and
+ * Last-Modified already set for the file; sent as they were, the phone would keep the 404 for good under a name the new
+ * build may have too. Answered like a file that is not there (#380).
+ */
+const assetNotRead: ErrorRequestHandler = (err, _req, res, next) => {
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
+  answerWithoutFile(res, err.statusCode ?? err.status ?? 500);
 };
 
 /**
@@ -57,7 +80,7 @@ export function createHttpApp(api: RequestHandler, webAppPath: string): Express 
 
   // The web app on the root; every other path is one of its pages (client-side routes)
   app.use('/', express.static(webAppPath, { setHeaders: webAppCacheHeaders(webAppPath) }));
-  app.use('/assets', assetNotInBuild);
+  app.use('/assets', assetNotInBuild, assetNotRead);
   app.get('*', (_req, res) => {
     res.sendFile(path.join(webAppPath, 'index.html'));
   });
