@@ -10,7 +10,7 @@ import { AuditModule } from '../audit/auditModule';
 import { GoalView } from '../audit/application/auditViews';
 import { NotFoundError } from '../../shared/domain/errors/AppError';
 import { Result } from '../../shared/domain/types/Result';
-import { TelegramAccess } from '../../shared/domain/access/telegramAccess';
+import { TelegramAccess, telegramIdOf } from '../../shared/domain/access/telegramAccess';
 import { AppConfig } from '../../shared/infrastructure/config/appConfig';
 
 /**
@@ -72,9 +72,13 @@ function summaryNumbers(transactionModule: TransactionModule): SummaryNumbers {
   };
 }
 
-/** The users and their settings, of those allowed in (FT-153). */
+/**
+ * The users and their settings, of those allowed in (FT-153). A row's Telegram id is read as the list reads one
+ * (`telegramIdOf`, #255): `0597843119` is the listed `597843119`, as the notifier then writes to it. A row with no
+ * Telegram id passes only an open list, and the notifier drops it.
+ */
 async function allowedUsers(userModule: UserModule, access: TelegramAccess) {
-  return (await userModule.listUsersWithSettings()).filter(({ user }) => access.allows(user.telegramId));
+  return (await userModule.listUsersWithSettings()).filter(({ user }) => access.allows(telegramIdOf(user.telegramId)));
 }
 
 function summaryRecipients(userModule: UserModule, access: TelegramAccess): RecipientSource {

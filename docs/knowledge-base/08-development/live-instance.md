@@ -178,7 +178,8 @@ nano .env.local
 ```
 
 Заполнить: `ALLOWED_TELEGRAM_IDS` (свой Telegram id), `OPENAI_API_KEY`, `WEB_APP_URL` (адрес из шага 2) и
-`MINIAPP_CHAT_ID` (свой id); `ADMIN_TELEGRAM_IDS` — по желанию. `NODE_ENV=production` и `TZ=Asia/Tashkent` уже стоят,
+`MINIAPP_CHAT_ID` (свой id); `ADMIN_TELEGRAM_IDS` — по желанию, те же целые числа через запятую, что в списке
+(не число — ошибка запуска, #255). `NODE_ENV=production` и `TZ=Asia/Tashkent` уже стоят,
 `BACKUP_DIR=/mnt/c/KapelkaBackup` — тоже: саму папку и таймер ставит раздел [«Бэкап»](#бэкап-ft-157).
 Значения нигде не печатать и в репозиторий не класть.
 
