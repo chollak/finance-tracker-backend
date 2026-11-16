@@ -1,5 +1,5 @@
 import { Context, NarrowedContext } from 'telegraf';
-import { Message, Update, CallbackQuery } from 'telegraf/types';
+import { Update } from 'telegraf/types';
 import { VoiceProcessingModule } from '../../../../modules/voiceProcessing/voiceProcessingModule';
 import { QuickCaptureModule } from '../../../../modules/quickCapture/quickCaptureModule';
 import { TransactionModule } from '../../../../modules/transaction/transactionModule';
@@ -59,22 +59,7 @@ export interface BotContext extends Context {
 }
 
 /**
- * Context for text message handlers
- */
-export type TextMessageContext = NarrowedContext<BotContext, Update.MessageUpdate<Message.TextMessage>>;
-
-/**
- * Context for voice message handlers
- */
-export type VoiceMessageContext = NarrowedContext<BotContext, Update.MessageUpdate<Message.VoiceMessage>>;
-
-/**
  * Context for a handler of any message (#279). A handler typed with it costs `bot.on()` almost no type inference;
  * one typed with `BotContext` made a single `bot.on()` take ~4 s of `tsc` (#328)
  */
 export type MessageContext = NarrowedContext<BotContext, Update.MessageUpdate>;
-
-/**
- * Context for callback query handlers
- */
-export type CallbackContext = NarrowedContext<BotContext, Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;

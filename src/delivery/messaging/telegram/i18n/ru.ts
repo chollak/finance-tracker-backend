@@ -23,11 +23,6 @@ export const RU = {
     unknown: 'Такой команды нет. Список — /help',
   },
 
-  // Transaction messages (the confirmation itself is the record message, FT-122)
-  transaction: {
-    noTransactions: 'Транзакций не найдено',
-  },
-
   // The debt confirmation of the capture path (messageHandlers, frozen until #266); the rest went with #265
   debt: {
     created: '🤝 Долг записан',
@@ -109,5 +104,3 @@ export function formatAmount(amount: number, showSign = false): string {
   }
   return formatted;
 }
-
-export type I18nKey = keyof typeof RU;

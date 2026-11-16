@@ -26,7 +26,6 @@ export interface WebAppUrlParams {
   /** A record to change: Home opens its sheet. */
   edit?: string;
   path?: WebAppPath;
-  startapp?: string;
 }
 
 /**
@@ -101,22 +100,3 @@ export const appLinks = {
   analytics: (telegramId: string) => appUrl(telegramId, WEB_APP_PATHS.analytics),
   audit: (telegramId: string) => appUrl(telegramId, WEB_APP_PATHS.audit),
 };
-
-/**
- * Creates a deep link URL for Telegram bot
- * Format: https://t.me/botname?startapp=command
- * @param botUsername - Bot username without @
- * @param startParam - Start parameter for deep linking
- */
-export function createDeepLink(botUsername: string, startParam: string): string {
-  return `https://t.me/${botUsername}?startapp=${encodeURIComponent(startParam)}`;
-}
-
-/**
- * Parse deep link start parameter
- * Format: action_id (e.g., edit_123, add)
- */
-export function parseStartParam(startParam: string): { action: string; id?: string } {
-  const [action, id] = startParam.split('_');
-  return { action, id };
-}
