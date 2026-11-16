@@ -905,6 +905,30 @@ describe('bot record messages (FT-122)', () => {
       expect(text(await write('/undo'))).toBe(ERROR);
     });
 
+    it('429 and a network error are still errors', async () => {
+      const message = await write('такси 18к нал', [taxi]);
+      refusedEdits.set(message, 'Too Many Requests: retry after 5');
+      expect(text(await write('/undo'))).toBe(ERROR);
+
+      const other = await write('кофе 25к', [coffee]);
+      refusedEdits.set(other, 'request to https://api.telegram.org failed, reason: ECONNRESET');
+      const ctx = await press(other, 'Изменить');
+      expect(ctx.answerCbQuery).toHaveBeenCalledWith(ERROR);
+    });
+
+    it('«message is not modified» is still silent: no warning, no error, the press is saved', async () => {
+      const warn = jest.spyOn(winstonLogger, 'warn').mockImplementation(() => winstonLogger);
+      const message = await write('такси 18к нал', [taxi]);
+      refusedEdits.set(message, 'Bad Request: message is not modified: specified new message content and reply markup are exactly the same');
+
+      const ctx = await press(message, 'Изменить');
+
+      expect(ctx.answerCbQuery).toHaveBeenCalledWith(undefined);
+      expect(ctx.answerCbQuery).not.toHaveBeenCalledWith(ERROR);
+      expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('gone from the chat'), expect.anything());
+      expect((await running.botMessageModule.getLog().find(String(TELEGRAM_ID), message))!.mode).toBe('edit');
+    });
+
     it('«Вернуть» under the /undo reply of a deleted confirmation brings the record back without an error', async () => {
       const message = await write('такси 18к нал', [taxi]);
       const [id] = await recordIdsOf(message);
@@ -1561,6 +1585,81 @@ describe('bot record messages (FT-122)', () => {
           expect(await inApp(id)).toBe(true);
           expect(text(message)).not.toContain('Сумма большая');
         }
+      });
+    });
+
+    describe('an amount answer after its question was deleted from the chat (#277)', () => {
+      const ERROR = 'Произошла ошибка. Попробуйте снова.';
+      const sentTexts = () => [...messages.values()].map(sent => sent.text);
+      const rows = async () => Number((await running.ds.query('SELECT COUNT(*) AS n FROM "transactions"'))[0].n);
+
+      it('«Сумму»: changed once, the bot says what changed, the question closes', async () => {
+        const message = await write('обед с командой 145к', [lunch]);
+        const [id] = await recordIdsOf(message);
+        await press(message, 'Изменить');
+        await press(message, 'Сумму');
+        deleteFromChat(message);
+
+        const reply = await write('150к');
+
+        expect(running.capture).toHaveBeenCalledTimes(1);
+        expect(await rows()).toBe(1);
+        expect((await record(id)).amountMinor).toBe(15_000_000);
+        expect(text(reply)).toBe(`Изменил: ${MINUS}150${NB}000${NB}сум · «Обед с командой»`);
+        expect(sentTexts()).not.toContain(ERROR);
+        expect(await awaiting()).toBeNull();
+        expect((await running.botMessageModule.getLog().find(String(TELEGRAM_ID), message))!.mode).toBe('confirm');
+
+        // The next text is a phrase of its own, not a second answer
+        await write('160к', [coffee]);
+        expect((await record(id)).amountMinor).toBe(15_000_000);
+      });
+
+      it('«Сумму» by voice: changed once, no new record from the words', async () => {
+        const message = await write('обед с командой 145к', [lunch]);
+        const [id] = await recordIdsOf(message);
+        await press(message, 'Изменить');
+        await press(message, 'Сумму');
+        deleteFromChat(message);
+
+        const reply = await say('150 тысяч.', [coffee]);
+
+        expect(await rows()).toBe(1);
+        expect((await record(id)).amountMinor).toBe(15_000_000);
+        expect(text(reply)).toBe(`Изменил: ${MINUS}150${NB}000${NB}сум · «Обед с командой»`);
+        expect(sentTexts()).not.toContain(ERROR);
+        expect(await awaiting()).toBeNull();
+      });
+
+      it('«Сколько?»: one record written and confirmed, the question closes', async () => {
+        const message = await write('кофе 25к, такси', [coffee], { missing: [taxiItem] });
+        deleteFromChat(message);
+
+        const answer = await write('18к нал');
+
+        expect(running.captureWithAmount).toHaveBeenCalledTimes(1);
+        expect(await rows()).toBe(2);
+        const [taxiId] = await recordIdsOf(answer);
+        expect((await record(taxiId)).amountMinor).toBe(1_800_000);
+        expect(text(answer)).toContain('«Такси»');
+        expect(sentTexts()).not.toContain(ERROR);
+        expect(await awaiting()).toBeNull();
+        expect((await running.botMessageModule.getLog().find(String(TELEGRAM_ID), message))!.state.missing).toBeUndefined();
+      });
+
+      it('a large amount: the typed amount writes the held record once', async () => {
+        const message = await write('кофе 25000000', [bigCoffee]);
+        const [id] = await recordIdsOf(message);
+        deleteFromChat(message);
+
+        const reply = await write('25000');
+
+        expect(await rows()).toBe(1);
+        expect((await record(id)).deletedAt).toBeFalsy();
+        expect((await record(id)).amountMinor).toBe(2_500_000);
+        expect(text(reply)).toBe(`Изменил: ${MINUS}25${NB}000${NB}сум · «Кофе»`);
+        expect(sentTexts()).not.toContain(ERROR);
+        expect(await awaiting()).toBeNull();
       });
     });
 
