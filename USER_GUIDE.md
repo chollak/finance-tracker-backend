@@ -40,6 +40,10 @@ itself. «Ещё» → «Аккаунт» → «Выйти» signs out of this b
 
 **Voice.** Send a voice message and say the same thing: «такси восемнадцать тысяч». Speech is recognised as Russian.
 
+**Photos, files and stickers.** The bot reads only text and voice messages for now. To a photo, an audio file, a
+video note, a document or a sticker it replies «Пока понимаю текст и голосовые. Напишите: такси 18к.» and writes
+nothing; a photo's caption is not read either.
+
 **What the bot answers.** The bot writes the records at once and replies with what it wrote. Under the reply are
 buttons:
 
