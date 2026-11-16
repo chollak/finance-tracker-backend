@@ -47,7 +47,7 @@ goes by its token, anything else through `requireAuth` and `writeAsSignedInUser`
 | Caller | Requirement |
 |---|---|
 | Mini App and browser (no guests since Д4, 2026-10-21) | Full `requireAuth`: `Authorization: tma <initData>` (Telegram Mini App initData, HMAC-validated, max age 1 hour) or the browser session (FT-128). The capture is for the **signed-in user**: a body `userId` may be omitted; if sent, it must be that user's Telegram id, otherwise **`403 ACCESS_DENIED`**. |
-| Local dev only (`NODE_ENV !== 'production'`) | `X-Dev-User-Id: <telegramId>` header bypasses auth — only for a request from this machine (loopback, no `Cf-Connecting-Ip` / `X-Forwarded-For` / `Forwarded`): never through the `dev:miniapp` tunnel or from the network (`isLocalRequest`, 2026-10-21). |
+| Local dev only (`NODE_ENV !== 'production'`) | `X-Dev-User-Id: <telegramId>` header bypasses auth — only for a request from this machine (loopback, no `Cf-Connecting-Ip` / `X-Forwarded-For` / `Forwarded`): never through the `dev:miniapp` tunnel or from the network (`isLocalRequest`, 2026-10-21). The id is read by `telegramIdOf`, as `ALLOWED_TELEGRAM_IDS`: anything but a Telegram id (`123abc`) is `401 INVALID_DEV_USER_ID` (#255). |
 | iPhone Shortcut (production too) | `X-Shortcut-Capture-Token: <SHORTCUT_CAPTURE_TOKEN>`; the capture is for `SHORTCUT_CAPTURE_OWNER`. See [below](#ios-shortcut-capture). |
 
 Notes:

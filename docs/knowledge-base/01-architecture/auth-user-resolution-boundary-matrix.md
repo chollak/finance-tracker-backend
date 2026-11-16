@@ -8,6 +8,29 @@
 >
 > #274 (2026-11-05): the user routes — `/api/users/*` — are removed: no client called them, and `PUT /api/users/:id` answered `404` before its owner check, telling whether a UUID was someone's. A user is made only on the first request (`createCurrentUserMiddleware`, `getOrCreate`); settings change through `PATCH /api/settings`, the user taken from sign-in.
 
+## 2026-11-16 — one Telegram id rule for the admins, the dev header and the notices (#255)
+
+Found in the review of #230: the resolver, `ALLOWED_TELEGRAM_IDS` and the Shortcut owner read a Telegram id by
+`telegramIdOf` (`telegramAccess.ts`: a positive whole number below 2^53, leading zeros are the same id), while three
+places kept rules of their own. No hole — the admins and the dev header are the owner's, the notices take ids from the
+base — but two rules for one thing, as #230 found in the resolver.
+
+| Was | Now |
+|---|---|
+| `ADMIN_TELEGRAM_IDS`: its own `split`, compared as written — `0131184740` on the list was not the admin `131184740`; an entry that is no Telegram id was skipped without a word | `requireAdmin` reads the list per request by `parseTelegramIds` and the signed-in id by `telegramIdOf`: leading zeros are the same admin. An entry that is no Telegram id stops the start everywhere (`AppConfig.validate`), as one in `ALLOWED_TELEGRAM_IDS` does; at a request it names nobody |
+| `X-Dev-User-Id` by `parseInt`: `123abc` signed in as the user 123, `1e3` as 1, `9007199254740993` as 2^53 | By `telegramIdOf`: `0131184740` is 131184740; anything else is `401 INVALID_DEV_USER_ID` from `requireAuth`, not passed on to the session cookie, and `403 ACCESS_NOT_ALLOWED` from `createAllowedUsersMiddleware` when the list is set, as before. Only outside production from this machine, as before |
+| The daily summary and the reminders: a chat is `/^\d+$/` (`TELEGRAM_CHAT`) — `0` and any length went to Telegram | `withTelegramChat` (`notification/application/telegramChat.ts`) by `telegramIdOf`: `0` and a number from 2^53 on get nothing; a row with leading zeros gets its chat without them, the app link too. `TELEGRAM_CHAT` is gone |
+
+Not changed: `verifyOwnership` still compares a claimed userId as written (#230); `telegramAccess().allows` compares
+the id it is given as written — the bot, the API and the web login pass a number from Telegram, the Shortcut a
+`telegramIdOf`-read owner, but the notices pass the `users` row: with a list set, a row with leading zeros gets no
+notice before `withTelegramChat` sees it. The resolver writes no such rows since #230.
+Tests: `tests/adminTelegramIds.test.ts` (the start check in development and production; leading zeros on the list —
+the admin; `123abc` on the list or in the dev header — not the admin), `tests/localDevAuth.test.ts` (`0131184740` —
+131184740; `123abc`, `1e3`, `12.5`, `-5`, `0`, 2^53 + 1 — `401 INVALID_DEV_USER_ID`, no signed-in id),
+`tests/allowedTelegramIds.test.ts` (the dev header `<allowed id>abc` — `403`, no user), `tests/dailySummary.test.ts`
+and `tests/botReminders.test.ts` (`0` and 2^53 + 1 — nothing sent; leading zeros — the chat without them).
+
 ## 2026-11-05 — a record's routes sign in first; `optionalAuth` is gone (#271)
 
 The last routes on `optionalAuth` were a record's own: `GET`, `PUT`, `DELETE /api/transactions/:id`, `POST …/restore`
@@ -273,7 +296,7 @@ The goal is to avoid accidental security regressions by documenting which bounda
 Strict auth boundary.
 
 - Allows health check.
-- Allows `X-Dev-User-Id` only outside production and only for a request from this machine (`isLocalRequest`: loopback, no forwarding headers) — never through the `dev:miniapp` tunnel (2026-10-21).
+- Allows `X-Dev-User-Id` only outside production and only for a request from this machine (`isLocalRequest`: loopback, no forwarding headers) — never through the `dev:miniapp` tunnel (2026-10-21). The header is read by `telegramIdOf`; one that names no Telegram id is `401 INVALID_DEV_USER_ID` (#255).
 - Requires `Authorization: tma <initData>` otherwise.
 - Validates Telegram Web App initData hash and expiry.
 - Responds with 401 for missing/invalid auth.
