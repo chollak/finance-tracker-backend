@@ -421,9 +421,8 @@ export class Budget {
 
 ```bash
 # Code quality checks
-npm run check:deps         # Check dependency rules
-npm run check:circular     # Find circular dependencies
-npm run analyze           # Run both dependency checks
+npm run check:deps         # Check dependency rules, circular imports included
+npm run analyze           # The same check, as verify runs it
 npm run format            # Format code with Prettier
 
 # Database operations
@@ -584,7 +583,7 @@ PORT=3001 npm run dev
 **Error**: `Cannot resolve module` or circular dependency
 **Solution**:
 - Check import paths are correct
-- Run `npm run check:circular` to find circular dependencies
+- Run `npm run check:deps` to find circular dependencies
 - Ensure module exports are properly defined
 
 ### Development Debugging
