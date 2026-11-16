@@ -51,10 +51,9 @@ function keyboard(rows: InlineKeyboardButton[][]) {
  * The user behind the update with the day it is: Tashkent's, as for every user (DEFAULT_TIME_ZONE). users.timezone is
  * written by nobody since #274 and read by nobody since #275.
  */
-async function botUser(ctx: BotContext): Promise<{ id: string; telegramId: string; today: string }> {
-  const telegramId = String(ctx.from?.id);
-  const user = await ctx.modules.userModule.getGetOrCreateUserUseCase().execute({ telegramId });
-  return { id: user.id, telegramId, today: todayDateOnly() };
+async function botUser(ctx: BotContext): Promise<{ id: string; today: string }> {
+  const user = await ctx.modules.userModule.getGetOrCreateUserUseCase().execute({ telegramId: String(ctx.from?.id) });
+  return { id: user.id, today: todayDateOnly() };
 }
 
 /** What follows /start: the parameter of a t.me/<bot>?start=… link. */
@@ -76,7 +75,7 @@ async function handleStart(ctx: BotContext) {
     return;
   }
   try {
-    await ctx.reply(RU.commands.start, { parse_mode: 'HTML', ...keyboard(appLinkRows('Открыть Kapelka', appLinks.home(String(ctx.from?.id)))) });
+    await ctx.reply(RU.commands.start, { parse_mode: 'HTML', ...keyboard(appLinkRows('Открыть Kapelka', appLinks.home())) });
   } catch (error) {
     logger.error('/start command error', error as Error);
     await ctx.reply(RU.errors.generic);
@@ -100,7 +99,7 @@ async function handleToday(ctx: BotContext) {
     if (!summaries) throw new Error('The notification module is not wired');
     const user = await botUser(ctx);
     const summary = await summaries.day(user.id, user.today);
-    const notice = formatDaySummary(summary, { today: user.today, appUrl: appLinks.home(user.telegramId) });
+    const notice = formatDaySummary(summary, { today: user.today, appUrl: appLinks.home() });
     await ctx.reply(notice.text, { parse_mode: 'HTML', ...keyboard(notice.keyboard) });
   } catch (error) {
     logger.error('/today command error', error as Error);
@@ -115,7 +114,7 @@ async function handleMonth(ctx: BotContext) {
     if (!summaries) throw new Error('The notification module is not wired');
     const user = await botUser(ctx);
     const summary = await summaries.month(user.id, user.today);
-    const notice = formatMonthSummary(summary, { analyticsUrl: appLinks.analytics(user.telegramId) });
+    const notice = formatMonthSummary(summary, { analyticsUrl: appLinks.analytics() });
     await ctx.reply(notice.text, { parse_mode: 'HTML', ...keyboard(notice.keyboard) });
   } catch (error) {
     logger.error('/month command error', error as Error);

@@ -52,13 +52,11 @@ export function canLinkMiniApp(): boolean {
 }
 
 /**
- * Creates a URL for the Telegram Mini App
- * @param userId - Telegram user ID
- * @param params - Optional parameters for deep linking
- * @returns Full URL for Mini App
+ * The address of a Mini App screen. It names no user: the Mini App knows who opened it from Telegram's initData — the
+ * `?userId=<Telegram id>` every link carried was left from the old sign-in, and the webapp never read it (#281).
  * @throws when WEB_APP_URL is not an HTTPS address: Telegram would refuse the message with it (#278)
  */
-export function createWebAppUrl(userId: string, params: WebAppUrlParams = {}): string {
+export function createWebAppUrl(params: WebAppUrlParams = {}): string {
   const baseUrl = AppConfig.getWebAppUrl();
 
   if (!isHttpsUrl(baseUrl)) {
@@ -69,23 +67,17 @@ export function createWebAppUrl(userId: string, params: WebAppUrlParams = {}): s
   if (params.edit) {
     const url = new URL('/', baseUrl);
     url.searchParams.set(RECORD_PARAM, params.edit);
-    url.searchParams.set('userId', userId);
     return url.toString();
   }
 
-  // Regular path navigation
-  const webPath = params.path || '';
-  const url = new URL(`/${webPath}`, baseUrl);
-  url.searchParams.set('userId', userId);
-
-  return url.toString();
+  return new URL(`/${params.path ?? ''}`, baseUrl).toString();
 }
 
-/** The Mini App for this user — Home, or a screen of it; undefined without an HTTPS WEB_APP_URL. */
-function appUrl(telegramId: string, path?: WebAppPath): string | undefined {
+/** Home, or a screen of the Mini App; undefined without an HTTPS WEB_APP_URL. */
+function appUrl(path?: WebAppPath): string | undefined {
   if (!canLinkMiniApp()) return undefined;
   try {
-    return createWebAppUrl(telegramId, path ? { path } : {});
+    return createWebAppUrl(path ? { path } : {});
   } catch {
     return undefined;
   }
@@ -96,7 +88,7 @@ function appUrl(telegramId: string, path?: WebAppPath): string | undefined {
  * — its screen shows the goals after «Готово» — under the audit call and the goal reminders (FT-133).
  */
 export const appLinks = {
-  home: (telegramId: string) => appUrl(telegramId),
-  analytics: (telegramId: string) => appUrl(telegramId, WEB_APP_PATHS.analytics),
-  audit: (telegramId: string) => appUrl(telegramId, WEB_APP_PATHS.audit),
+  home: () => appUrl(),
+  analytics: () => appUrl(WEB_APP_PATHS.analytics),
+  audit: () => appUrl(WEB_APP_PATHS.audit),
 };

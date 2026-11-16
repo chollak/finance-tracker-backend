@@ -57,7 +57,7 @@ function input(overrides: Partial<RecordMessageInput> = {}): RecordMessageInput 
     today: TODAY,
     categories: [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES],
     accounts: ACCOUNTS,
-    recordUrl: id => `https://miniapp.test/?record=${id}&userId=131184740`,
+    recordUrl: id => `https://miniapp.test/?record=${id}`,
     ...overrides,
   };
 }
@@ -289,7 +289,7 @@ describe('BotKeyboard under a record (FT-122)', () => {
     expect(data(value)).toEqual([
       ['r:f:amount', 'r:f:category'],
       ['r:f:account', 'r:f:date'],
-      ['link:https://miniapp.test/?record=tx-1&userId=131184740'],
+      ['link:https://miniapp.test/?record=tx-1'],
       ['r:ok'],
       ['r:x'],
     ]);
@@ -310,7 +310,7 @@ describe('BotKeyboard under a record (FT-122)', () => {
     });
 
     expect(labels(value)[labels(value).length - 1]).toEqual(['Отменить «Такси»']);
-    expect(data(value)[2]).toEqual(['link:https://miniapp.test/?record=tx-2&userId=131184740']);
+    expect(data(value)[2]).toEqual(['link:https://miniapp.test/?record=tx-2']);
   });
 
   it('categories two in a row, the current one ticked, «Это доход | ‹ Назад» last', () => {
@@ -355,7 +355,7 @@ describe('BotKeyboard under a record (FT-122)', () => {
     expect(data(value)).toEqual([
       ['r:d:2026-10-14', 'r:d:2026-10-13'],
       ['r:d:2026-10-12'],
-      ['link:https://miniapp.test/?record=tx-1&userId=131184740'],
+      ['link:https://miniapp.test/?record=tx-1'],
       ['r:b'],
     ]);
   });

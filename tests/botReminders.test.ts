@@ -40,7 +40,7 @@ import { refuseWebAppOffHttps } from './helpers/telegramWebAppRefusal';
 const NB = ' ';
 const TELEGRAM_ID = '597843119';
 const BASE_URL = 'https://miniapp.test';
-const AUDIT_URL = `${BASE_URL}/audit?userId=${TELEGRAM_ID}`;
+const AUDIT_URL = `${BASE_URL}/audit`;
 
 interface Button { text: string; callback_data?: string; web_app?: { url: string } }
 interface Sent { chatId: string; text: string; keyboard: Button[][]; messageId: number }
