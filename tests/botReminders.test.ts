@@ -317,6 +317,20 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       expect(sent.map(message => message.chatId)).toEqual([TELEGRAM_ID]);
     });
 
+    it('with ALLOWED_TELEGRAM_IDS set, a row with leading zeros is the listed id, as the list reads it (#255)', async () => {
+      await auditedOnOctober14();
+      await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
+      at('2026-10-27', '12:30');
+      await ownerTelegramIdIs(`00${TELEGRAM_ID}`);
+
+      await restart(telegramAccess(['111']));
+      expect(await tick()).toEqual([]);
+
+      await restart(telegramAccess([TELEGRAM_ID]));
+      expect(await outcomes()).toEqual(['goal_near:sent']);
+      expect(sent.map(message => message.chatId)).toEqual([TELEGRAM_ID]);
+    });
+
     it('over its limit: once more, by how much; the 80% message never comes after it', async () => {
       await auditedOnOctober14();
       await record('2026-10-27', 'Транспорт', 60_000, 'Такси');

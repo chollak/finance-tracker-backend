@@ -715,4 +715,16 @@ describe('daily summary (FT-124)', () => {
     expect(sent.map(message => message.chatId)).toEqual([TELEGRAM_ID]);
     expect(sent[0].keyboard).toEqual([[expect.objectContaining({ web_app: { url: `${BASE_URL}/?userId=${TELEGRAM_ID}` } })]]);
   });
+
+  it('with ALLOWED_TELEGRAM_IDS set, a row with leading zeros is the listed id, as the list reads it (#255)', async () => {
+    const owner = await user(`0${TELEGRAM_ID}`);
+    const stranger = await user('0111');
+    await record(owner, '2026-10-14', 'Кафе', 45_000);
+    await record(stranger, '2026-10-14', 'Кафе', 30_000);
+    await restart(telegramAccess([TELEGRAM_ID]));
+    at('2026-10-14', '21:00');
+
+    expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent' }]);
+    expect(sent.map(message => message.chatId)).toEqual([TELEGRAM_ID]);
+  });
 });

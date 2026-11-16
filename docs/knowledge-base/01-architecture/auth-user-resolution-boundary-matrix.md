@@ -22,16 +22,18 @@ base — but two rules for one thing, as #230 found in the resolver.
 | `ADMIN_TELEGRAM_IDS`: its own `split`, compared as written — `0131184740` on the list was not the admin `131184740`; an entry that is no Telegram id was skipped without a word | `requireAdmin` reads the list per request by `parseTelegramIds` and the signed-in id by `telegramIdOf`: leading zeros are the same admin. An entry that is no Telegram id stops the start everywhere (`AppConfig.validate`), as one in `ALLOWED_TELEGRAM_IDS` does; at a request it names nobody |
 | `X-Dev-User-Id` by `parseInt`: `123abc` signed in as the user 123, `1e3` as 1, `9007199254740993` as 2^53 | By `telegramIdOf`: `0131184740` is 131184740; anything else is `401 INVALID_DEV_USER_ID` from `requireAuth`, not passed on to the session cookie, and `403 ACCESS_NOT_ALLOWED` from `createAllowedUsersMiddleware` when the list is set, as before. Only outside production from this machine, as before |
 | The daily summary and the reminders: a chat is `/^\d+$/` (`TELEGRAM_CHAT`) — `0` and any length went to Telegram | `withTelegramChat` (`notification/application/telegramChat.ts`) by `telegramIdOf`: `0` and a number from 2^53 on get nothing; a row with leading zeros gets its chat without them, the app link too. `TELEGRAM_CHAT` is gone |
+| The notices' recipients (`notificationModule.allowedUsers`): the `users` row's Telegram id compared with `ALLOWED_TELEGRAM_IDS` as written — with the list `597843119`, the row `0597843119` got no notice | The row's id read by `telegramIdOf` before the list is asked: `0597843119` is the listed `597843119`. A row that is no Telegram id passes only an open list, and `withTelegramChat` drops it |
 
 Not changed: `verifyOwnership` still compares a claimed userId as written (#230); `telegramAccess().allows` compares
-the id it is given as written — the bot, the API and the web login pass a number from Telegram, the Shortcut a
-`telegramIdOf`-read owner, but the notices pass the `users` row: with a list set, a row with leading zeros gets no
-notice before `withTelegramChat` sees it. The resolver writes no such rows since #230.
+the id it is given as written — every caller gives it a canonical id: the bot, the API and the web login a number from
+Telegram, the Shortcut a `telegramIdOf`-read owner, the notices a `telegramIdOf`-read `users` row. The resolver writes
+no rows with leading zeros since #230; older ones are not touched.
 Tests: `tests/adminTelegramIds.test.ts` (the start check in development and production; leading zeros on the list —
 the admin; `123abc` on the list or in the dev header — not the admin), `tests/localDevAuth.test.ts` (`0131184740` —
 131184740; `123abc`, `1e3`, `12.5`, `-5`, `0`, 2^53 + 1 — `401 INVALID_DEV_USER_ID`, no signed-in id),
 `tests/allowedTelegramIds.test.ts` (the dev header `<allowed id>abc` — `403`, no user), `tests/dailySummary.test.ts`
-and `tests/botReminders.test.ts` (`0` and 2^53 + 1 — nothing sent; leading zeros — the chat without them).
+and `tests/botReminders.test.ts` (`0` and 2^53 + 1 — nothing sent; leading zeros — the chat without them, with the list
+set too; a zero-padded row of someone not on the list — nothing).
 
 ## 2026-11-05 — the archive and the old analytics are gone (#273)
 
