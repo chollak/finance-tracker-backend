@@ -77,6 +77,75 @@ describe('a 401 outside Telegram', () => {
     expect(lost).not.toHaveBeenCalled();
     expect(sentHeaders().Authorization).toBe('tma query_id=1&hash=abc');
   });
+
+  it('is not a refused Mini App either: there is no initData', async () => {
+    const { apiClient, onMiniAppRefused } = await client();
+    const refused = vi.fn();
+    onMiniAppRefused(refused);
+
+    await expect(apiClient.get('/settings')).rejects.toMatchObject({ statusCode: 401 });
+    expect(refused).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * #316: Telegram gives the Mini App its initData once, when it is opened. The server takes it for 24 hours; a Mini App
+ * left open or minimised longer gets 401 on every request, and so does initData the server refuses for any other
+ * reason. Only opening the Mini App again brings new initData, so the app is told to say that.
+ */
+describe('a 401 inside Telegram', () => {
+  const EXPIRED = { success: false, error: 'Telegram sign-in expired, open the Mini App again', code: 'INIT_DATA_EXPIRED' };
+
+  beforeEach(() => {
+    vi.stubGlobal('window', { Telegram: { WebApp: { initData: 'query_id=1&hash=abc' } } });
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify(EXPIRED), { status: 401 }));
+  });
+
+  it('is a refused Mini App: the handler is told, the request still fails with the code', async () => {
+    const { apiClient, onMiniAppRefused } = await client();
+    const refused = vi.fn();
+    onMiniAppRefused(refused);
+
+    await expect(apiClient.get('/transactions/totals')).rejects.toMatchObject({ statusCode: 401, code: 'INIT_DATA_EXPIRED' });
+    expect(refused).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['a write', (api: ApiClient) => api.post('/transactions', { amountMinor: 1 })],
+    ['an edit', (api: ApiClient) => api.put('/transactions/tx-1', { categoryId: 'cat-1' })],
+    ['a delete', (api: ApiClient) => api.delete('/transactions/tx-1')],
+    ['the CSV download', (api: ApiClient) => api.getFile('/export')],
+  ])('from %s too', async (_case, send) => {
+    const { apiClient, onMiniAppRefused } = await client();
+    const refused = vi.fn();
+    onMiniAppRefused(refused);
+
+    await expect(send(apiClient)).rejects.toMatchObject({ statusCode: 401 });
+    expect(refused).toHaveBeenCalledTimes(1);
+  });
+
+  it('a forged or unreadable initData (INVALID_AUTH) too: opening again is the only way', async () => {
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify({ success: false, code: 'INVALID_AUTH' }), { status: 401 }));
+    const { apiClient, onMiniAppRefused } = await client();
+    const refused = vi.fn();
+    onMiniAppRefused(refused);
+
+    await expect(apiClient.get('/accounts')).rejects.toMatchObject({ statusCode: 401 });
+    expect(refused).toHaveBeenCalledTimes(1);
+  });
+
+  it('other refusals are not: 403 and 500 say nothing about initData', async () => {
+    const { apiClient, onMiniAppRefused } = await client();
+    const refused = vi.fn();
+    onMiniAppRefused(refused);
+
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ success: false, code: 'ACCESS_NOT_ALLOWED' }), { status: 403 }));
+    await expect(apiClient.get('/accounts')).rejects.toMatchObject({ statusCode: 403 });
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ success: false, code: 'INTERNAL_ERROR' }), { status: 500 }));
+    await expect(apiClient.get('/accounts')).rejects.toMatchObject({ statusCode: 500 });
+
+    expect(refused).not.toHaveBeenCalled();
+  });
 });
 
 describe('headers in a browser', () => {

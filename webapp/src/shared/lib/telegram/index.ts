@@ -1,1 +1,1 @@
-export { insideTelegram, telegramColorScheme } from './telegramEnvironment';
+export { closeMiniApp, insideTelegram, telegramColorScheme } from './telegramEnvironment';

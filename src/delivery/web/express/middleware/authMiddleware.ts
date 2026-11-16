@@ -49,12 +49,44 @@ declare global {
 const INIT_DATA_HASH = /^[0-9a-f]{64}$/;
 
 /**
+ * How long Mini App initData signs in after Telegram gave it out (`auth_date`): 24 hours (#316, decision 2026-11-16).
+ * Telegram gives it once, when the Mini App is opened, and does not renew it while the Mini App stays open or
+ * minimised; an hour cut off a Mini App left open. Older initData is refused: the Mini App has to be opened again.
+ */
+export const INIT_DATA_MAX_AGE_SECONDS = 24 * 60 * 60;
+
+/** Why initData does not sign in: not signed by this bot's token (or unreadable), or signed but older than its age. */
+type InitDataRefusal = 'invalid' | 'expired';
+
+type InitDataCheck = { valid: TelegramInitData } | { refused: InitDataRefusal };
+
+/**
+ * Validate Telegram Web App initData hash, then its age
+ *
+ * @param initData - Raw initData string from Telegram
+ * @param botToken - Telegram bot token
+ * @param quiet - Do not log why the data was refused (the caller is not the one answering the request)
+ * @returns The parsed data, or why it was refused: the age is told only for data this bot signed
+ */
+function checkTelegramWebAppData(initData: string, botToken: string, quiet = false): InitDataCheck {
+  const data = validateTelegramWebAppData(initData, botToken, quiet);
+  if (data === null) return { refused: 'invalid' };
+
+  const now = Math.floor(Date.now() / 1000);
+  if (now - data.auth_date > INIT_DATA_MAX_AGE_SECONDS) {
+    if (!quiet) logger.warn('initData expired', { authDate: data.auth_date, now, age: now - data.auth_date });
+    return { refused: 'expired' };
+  }
+  return { valid: data };
+}
+
+/**
  * Validate Telegram Web App initData hash
  *
  * @param initData - Raw initData string from Telegram
  * @param botToken - Telegram bot token
  * @param quiet - Do not log why the data was refused (the caller is not the one answering the request)
- * @returns Parsed data if valid, null if invalid
+ * @returns Parsed data if signed by this bot (its age is checked by `checkTelegramWebAppData`), null if invalid
  */
 function validateTelegramWebAppData(initData: string, botToken: string, quiet = false): TelegramInitData | null {
   try {
@@ -107,15 +139,6 @@ function validateTelegramWebAppData(initData: string, botToken: string, quiet = 
     // Parse user data
     const userJson = params.get('user');
     const authDate = parseInt(params.get('auth_date') || '0', 10);
-
-    // Check auth_date is not too old (max 1 hour)
-    const now = Math.floor(Date.now() / 1000);
-    const maxAge = 3600; // 1 hour
-
-    if (now - authDate > maxAge) {
-      if (!quiet) logger.warn('initData expired', { authDate, now, age: now - authDate });
-      return null;
-    }
 
     return {
       query_id: params.get('query_id') || undefined,
@@ -207,7 +230,8 @@ export function signedInTelegramId(req: Request, botToken: string = AppConfig.TG
     return null;
   }
 
-  const id = validateTelegramWebAppData(initData, botToken, true)?.user?.id;
+  const check = checkTelegramWebAppData(initData, botToken, true);
+  const id = 'valid' in check ? check.valid.user?.id : undefined;
   return typeof id === 'number' && Number.isSafeInteger(id) ? id : null;
 }
 
@@ -330,16 +354,18 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     return;
   }
 
-  const validatedData = validateTelegramWebAppData(initData, botToken);
+  const check = checkTelegramWebAppData(initData, botToken);
 
-  if (!validatedData) {
-    res.status(401).json({
-      success: false,
-      error: 'Invalid or expired authentication',
-      code: 'INVALID_AUTH',
-    });
+  if ('refused' in check) {
+    res.status(401).json(
+      check.refused === 'expired'
+        ? { success: false, error: 'Telegram sign-in expired, open the Mini App again', code: 'INIT_DATA_EXPIRED' }
+        : { success: false, error: 'Invalid authentication', code: 'INVALID_AUTH' }
+    );
     return;
   }
+
+  const validatedData = check.valid;
 
   if (!validatedData.user) {
     res.status(401).json({

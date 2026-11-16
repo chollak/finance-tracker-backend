@@ -19,3 +19,11 @@ export function telegramColorScheme(): 'light' | 'dark' | null {
   const scheme = telegram.colorScheme;
   return scheme === 'dark' || scheme === 'light' ? scheme : null;
 }
+
+/**
+ * Closes the Mini App (#316: the way out of «Откройте Kapelka заново»). Telegram gives every client this command;
+ * opening the Mini App again cannot be done from the page. Nothing happens outside Telegram.
+ */
+export function closeMiniApp(): void {
+  telegramWebApp()?.close();
+}
