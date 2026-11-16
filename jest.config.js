@@ -1,5 +1,9 @@
+const { createDefaultPreset } = require('ts-jest');
+
 module.exports = {
-  preset: 'ts-jest',
+  // ts-jest only translates each file: `isolatedModules` in tsconfig.test.json (#293). Checking the types of every
+  // test made Jest ten times slower; `npm run typecheck:tests` checks them once, with one `tsc`, before Jest in verify.
+  ...createDefaultPreset({ tsconfig: '<rootDir>/tsconfig.test.json' }),
   testEnvironment: 'node',
   testMatch: ['**/tests/**/*.test.ts'],
   // Agent copies live in .claude/worktrees/ inside the repo (FT-151): without these, a run in the main folder takes
