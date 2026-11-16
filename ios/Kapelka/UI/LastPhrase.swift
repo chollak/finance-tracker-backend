@@ -107,6 +107,11 @@ struct LastPhrase: Equatable, Sendable {
     }
 
     static let sendingText = "Отправляю…"
+    /// The line of a phrase taken off the phone — «Удалено с телефона»; a record deleted on the server is a line
+    /// «Удалено: …» with the record's id.
+    static let removedLineId = "removed"
+    /// The card's words for a phrase taken off the phone; the swipe «Удалить» on «Записать» says them too (#346).
+    static let removedText = "Удалено с телефона"
     static let notFoundText = "Не нашёл операцию — скажи с суммой, например: „кофе 25 тысяч“"
     static let repeatedFootnote = "Первый ответ потерялся — не знаю, было ли что-то без суммы"
 
@@ -214,9 +219,9 @@ struct LastPhrase: Equatable, Sendable {
 
     private static func removedCard(_ clientId: UUID, _ removed: LastPhraseMarks.Removed) -> LastPhrase {
         let text = removed.mayBeOnServer
-            ? "Удалено с телефона — она уже уходила на сервер, проверь «Записи»"
-            : "Удалено с телефона"
-        let line = Line(id: "removed", kind: .deleted, text: text, explanation: nil, record: nil)
+            ? "\(removedText) — она уже уходила на сервер, проверь «Записи»"
+            : removedText
+        let line = Line(id: removedLineId, kind: .deleted, text: text, explanation: nil, record: nil)
         return LastPhrase(id: clientId, heard: heard(removed.text), lines: [line])
     }
 
