@@ -1,14 +1,1 @@
-export {
-  createWebAppUrl,
-  createDeepLink,
-  parseStartParam,
-  canLinkMiniApp
-} from './webAppUrl';
-
-export {
-  downloadFile,
-  downloadVoiceFile,
-  cleanupFile,
-  getDownloadsDir,
-  getTempDir
-} from './fileDownloader';
+export { downloadVoiceFile, cleanupFile } from './fileDownloader';

@@ -1,21 +1,11 @@
 import type { Telegram } from 'telegraf';
+import { MONTHS_OF, plural } from '../../../shared/domain/text/russianWords';
 import { ChatClosedError, ChatFileSender, RecordsFile } from '../domain/exportPorts';
-
-const MONTHS_OF = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-
-function records(count: number): string {
-  const lastTwo = count % 100;
-  const last = count % 10;
-  if (lastTwo >= 11 && lastTwo <= 14) return 'записей';
-  if (last === 1) return 'запись';
-  if (last >= 2 && last <= 4) return 'записи';
-  return 'записей';
-}
 
 /** The line under the file in the chat: «205 записей на 14 октября — таблица CSV, её откроет Excel или Google Таблицы.» */
 export function exportCaption(count: number, date: string): string {
   const [, month, day] = date.split('-').map(Number);
-  return `${count} ${records(count)} на ${day} ${MONTHS_OF[month - 1]} — таблица CSV, её откроет Excel или Google Таблицы.`;
+  return `${count} ${plural(count, 'запись', 'записи', 'записей')} на ${day} ${MONTHS_OF[month - 1]} — таблица CSV, её откроет Excel или Google Таблицы.`;
 }
 
 /**

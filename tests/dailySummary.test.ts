@@ -184,7 +184,7 @@ describe('daily summary (FT-124)', () => {
       '',
       `С начала октября — 387${NB}400${NB}сум, на 187${NB}400${NB}сум больше, чем за 1–14 сентября.`,
     ].join('\n'));
-    expect(sent[0].keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗', web_app: { url: `${BASE_URL}/?userId=${TELEGRAM_ID}` } })]]);
+    expect(sent[0].keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗', web_app: { url: `${BASE_URL}/` } })]]);
 
     // Every minute until midnight: nothing more; after a restart neither
     at('2026-10-14', '21:01');
@@ -729,7 +729,7 @@ describe('daily summary (FT-124)', () => {
 
     expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent' }]);
     expect(sent.map(message => message.chatId)).toEqual([TELEGRAM_ID]);
-    expect(sent[0].keyboard).toEqual([[expect.objectContaining({ web_app: { url: `${BASE_URL}/?userId=${TELEGRAM_ID}` } })]]);
+    expect(sent[0].keyboard).toEqual([[expect.objectContaining({ web_app: { url: `${BASE_URL}/` } })]]);
   });
 
   it('with ALLOWED_TELEGRAM_IDS set, a row with leading zeros is the listed id, as the list reads it (#255)', async () => {
