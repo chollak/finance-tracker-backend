@@ -164,7 +164,7 @@ export class TelegramStand {
 
   /**
    * Telegraf without the network: Bot API calls answered by the chat, launch() never polls, `bot.catch` watched. The
-   * bot's settings are the ones it starts with; `allowed` is ALLOWED_TELEGRAM_IDS (empty: everyone, outside production).
+   * settings are a polling bot's; `allowed` is ALLOWED_TELEGRAM_IDS (empty: everyone, outside production).
    */
   install({ allowed = [] }: { allowed?: number[] } = {}): void {
     const stand = this;
