@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { DataSource } from 'typeorm';
+import { DataSource, type Logger as TypeOrmLogger } from 'typeorm';
 import path from 'path';
 import { AppConfig } from '../config/appConfig';
 import { Transaction, Budget, Debt, DebtPayment, User, Subscription, UsageLimit, UserSettings, Category, Account, FxRate, AccountMove, BotMessage, HandledMessage, NotificationLog, LoginToken, Audit, Goal } from './entities';
@@ -17,6 +17,28 @@ export const DATABASE_ENTITIES = [
 ];
 
 /**
+ * TypeORM's own lines go through the app's logger (#295). Its console logger wrote them with console.log: plain text
+ * among the JSON lines of production, and noise in Jest, where the app's logger is silent. Written as before: a failed
+ * query and a failed migration (TypeORM calls `logMigration` only then), and its warnings in development. A failed
+ * query goes without its parameters — they carry a record's note and amount — so without the error's stack too:
+ * sqlite3's verbose mode, which TypeORM turns on, writes the parameters into it.
+ */
+function appTypeOrmLogger(withWarnings: boolean): TypeOrmLogger {
+  const nothing = () => undefined;
+  return {
+    logQuery: nothing,
+    logQueryError: (error, query) =>
+      logger.error('Query failed', null, { query, error: typeof error === 'string' ? error : error.message }),
+    logQuerySlow: (time, query) => logger.warn('Query is slow', { query, timeMs: time }),
+    logSchemaBuild: nothing,
+    logMigration: (message) => logger.error(message),
+    log: (level, message) => {
+      if (level === 'warn' && withWarnings) logger.warn(String(message));
+    },
+  };
+}
+
+/**
  * One database path: TypeORM over SQLite, schema changed only by migrations (decision Д6, FT-090).
  * `synchronize` is off — it cannot convert types or move data and could drop a column silently.
  */
@@ -28,7 +50,7 @@ export function createAppDataSource(databaseFile: string = DATABASE_FILE): DataS
     migrations: MIGRATIONS,
     migrationsTableName: 'migrations',
     synchronize: false,
-    logging: AppConfig.NODE_ENV === 'development' ? ['error', 'warn', 'migration'] : ['error', 'migration'],
+    logger: appTypeOrmLogger(AppConfig.NODE_ENV === 'development'),
   });
 }
 
