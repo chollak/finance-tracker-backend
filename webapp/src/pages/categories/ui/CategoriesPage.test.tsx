@@ -363,7 +363,8 @@ describe('«Категория «Кафе»»: the edit applies when the sheet c
     expect(apiClient.patch).not.toHaveBeenCalled();
     expect(toast()).toBe('Не сохранено Категория «Продукты» уже есть');
 
-    useUndoToastStore.setState({ stack: [] });
+    // The toast on the page shows the change: inside act, like every other change the test makes
+    act(() => useUndoToastStore.setState({ stack: [] }));
     await act(async () => {
       await router.navigate('/more/categories');
     });
