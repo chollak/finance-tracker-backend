@@ -1,235 +1,258 @@
-# Finance Tracker User Guide
+# Kapelka User Guide
 
-Complete guide to using the AI-powered finance tracker through Telegram and web application.
+Kapelka keeps track of spending and income. You write a phrase («кофе 25к, такси 18к нал») to the Telegram bot or
+in the Mini App, and it turns into records. The interface is in Russian, so this guide quotes the labels as you see
+them.
 
-## Getting Started
+## 1. Getting started
 
-### 1. Start the Telegram Bot
+**Access is closed.** The bot and the app answer only the Telegram accounts on the server's list
+(`ALLOWED_TELEGRAM_IDS`). The bot does not reply to anyone else at all.
 
-Open Telegram and find your bot, then send:
+**The bot.** Send `/start`. The bot explains how to write and adds the button «Открыть Kapelka ↗», which opens the
+Mini App. If the chat's menu button has been set up (`npm run miniapp:menu`), it opens the Mini App too.
+
+**First launch.** The Mini App first asks «Сколько у вас сейчас денег?»: how much you have in cash, on the card and
+in dollars. These amounts are opening balances dated today, not income. Kapelka counts from them, and the accounts
+«Наличные», «Карта» and «Доллары» come from this screen.
+
+**In a browser.** If you open the app's address outside Telegram, you get the screen «Войти через Telegram». It opens
+the chat with the bot, and the bot asks «Подтвердить» or «Это не я». After «Подтвердить» the page opens the app by
+itself. «Ещё» → «Аккаунт» → «Выйти» signs out of this browser only, and the records stay.
+
+## 2. Recording in the bot
+
+**Text.** Write as you would in a note. You can put several records in one message, separated by commas:
+
 ```
-/start
-```
-
-You'll see:
-- Welcome message
-- "📊 Open Transactions" button to launch the web app
-
-### 2. Ways to Add Transactions
-
-#### Voice Messages (Recommended)
-1. Press and hold the microphone icon in Telegram
-2. Speak your transaction naturally in Russian or English:
-   - "Купил кофе за 500 рублей"
-   - "Spent $50 on groceries"
-   - "Получил зарплату 100 тысяч"
-3. Release to send
-4. Bot will auto-save if confidence is high (≥60%)
-5. Low confidence transactions will ask for confirmation
-
-#### Text Messages
-Just type your transaction:
-```
-Потратил 1500 на такси
-Зарплата 150000
-Coffee $5
+такси 18к
+обед 45 000 картой
+кофе 25к, такси 18к нал
+зарплата 12,5 млн
+наушники 55$
+вчера продукты 186 400
 ```
 
-AI will parse:
-- Amount (500, $50, 100000)
-- Category (Coffee → Food, Taxi → Transportation)
-- Type (expense or income)
-- Merchant name (if mentioned)
+- «к» means thousands, and «млн» means millions. Amounts are in сум unless you add «$».
+- «нал», «картой» or an account's name chooses the account. Otherwise the record goes to the default account
+  («Ещё» → «Счёт по умолчанию»), and dollars go to a dollar account.
+- «вчера» or a date puts the record on another day. Without one, it goes on today.
 
-### 3. Bot Commands
+**Voice.** Send a voice message and say the same thing: «такси восемнадцать тысяч». Speech is recognised as Russian.
 
-- `/start` - Welcome message with app link
-- `/transactions` - Open transactions web app
+**What the bot answers.** The bot writes the records at once and replies with what it wrote. Under the reply are
+buttons:
 
-### 4. Managing Transactions
+- one record: «Изменить» and «Отменить»;
+- several records: one button per record, then «Отменить все»;
+- a cancelled record: «Вернуть»;
+- «Изменить» opens «Сумму», «Категорию», «Счёт», «Дату», «Открыть в Kapelka ↗», «Готово» and «Отменить запись».
 
-#### Inline Buttons (Telegram)
-After creating a transaction, you'll see buttons:
-- **✏️ Edit** - Opens web app to edit transaction details
-- **🗑️ Delete** - Deletes transaction (only your most recent one)
-- **✅ Confirm** - Confirm low-confidence transactions
-- **📊 Open app** - View all transactions in web app
+**When the bot asks first:**
 
-#### Web App Features
+- **It guessed the category.** It asks with «Да, верно» or «Другая». When the category is «Другое», it shows
+  «Выбрать категорию».
+- **You named something without an amount** («кофе 25к, такси»). It writes the rest and asks «Сколько?» about the
+  item. Answer with a number, or press «Пропустить «Такси»».
+- **The amount looks too large** for everyday spending: from 10 000 000 сум in «Кафе», «Транспорт», «Продукты»,
+  «Связь» or «Здоровье». It writes nothing until you press «Это 25 000 сум», «Да, верная» or «Не записывать».
 
-**Home (`/`):**
-- Current balance overview
-- Recent transactions and budget snapshot
-- Quick access to the main sections
+**Changing an amount by text.** Write «не 25, а 28». Anything else you change with «Изменить» under the record.
 
-**Transactions (`/transactions`):**
-- Search by description or category
-- Filter by type (Income/Expense) or specific categories
-- Tap a record to open its sheet: every change is saved at once; delete it with «Отменить» in the toast
-  (a link to a record is `/?record=<id>`, which the bot's «Изменить» opens)
-- Add a transaction via `/add` (manual entry with the app's own keypad)
-- Delete transactions with confirmation
-- Auto-grouped by date (Today, Yesterday, This Week, Earlier)
+**Commands** (the «/» menu in the message field):
 
-**Budgets (`/budgets`):**
-- Create budgets via `/budgets/add` (name, amount, period, date range)
-- Track spending progress with visual progress bars
-- Budget alerts (Over Budget, Near Limit, Ending Soon)
-- Edit budget details via `/budgets/:id/edit`
-- Delete budgets
-- Filter by categories
+| Command | What it does |
+|---|---|
+| `/today` | Today's summary: spent, how many records, the top categories |
+| `/month` | Spending this month against the same days of the month before |
+| `/undo` | Cancels the last record made in the chat, with «Вернуть» |
+| `/help` | How to write |
+| `/start` | What the bot does, and «Открыть Kapelka ↗» |
 
-**Debts (`/debts`):**
-- List of debts (who owes whom) with status
-- Create a debt via `/debts/add`
-- Debt details and payment history via `/debts/:id`
+**What the bot sends on its own.** You switch these on and off in «Ещё» → «Бот в Telegram». Times are Tashkent time.
 
-**Analytics (`/analytics`):**
-- Where the month's money went: the total, a fair comparison with the previous period and one insight
-- Categories as bars with a tick for the previous period; a category opens its records by day
-- Switch months and «Расходы / Доходы» (expenses / income)
-- Under the expenses of the audited month, a card opens the spending audit
+- «Сводка дня»: every evening at the time you choose (20:00–23:00), what the day was spent on. On a day without
+  records it asks whether there really was no spending.
+- «Звать на ревизию»: on the 1st of each month, an invitation to the spending audit of the month before.
+- «Цели и подписки»: a warning when spending on an audit goal gets close to its limit, and the day before a charge for
+  a subscription you decided to cancel.
 
-**More (`/more`):**
-- Settings, subscription status, and secondary sections
+Apart from these, the bot only writes in reply to your messages.
 
-### 5. Budget Management
+## 3. The Mini App
 
-#### Creating a Budget
-1. Go to Budgets page → "Create Budget"
-2. Fill form:
-   - Name (e.g., "Monthly Food Budget")
-   - Amount (e.g., 50000)
-   - Period (Weekly/Monthly/Quarterly/Yearly)
-   - Start/End dates (auto-calculated based on period)
-   - Categories (optional - select relevant categories)
-   - Description (optional notes)
-3. Click "Create Budget"
+### Home (`/`)
 
-#### Budget Alerts
-- **Over Budget** (red) - You've exceeded the budget amount
-- **Near Limit** (orange) - Used ≥80% of budget
-- **Ending Soon** - Less than 7 days remaining
+- At the top: the Kapelka sign, «Сум / USD» (the currency of the totals) and «Ещё».
+- The balance card shows the total of your accounts and what share of this month's income is already spent. Its
+  «N счёта» unfolds the accounts, and «Все счета и курс доллара» opens Accounts.
+- Two month tiles, income and expenses, each open Analytics.
+- The audit card: an invitation to the audit of the month before (with «Позже»), and «Цели после ревизии» after it.
+- «Последние операции»: the five newest records by day. «Все» opens History, and a record opens its sheet.
 
-#### Editing Budgets
-Click "Edit" on any budget card to modify:
-- Budget name, amount, dates
-- Period type
-- Categories
-- Description
+### Recording on Home
 
-### 6. AI Processing Details
+The input at the bottom of Home has these parts:
 
-**Voice to Transaction Flow:**
-1. Voice → OpenAI Whisper (speech-to-text)
-2. Text → GPT-4 (parse transaction details)
-3. Transaction created in database
-4. Machine learning improves over time based on your edits
+- **Chips of frequent records** (category and amount). One tap writes the record, and the toast «Записано» has
+  «Отменить».
+- **The field** («Кофе 25к, такси 18к…») takes the same phrases as the bot. The arrow sends the phrase and opens
+  «Проверьте записи».
+- **«Ввести вручную»** opens manual entry (`/add`): the amount on the app's own keypad, then the category, account,
+  date and note.
+- **The microphone and the camera** do not work in the Mini App yet. They say so: use voice in the bot, and type a
+  receipt as text.
 
-**Confidence System:**
-- High confidence (≥60%): Auto-saved
-- Low confidence (<60%): Asks for confirmation
-- Edit corrections help AI learn your patterns
+### «Проверьте записи» (`/review`)
 
-**Supported Languages:**
-- Russian (default)
-- English
-- Mixed language input works
+This screen shows the records a phrase made: how many there are, and how many to check. A category with «?» is a
+guess. Each record shows its amount and note, with chips for the category, account and date. A record you don't want
+is removed with «×».
 
-### 7. Data & Privacy
+- «Сохранить N операций» keeps the records.
+- «Изменить» or «Назад» takes them back and puts the phrase back in the field.
 
-**Database Options:**
-- SQLite (local file storage for development)
-- Supabase (cloud PostgreSQL for production)
+### A record's sheet
 
-**Data Stored:**
-- Transaction history (amount, category, date, description)
-- Budget definitions and progress
-- User ID from Telegram
-- OpenAI API usage statistics
+You open it by tapping a record on Home, in History, on an account's screen or in a category's analytics. The bot's
+«Открыть в Kapelka ↗» opens it too, by the link `/?record=<id>`.
 
-**Not Stored:**
-- Bank account details
-- Payment card numbers
-- Passwords
+- On the sheet you see «Расход / Доход», the amount, «Категория», «Счёт», «Дата» and «Заметка».
+- Every change is saved at once («Изменения сохраняются сразу»).
+- «Удалить операцию» deletes the record at once. The toast «Удалено» has «Отменить», which brings it back.
+- Tapping a record's category circle in a list opens the category choice straight away.
 
-### 8. Common Use Cases
+### History (`/transactions`)
 
-#### Track Daily Expenses
-Send voice/text messages throughout the day:
-```
-"Обед 800 рублей"
-"Такси 500"
-"Купил книгу за 1500"
-```
+- Search («Такси, кафе, 25 000…») finds every word in the note, the merchant, the category or the account. Digits
+  match the start of the amount.
+- The filter chips are category, account and «Тип» («Расходы» or «Доходы»).
+- Records are grouped by day, each day with its total. The line under the chips counts what was found and adds it up.
+  «Сбросить» clears the search and the filters.
 
-#### Monthly Budget Tracking
-1. Create monthly budgets for each category
-2. Add transactions as you spend
-3. Check Budgets for alerts
-4. Review Analytics at month-end
+### Analytics (`/analytics`)
 
-#### Salary Management
-```
-"Зарплата 200000" → Income recorded
-Check balance on Home
-Set budgets for the month
-```
+- Where the month's money went: the total, a fair comparison with the previous period and one insight.
+- Categories appear as bars, with a tick for the previous period. A category opens its records by day
+  (`/analytics/categories/:id`).
+- You can switch months and «Расходы / Доходы».
+- For the audited month, a card under the expenses opens the spending audit.
 
-### 9. Tips & Best Practices
+### Accounts (`/accounts`)
 
-**For Better AI Recognition:**
-- Include amount and category in your message
-- Be specific: "Кофе 300" better than just "300"
-- Mention merchant: "Starbucks 500" helps categorization
+- You see the total of the visible accounts in сум, with the dollar rate it was counted at. The rate row opens
+  «Курс доллара»: the Central Bank rate, or your own.
+- «Добавить счёт» asks for a name, «Наличные / Карта», «Сумы / Доллары» and «Сколько на нём сейчас» (an opening
+  balance, not income).
+- «Перевод или обмен» moves money between accounts. Between two currencies it is an exchange: «Отдаю / Получаю», with
+  the deal rate.
+- An account's screen shows:
+  - its balance, its records and its moves by day;
+  - «Перевести» (or «Обменять» for a dollar account);
+  - «Сверить остаток»: you type what is really there, and the difference becomes an adjustment;
+  - «Изменить»: rename the account, change its currency while it has no records, or hide it.
+- A hidden account leaves the total and the choices, but its records stay. An account with records is hidden, never
+  deleted. Hidden accounts come back from «Скрытые счета».
 
-**Budget Strategy:**
-- Start with 3-5 main budgets (Food, Transport, Entertainment)
-- Set realistic amounts based on past spending
-- Review Budget Alerts weekly
-- Adjust budgets monthly based on Analytics insights
+### Categories (`/more/categories`, from «Ещё»)
 
-**Efficient Workflow:**
-- Use voice for quick logging on-the-go
-- Use web app for detailed review and editing
-- Check Analytics weekly to see where the money goes
+- There are 8 starter categories for expenses and 8 for income. Each one shows its records this month.
+- A category opens its sheet, where you rename it, pick one of 8 colours or hide it. «Другое» cannot be hidden.
+- «Добавить категорию» adds your own, and «Скрытые» brings hidden ones back.
+- Every change comes with «Отменить».
 
-### 10. Troubleshooting
+### Spending audit (`/audit`)
 
-**"No transactions found in your message"**
-→ Include amount and category: "Coffee 500"
+- Once a month, Kapelka picks spendings of the month before that may have been unnecessary. It uses simple rules over
+  the flexible categories («Кафе», «Транспорт», «Покупки», «Связь», «Другое»).
+- You mark each one «Нужно» or «Лишнее». A repeating extra then gets «Вдвое меньше» or «Отказаться», and a subscription
+  gets «Отменить».
+- «Готово» shows the plan: the saving a month and the goals. The bot warns about the goals when they get close to
+  their limit (see «Цели и подписки»).
+- The first audit comes after a whole month of records.
+- It opens from Home's card, from «Ещё» and from Analytics.
 
-**Transaction categorized incorrectly**
-→ Click Edit → Change category → AI learns from correction
+### «Ещё» (`/more`)
 
-**Can't delete transaction**
-→ Only most recent transaction can be deleted via bot
-→ Use web app to delete any transaction
+Every row says its current state, and a change applies at once.
 
-**Web app not loading**
-→ Check WEB_APP_URL environment variable
-→ Try /start command again
+- **«Деньги»:** «Счета и курс доллара», «Счёт по умолчанию» (where new records go), «Категории», «Ревизия трат».
+- **«Бот в Telegram»:** «Сводка дня», «Звать на ревизию», «Цели и подписки».
+- **«Вид»:** «Тема». It can follow Telegram (or the system, in a browser), or always be light or dark.
+- **«Данные»:** «Скачать все записи» makes a CSV of all records with categories, accounts and the rate. Inside Telegram
+  it comes to the chat with the bot. In a browser it downloads.
+- **«Аккаунт»** (in a browser only): who is signed in, and «Выйти».
 
-**Voice not recognized**
-→ Speak clearly with minimal background noise
-→ Try text input instead
-→ Check if ffmpeg is installed on server
+### Without a connection
 
-### 11. Development Setup (For Developers)
+When there is no connection, a line under Home's header says so, and Home shows what was kept on the device. Chips,
+simple phrases («такси 18к», «обед 45 000, кофе 25к») and «Ввести вручную» still write. Those records show
+«Ждёт связи» and go to the server once the connection is back. Voice and receipt photos need a connection.
 
-See [README.md](README.md) for:
-- Installation instructions
-- Environment configuration
-- Running in development mode
-- Docker deployment
-- Testing
+## 4. iPhone
 
----
+These work for the server's owner only, through a token bound to one Telegram account (`SHORTCUT_CAPTURE_TOKEN`,
+`SHORTCUT_CAPTURE_OWNER`).
 
-## Support
+- **Action Button and Shortcuts.** A phrase goes to the bot in Telegram, or straight to the server. See
+  [docs/IOS_SHORTCUT_ACTION_BUTTON.md](docs/IOS_SHORTCUT_ACTION_BUTTON.md).
+- **The Kapelka app for iPhone** ([ios/README.md](ios/README.md)):
+  - a phrase or your voice is saved on the phone first, and goes to the server when it can be reached;
+  - Apple Pay payments come in through the Wallet automation «Транзакция»;
+  - in «Записи» you can delete a record (with «Вернуть») or change its category. Amount, account and date are changed
+    in the Mini App.
 
-For issues or feature requests:
-- GitHub: [Your Repository URL]
-- Telegram: [Your Support Contact]
+## 5. How recognition works
 
-**Version:** 1.0.0 (MVP Release)
+- **A phrase** goes to an OpenAI model. It comes back as records: the amount, the currency, income or expense, a
+  category from your visible categories, the account, the date and the note.
+- **A voice message** is turned into text by OpenAI Whisper first, then read the same way.
+- **What it cannot place** goes to «Другое». A guessed category is marked «?», so check it.
+- **Kapelka learns from your corrections.** If you change a record's category in the bot or the Mini App, the same
+  words or the same shop get that category next time. This works for the starter categories only, not for a category
+  you added. «Отменить» takes the lesson back. What it learns is shared by everyone on the server.
+
+## 6. Data and privacy
+
+- **Where it is kept:** one SQLite file on the server that runs Kapelka.
+- **What is kept:**
+  - records (amount, currency, category, account, date, note, merchant);
+  - accounts and their opening balances, transfers and exchanges;
+  - categories and settings;
+  - the dollar rate;
+  - audit marks and goals;
+  - your Telegram id, name and username;
+  - what was learned from your corrections;
+  - how many records and voice messages you make a month (counted for free-tier limits, which are off by default).
+- **What leaves the server:** the text of phrases and voice messages, which go to OpenAI to be recognised. The bot's
+  messages go through Telegram.
+- **What is not kept:** voice files (deleted after recognition), bank details, card numbers and passwords.
+
+## 7. Troubleshooting
+
+**«Не нашёл, что записать» (bot) / «Не понял, что записать» (Mini App)**
+→ Write what it was and how much: «такси 18к».
+
+**«Не расслышал»**
+→ Say it again with the amount, or write it as text.
+
+**«Не получилось разобрать — сервис распознавания сейчас не ответил»**
+→ Nothing was written. Try again in a minute, or write a simpler phrase.
+
+**The category is wrong**
+→ In the bot: «Изменить» → «Категорию». In the Mini App: tap the record's category. Kapelka learns from the
+correction.
+
+**A record needs to go**
+→ In the bot: «Отменить» under it, or `/undo` for the last one. In the Mini App: the record's sheet →
+«Удалить операцию».
+
+**The bot answers, but the Mini App does not open**
+→ Send `/start` again. On the live instance the phone needs Tailscale switched on. More in
+[live-instance.md](docs/knowledge-base/08-development/live-instance.md).
+
+## 8. For developers
+
+- [README.md](README.md): installation, environment and running.
+- [CLAUDE.md](CLAUDE.md): commands and the current operating mode.
+- [docs/knowledge-base/](docs/knowledge-base/README.md): architecture, data flow and the development guides.
