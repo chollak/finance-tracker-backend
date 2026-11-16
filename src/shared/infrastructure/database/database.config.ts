@@ -16,20 +16,38 @@ export const DATABASE_ENTITIES = [
   Transaction, Budget, Debt, DebtPayment, User, Subscription, UsageLimit, UserSettings, Category, Account, FxRate, AccountMove, BotMessage, HandledMessage, NotificationLog, LoginToken, Audit, Goal,
 ];
 
+/** A literal of SQL: a string in single quotes ('' inside it is a quote; cut short, up to the end) or a number. */
+const SQL_STRING_LITERAL = /'(?:[^']|'')*(?:'|$)/g;
+const SQL_NUMBER_LITERAL = /(?<![\w.$])(?:0x[0-9a-f]+|\d+(?:\.\d+)?(?:e[+-]?\d+)?)(?![\w.$])/gi;
+
+/**
+ * SQL, or SQLite's error about it, with every literal as `?`. TypeORM sends a string as a parameter but writes a number
+ * — a record's amount — straight into the text of the query for SQLite (`AbstractSqliteDriver.escapeQueryWithParameters`),
+ * and SQLite's error quotes a piece of the text («near "5123400"»). Names of tables and columns stay: they say what
+ * failed, and in the SQL TypeORM writes they are the only words that are not keywords.
+ */
+function withoutSqlValues(text: string): string {
+  return text.replace(SQL_STRING_LITERAL, '?').replace(SQL_NUMBER_LITERAL, '?');
+}
+
 /**
  * TypeORM's own lines go through the app's logger (#295). Its console logger wrote them with console.log: plain text
  * among the JSON lines of production, and noise in Jest, where the app's logger is silent. Written as before: a failed
  * query and a failed migration (TypeORM calls `logMigration` only then), and its warnings in development. A failed
- * query goes without its parameters — they carry a record's note and amount — so without the error's stack too:
- * sqlite3's verbose mode, which TypeORM turns on, writes the parameters into it.
+ * query goes without any value of a record (review of PR #392): not its parameters, not the literals of its text
+ * (`withoutSqlValues`), and not the error's stack — sqlite3's verbose mode, which TypeORM turns on, writes the
+ * parameters into it.
  */
 function appTypeOrmLogger(withWarnings: boolean): TypeOrmLogger {
   const nothing = () => undefined;
   return {
     logQuery: nothing,
     logQueryError: (error, query) =>
-      logger.error('Query failed', null, { query, error: typeof error === 'string' ? error : error.message }),
-    logQuerySlow: (time, query) => logger.warn('Query is slow', { query, timeMs: time }),
+      logger.error('Query failed', null, {
+        query: withoutSqlValues(query),
+        error: withoutSqlValues(typeof error === 'string' ? error : error.message),
+      }),
+    logQuerySlow: (time, query) => logger.warn('Query is slow', { query: withoutSqlValues(query), timeMs: time }),
     logSchemaBuild: nothing,
     logMigration: (message) => logger.error(message),
     log: (level, message) => {
