@@ -9,7 +9,7 @@ Finance Tracker Backend — это backend система для управле�
 ### Tech Stack
 
 - **Backend**: Node.js, TypeScript, Express
-- **Database**: SQLite (TypeORM) / Supabase (PostgreSQL)
+- **Database**: SQLite (TypeORM), схема — миграциями; путь Supabase убран в FT-090
 - **AI**: OpenAI (Whisper для транскрипции, GPT-4 для парсинга)
 - **Bot**: Telegraf (Telegram Bot Framework)
 - **Frontend**: React + Vite
@@ -36,7 +36,7 @@ Finance Tracker Backend — это backend система для управле�
 - [**Patterns**](01-architecture/patterns.md) - Repository, DI, Factory, Use Case, Result Pattern
 - [**Runtime / Process Mode**](01-architecture/runtime-process-mode.md) - API/Bot/Worker process-mode decision
 - [**API / Domain Consistency Audit**](01-architecture/api-domain-consistency-audit.md) - FT-018 controller/use-case/API contract audit
-- [**Auth / User Resolution Boundary Matrix**](01-architecture/auth-user-resolution-boundary-matrix.md) - FT-024 auth/guest/ownership boundaries
+- [**Auth / User Resolution Boundary Matrix**](01-architecture/auth-user-resolution-boundary-matrix.md) - FT-024 auth/ownership boundaries
 - [**Transaction / Debt Relationship Audit**](01-architecture/transaction-debt-relationship-audit.md) - FT-021, архив: долги удалены в #265
 - [**DTO / Schema Validation Consistency Audit**](01-architecture/dto-schema-validation-audit.md) - FT-023 validation layering policy
 
@@ -53,7 +53,7 @@ Finance Tracker Backend — это backend система для управле�
 
 - [**Quick Start**](08-development/quick-start.md) - Запуск проекта, environment setup
 - [**Adding Features**](08-development/adding-features.md) - Как добавлять use cases, endpoints, модули
-- [**Database Guide**](08-development/database-guide.md) - SQLite vs Supabase, миграции
+- [**Database Guide**](08-development/database-guide.md) - SQLite через TypeORM, миграции
 - [**Troubleshooting**](08-development/troubleshooting.md) - Частые проблемы и решения
 - [**Live Instance**](08-development/live-instance.md) - Живой экземпляр на ПК (WSL, systemd, `tailscale serve`): установка, обновление, откат, логи (FT-156), ночной бэкап и восстановление (FT-157)
 - [**Test Logging & Contract Cleanup**](08-development/test-logging-and-contract-cleanup.md) - FT-017 findings and cleanup plan
@@ -75,7 +75,7 @@ Finance Tracker Backend — это backend система для управле�
 - [`src/modules/user/userModule.ts`](../../src/modules/user/userModule.ts) - User Module
 
 ### Infrastructure
-- [`src/shared/infrastructure/database/repositoryFactory.ts`](../../src/shared/infrastructure/database/repositoryFactory.ts) - Repository Factory (SQLite/Supabase)
+- [`src/shared/infrastructure/database/repositoryFactory.ts`](../../src/shared/infrastructure/database/repositoryFactory.ts) - Repository Factory (SQLite)
 - [`src/shared/infrastructure/database/database.config.ts`](../../src/shared/infrastructure/database/database.config.ts) - Database configuration
 - [`src/shared/infrastructure/config/appConfig.ts`](../../src/shared/infrastructure/config/appConfig.ts) - Environment configuration
 
@@ -115,10 +115,10 @@ docker compose up -d --build
 - **Flexibility** - легко менять технологии (например, базу данных)
 - **Scalability** - модульная структура позволяет расти постепенно
 
-### Почему Dual Database Support?
-- **Development** - SQLite для быстрого старта без облачных зависимостей
-- **Production** - Supabase для масштабируемости и real-time возможностей
-- **Migration** - постепенный переход от SQLite к Supabase
+### Почему одна база?
+- **Один путь** - SQLite через TypeORM; репозитории `supabase-js` убраны в FT-090 (решение Д6), каждая таблица пишется один раз
+- **Миграции, а не synchronize** - схема меняется миграциями после бэкапа в `data/backups/`
+- **Postgres позже** - если понадобится, это другой TypeORM `DataSource` за теми же репозиториями
 
 ### Machine Learning System
 - Система обучается на пользовательских исправлениях
@@ -147,9 +147,10 @@ Backend-дашборда (/api/dashboard, DashboardService) нет с #205, бю
 ## Дополнительные ресурсы
 
 ### Существующая документация
-- [PROJECT_DOCUMENTATION.md](../../PROJECT_DOCUMENTATION.md) - Полная техническая документация
-- [SUPABASE_MIGRATION.md](../../SUPABASE_MIGRATION.md) - Гайд по миграции на Supabase
+- [PROJECT_DOCUMENTATION.md](../../PROJECT_DOCUMENTATION.md) - исторический снимок технической документации
+- [SUPABASE_MIGRATION.md](../../SUPABASE_MIGRATION.md) - история: миграция на Supabase, не активный путь
 - [CLAUDE.md](../../CLAUDE.md) - Команды разработки для Claude Code
+- [USER_GUIDE.md](../../USER_GUIDE.md) - что умеют бот, Mini App и iPhone — для пользователя
 
 ### External Resources
 - [Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html) - Principles by Uncle Bob
@@ -171,4 +172,4 @@ Backend-дашборда (/api/dashboard, DashboardService) нет с #205, бю
 
 ---
 
-**Последнее обновление**: 2026-01-09
+**Последнее обновление**: 2026-11-16

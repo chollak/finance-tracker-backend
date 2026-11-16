@@ -7,6 +7,7 @@ import { NoticeNotSentError } from '../domain/noticeNotSent';
 import { isCatchUpTime, lastDayToSend } from '../domain/noticeWindow';
 import { TakenNotice, claimOrTake, closeExpired, leaveNotSent, logLateAttempt, takeOpen } from './noticeAttempts';
 import { SummaryService } from './summaryService';
+import { withTelegramChat } from './telegramChat';
 import { SchedulerOptions, Ticker } from './ticker';
 
 export { SUMMARY_TICK_MS } from './ticker';
@@ -70,9 +71,6 @@ export interface TickResult {
   late?: true;
 }
 
-/** A chat the bot can write to: a Telegram user id, not a guest or a dev id. */
-const TELEGRAM_CHAT = /^\d+$/;
-
 /**
  * The daily summary (FT-124): at the chosen time on the user's clock, once a day. The day is claimed in
  * `notifications_log` before anything is read or sent, so a second tick, a restart or a second process never
@@ -109,8 +107,10 @@ export class DailySummaryNotifier {
   async tick(sender: DailySummarySender): Promise<TickResult[]> {
     const now = this.now();
     const results: TickResult[] = [];
-    for (const recipient of await this.recipients.list()) {
-      if (!TELEGRAM_CHAT.test(recipient.telegramId)) continue;
+    for (const listed of await this.recipients.list()) {
+      // Only a chat the bot can write to, by the rule of ALLOWED_TELEGRAM_IDS (#255): not a dev id
+      const recipient = withTelegramChat(listed);
+      if (recipient === null) continue;
       const clock = localClock(now, recipient.timeZone);
       try {
         results.push(...(await this.forRecipient(recipient, clock, sender)));

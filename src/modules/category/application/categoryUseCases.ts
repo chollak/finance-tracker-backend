@@ -58,10 +58,18 @@ export class ListCategoriesUseCase {
   }
 }
 
+/** What a new category is sent with; the rest the server sets. */
+const NEW_CATEGORY_FIELDS = ['type', 'name', 'color'];
+
 export class CreateCategoryUseCase {
   constructor(private catalog: CategoryCatalog, private repository: CategoryRepository) {}
 
+  /** A field other than `type`, `name` and `color` is refused, as PATCH refuses one (#276), not dropped silently. */
   async execute(input: { userId: string; body: Record<string, unknown> }): Promise<Result<Category>> {
+    const unknown = Object.keys(input.body).filter(field => !NEW_CATEGORY_FIELDS.includes(field));
+    if (unknown.length > 0) {
+      return ResultHelper.failure(new ValidationError(`${unknown.join(', ')} cannot be set`));
+    }
     const { type } = input.body;
     if (!isCategoryType(type)) {
       return ResultHelper.failure(new ValidationError('type must be expense or income', 'type'));

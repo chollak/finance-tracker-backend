@@ -11,6 +11,12 @@ const intFromEnv = (value: string | undefined, fallback: number, min: number, ma
 /** Above this `setTimeout` fires at once. */
 const MAX_TIMER_MS = 2_147_483_647;
 const allowedTelegramIds = parseTelegramIds(process.env.ALLOWED_TELEGRAM_IDS);
+// The admins of `requireAdmin` (the subscription grant), by the same rule (#255). The middleware reads them per request;
+// here they are only checked, so a typo stops the start instead of turning up later as a 403 for the admin
+const adminTelegramIds = parseTelegramIds(process.env.ADMIN_TELEGRAM_IDS);
+/** What stops the start for a list with entries that are no Telegram user ids, naming them as written. */
+const notTelegramIds = (variable: string, invalid: readonly string[]): string =>
+  `${variable} has entries that are not Telegram user ids: ${invalid.join(', ')}. List whole numbers separated by commas`;
 // The iPhone Shortcut's token and owner (FT-155). The middleware reads them per request by the same rules; here they
 // are only checked, so a wrong setting stops the start instead of turning up later as a 403 on the phone
 const shortcutCapture = shortcutCaptureAccess(
@@ -84,15 +90,17 @@ export class AppConfig {
 
     // A typo skipped quietly would lock the owner out, or leave an empty list that lets everyone in
     if (allowedTelegramIds.invalid.length > 0) {
-      errors.push(
-        `ALLOWED_TELEGRAM_IDS has entries that are not Telegram user ids: ${allowedTelegramIds.invalid.join(', ')}. ` +
-        'List whole numbers separated by commas'
-      );
+      errors.push(notTelegramIds('ALLOWED_TELEGRAM_IDS', allowedTelegramIds.invalid));
     } else if (this.NODE_ENV === 'production' && this.ALLOWED_TELEGRAM_IDS.length === 0) {
       errors.push(
         'ALLOWED_TELEGRAM_IDS is required in production: without it anyone who finds the bot uses it at the cost of ' +
         'the OpenAI key. List the Telegram user ids allowed in, separated by commas'
       );
+    }
+
+    // The same for the admins, everywhere: skipped quietly, a typo would leave the admin without the admin routes
+    if (adminTelegramIds.invalid.length > 0) {
+      errors.push(notTelegramIds('ADMIN_TELEGRAM_IDS', adminTelegramIds.invalid));
     }
 
     // Polling on without a token left the bot `disabled` and /api/health at 200: in production the live instance went

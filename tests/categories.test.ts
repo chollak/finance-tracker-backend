@@ -343,6 +343,22 @@ describe('categories in the database (FT-099)', () => {
         expect((await as('POST', '/api/categories', { type: 'expense', name: '   ', color: 'mint' })).status).toBe(400);
       });
 
+      // #276: a field a new category does not take is refused as PATCH refuses one — not dropped silently
+      it.each<[string, Record<string, unknown>, string]>([
+        ['hidden at once', { isHidden: true }, 'isHidden cannot be set'],
+        ['its own order', { sortOrder: 5 }, 'sortOrder cannot be set'],
+        ['a starter key', { presetKey: 'cafe' }, 'presetKey cannot be set'],
+        ['an owner', { userId: '777' }, 'userId cannot be set'],
+        ['two of them', { id: 'my-id', isOther: true }, 'id, isOther cannot be set'],
+      ])('refuses a new category with a field it does not take (%s): 400 VALIDATION_ERROR, nothing added', async (_kind, extra, message) => {
+        const answer = await as('POST', '/api/categories', { type: 'expense', name: 'Спорт', color: 'sky', ...extra });
+
+        expect(answer.status).toBe(400);
+        expect(answer.body.error).toMatchObject({ code: 'VALIDATION_ERROR', message });
+        const names = (await as('GET', '/api/categories?type=expense')).body.data.map((c: { name: string }) => c.name);
+        expect(names).not.toContain('Спорт');
+      });
+
       it('renames, recolours and hides; «Другое» is never hidden; another user\'s category is not found', async () => {
         const list = (await as('GET', '/api/categories?type=expense')).body.data;
         const cafe = list.find((c: { name: string }) => c.name === 'Кафе');
