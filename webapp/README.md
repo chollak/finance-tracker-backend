@@ -46,7 +46,10 @@ npm run lint     # ESLint; a warning fails it too (--max-warnings 0)
 npm run build    # TypeScript build + Vite production build
 ```
 
-The production build is emitted to `../public/webapp/` and served by the Express backend.
+The Express backend serves the production build from `../public/webapp/`; the files of `assets/` with a content hash in
+the name get `Cache-Control: immutable` (`src/delivery/web/express/httpApp.ts`). The root `npm run build:webapp` (`scripts/build-webapp.js`, #380) builds into
+`public/webapp.next` and puts it in place of `public/webapp` whole, so a running server never serves a half-written
+build; `npm run build` from `webapp/` alone writes into `../public/webapp/` directly.
 
 ## Routes
 
