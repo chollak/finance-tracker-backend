@@ -13,11 +13,11 @@ import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 
 /**
- * #279: the bot handled only a text and a voice; a photo, an audio file, a video note, a document and a sticker got
- * silence, and the person could not tell whether it arrived. Now each gets one line — what the bot understands and how
- * to write a record. Only after the closed access (FT-153): a stranger still gets nothing. The text and the voice go
- * to the capture as before, and nothing of the five reaches it. The bot is the real one `startTelegramBot` assembles,
- * on a real Telegraf: only polling, Telegram's API and the download of a voice are fakes.
+ * #279: the bot handled only a text and a voice; a photo, an audio file, a video note, a video, a document and a
+ * sticker got silence, and the person could not tell whether it arrived. Now each gets one line — what the bot
+ * understands and how to write a record. Only after the closed access (FT-153): a stranger still gets nothing. The text
+ * and the voice go to the capture as before, and none of the six reaches it. The bot is the real one
+ * `startTelegramBot` assembles, on a real Telegraf: only polling, Telegram's API and the download of a voice are fakes.
  */
 
 interface ApiCall { method: string; payload: any }
@@ -68,14 +68,15 @@ const EMOJI = /\p{Emoji_Presentation}|️/u;
 const file = (id: string) => ({ file_id: id, file_unique_id: `u-${id}` });
 
 /**
- * What a person may send that the bot does not read — the five of the issue, a photo with a caption and a GIF — as the
- * Bot API sends them.
+ * What a person may send that the bot does not read — the five of the issue, a video (the coordinator's decision), a
+ * photo with a caption and a GIF — as the Bot API sends them.
  */
 const UNSUPPORTED: Array<[string, Record<string, unknown>]> = [
   ['a photo', { photo: [{ ...file('p1'), width: 90, height: 90 }] }],
   ['a photo with a caption (the caption is not read)', { photo: [{ ...file('p2'), width: 90, height: 90 }], caption: 'такси 18к' }],
   ['an audio file', { audio: { ...file('a1'), duration: 3 } }],
   ['a video note', { video_note: { ...file('vn1'), length: 240, duration: 3 } }],
+  ['a video', { video: { ...file('vd1'), width: 1280, height: 720, duration: 5 } }],
   ['a document', { document: { ...file('d1'), file_name: 'чек.pdf' } }],
   ['a GIF (Telegram sends it with a document too)', { animation: { ...file('g1'), width: 90, height: 90, duration: 1 }, document: { ...file('g1') } }],
   ['a sticker', { sticker: { ...file('s1'), type: 'regular', width: 512, height: 512, is_animated: false, is_video: false } }],
@@ -175,8 +176,15 @@ describe.each([
     expect(replies().map(reply => reply.text)).toEqual([RU.capture.notUnderstood]);
   });
 
-  it('a service message — writing allowed from the Mini App — gets no answer', async () => {
-    await message(ALLOWED, { write_access_allowed: { from_request: true } });
+  // Not a try to write a record (the coordinator's decision): they stay unanswered, as before
+  it.each<[string, Record<string, unknown>]>([
+    ['a location', { location: { latitude: 41.31, longitude: 69.28 } }],
+    ['a contact', { contact: { phone_number: '+998000000000', first_name: 'Test' } }],
+    ['a poll', { poll: { id: 'pl1', question: '?', options: [], total_voter_count: 0, is_closed: false, is_anonymous: true, type: 'regular', allows_multiple_answers: false } }],
+    ['a dice', { dice: { emoji: '🎲', value: 3 } }],
+    ['a service message — writing allowed from the Mini App', { write_access_allowed: { from_request: true } }],
+  ])('%s gets no answer', async (_name, content) => {
+    await message(ALLOWED, content);
 
     expect(replies()).toEqual([]);
   });

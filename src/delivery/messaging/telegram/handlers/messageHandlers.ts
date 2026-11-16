@@ -176,13 +176,16 @@ export async function answerUnknownCommand(ctx: BotContext, next: () => Promise<
   await ctx.reply(RU.commands.unknown);
 }
 
-/** What a person may send that the bot does not read (#279). A GIF comes with `document` too. */
-const UNSUPPORTED_MESSAGE_KEYS = ['photo', 'audio', 'video_note', 'document', 'sticker'] as const;
+/**
+ * What a person may send that the bot does not read (#279). A GIF comes with `document` too. A location, a contact, a
+ * poll and a dice stay unanswered: they are not a try to write a record.
+ */
+const UNSUPPORTED_MESSAGE_KEYS = ['photo', 'audio', 'video_note', 'video', 'document', 'sticker'] as const;
 
 /**
- * A message with a photo, an audio file, a video note, a document or a sticker. One guard written by hand, not five
- * `message(...)` filters, and the handler below typed with the context the guard gives: so `bot.on()` adds next to
- * nothing to `tsc` (#328).
+ * A message with a photo, an audio file, a video note, a video, a document or a sticker. One guard written by hand,
+ * not six `message(...)` filters, and the handler below typed with the context the guard gives: so `bot.on()` adds
+ * next to nothing to `tsc` (#328).
  */
 export function isUnsupportedMessage(update: Update): update is Update.MessageUpdate {
   return 'message' in update && UNSUPPORTED_MESSAGE_KEYS.some(key => key in update.message);
@@ -245,7 +248,8 @@ export function registerMessageHandlers(
     bot.on(message('voice'), skipRepeated, voiceHandler);
   }
 
-  // A photo, an audio file, a video note, a document or a sticker: after the text and the voice, in both branches
+  // A photo, an audio file, a video note, a video, a document or a sticker: after the text and the voice, in both
+  // branches
   bot.on(isUnsupportedMessage, answerUnsupportedMessage);
 }
 
