@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { DataSource } from 'typeorm';
+import { TelegramError } from 'telegraf';
 import { createAppDataSource } from '../src/shared/infrastructure/database/database.config';
 import { runMigrationsWithBackup } from '../src/shared/infrastructure/database/migrationRunner';
 import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
@@ -33,6 +34,7 @@ import { TranscriptionService } from '../src/modules/voiceProcessing/domain/tran
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
 import { QuickCaptureService } from '../src/modules/quickCapture/application/quickCaptureService';
 import { TransactionLearningService } from '../src/shared/application/learning/transactionLearning';
+import { winstonLogger } from '../src/shared/infrastructure/logging';
 
 // A voice message is not downloaded in tests; what it «says» is set by the test
 jest.mock('../src/delivery/messaging/telegram/utils', () => ({
@@ -145,6 +147,8 @@ describe('bot record messages (FT-122)', () => {
   let limit: LimitAnswer = { allowed: true };
   /** Telegram refuses the bot's next message once (FT-123 review). */
   let replyFails = false;
+  /** What Telegram answers to an edit of a bot message the person deleted from the chat (#277). */
+  const refusedEdits = new Map<number, string>();
   const today = todayDateOnly();
 
   /** Writes the planned records the way the capture use cases do: through the create use case. */
@@ -274,6 +278,8 @@ describe('bot record messages (FT-122)', () => {
       }),
       telegram: {
         editMessageText: jest.fn(async (_chat: string, messageId: number, _inline: unknown, text: string, extra?: any) => {
+          const refusal = refusedEdits.get(messageId);
+          if (refusal) throw new TelegramError({ error_code: 400, description: refusal });
           messages.set(messageId, { text, keyboard: extra?.reply_markup?.inline_keyboard ?? [] });
           return true;
         }),
@@ -304,6 +310,12 @@ describe('bot record messages (FT-122)', () => {
     const message = { voice: { file_id: `voice-${nextMessageId}` } };
     await running.bot.handle({ ...baseContext(), message, update: { message } });
     return nextMessageId - 1;
+  }
+
+  /** The person deletes a bot message from the chat, or clears the history: Telegram refuses to edit it (#277). */
+  function deleteFromChat(messageId: number, refusal = 'Bad Request: message to edit not found') {
+    messages.delete(messageId);
+    refusedEdits.set(messageId, refusal);
   }
 
   function awaiting() {
@@ -357,6 +369,7 @@ describe('bot record messages (FT-122)', () => {
   beforeEach(async () => {
     limit = { allowed: true };
     replyFails = false;
+    refusedEdits.clear();
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft122-flow-'));
     file = path.join(dir, 'db.sqlite');
     messages.clear();
@@ -851,6 +864,137 @@ describe('bot record messages (FT-122)', () => {
 
     expect(text(reply)).toBe('Вернул запись.');
     expect(labels(message)).toEqual([['Изменить', 'Отменить']]);
+  });
+
+  describe('a bot message deleted from the chat (#277)', () => {
+    const ERROR = 'Произошла ошибка. Попробуйте снова.';
+
+    function stateOf(messageId: number) {
+      return running.botMessageModule.getLog().find(String(TELEGRAM_ID), messageId).then(found => found!.state);
+    }
+
+    it.each([
+      'Bad Request: message to edit not found',
+      "Bad Request: message can't be edited",
+    ])('/undo of a deleted confirmation cancels it and says so, without an error, and logs a warning — %s', async refusal => {
+      const warn = jest.spyOn(winstonLogger, 'warn').mockImplementation(() => winstonLogger);
+      const first = await write('кофе 25к', [coffee]);
+      const second = await write('такси 18к нал', [taxi]);
+      const [coffeeId] = await recordIdsOf(first);
+      const [taxiId] = await recordIdsOf(second);
+      deleteFromChat(second, refusal);
+
+      const reply = await write('/undo');
+
+      expect((await record(taxiId)).deletedAt).toBeTruthy();
+      expect((await record(coffeeId)).deletedAt).toBeFalsy();
+      expect(text(reply)).toBe(`Отменил последнюю запись: ${MINUS}18${NB}000${NB}сум · «Такси»`);
+      expect(labels(reply)).toEqual([['Вернуть']]);
+      expect([...messages.values()].map(sent => sent.text)).not.toContain(ERROR);
+      expect(messages.has(second)).toBe(false);
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('gone from the chat'),
+        expect.objectContaining({ category: 'TELEGRAM', messageId: second, error: `400: ${refusal}` })
+      );
+    });
+
+    it('another refusal of Telegram is not taken for a deleted message', async () => {
+      const message = await write('такси 18к нал', [taxi]);
+      refusedEdits.set(message, 'Bad Request: chat not found');
+
+      expect(text(await write('/undo'))).toBe(ERROR);
+    });
+
+    it('«Вернуть» under the /undo reply of a deleted confirmation brings the record back without an error', async () => {
+      const message = await write('такси 18к нал', [taxi]);
+      const [id] = await recordIdsOf(message);
+      deleteFromChat(message);
+      const reply = await write('/undo');
+
+      const ctx = await press(reply, 'Вернуть');
+
+      expect(ctx.answerCbQuery).not.toHaveBeenCalledWith(ERROR);
+      expect((await record(id)).deletedAt).toBeFalsy();
+      expect(text(reply)).toBe('Вернул запись.');
+      expect(labels(reply)).toEqual([]);
+      expect(await stateOf(message)).not.toHaveProperty('undone');
+      expect(await stateOf(message)).not.toHaveProperty('undoMessageId');
+    });
+
+    it('«Вернуть» under the record after its /undo reply was deleted brings it back and draws the record again', async () => {
+      const message = await write('такси 18к нал', [taxi]);
+      const [id] = await recordIdsOf(message);
+      const reply = await write('/undo');
+      deleteFromChat(reply);
+
+      const ctx = await press(message, 'Вернуть');
+
+      expect(ctx.answerCbQuery).not.toHaveBeenCalledWith(ERROR);
+      expect((await record(id)).deletedAt).toBeFalsy();
+      expect(text(message)).not.toContain('<s>');
+      expect(text(message)).toMatch(/<i>Запись возвращена\.<\/i>$/);
+      expect(labels(message)).toEqual([['Изменить', 'Отменить']]);
+      expect(await stateOf(message)).not.toHaveProperty('undone');
+      expect(await stateOf(message)).not.toHaveProperty('undoMessageId');
+    });
+  });
+
+  describe('a button of a category, account or record that is no longer there (#277)', () => {
+    async function hideCategory(name: string) {
+      const category = (await running.categoryModule.getCatalog().listForUser(userId)).find(candidate => candidate.name === name)!;
+      const hidden = await running.categoryModule.getUpdateCategoryUseCase().execute({ userId, categoryId: category.id, body: { isHidden: true } });
+      expect(hidden.success).toBe(true);
+    }
+
+    it('a category hidden in the app: the categories are drawn again without it, and the popup says why', async () => {
+      const message = await write('такси 18к нал', [taxi]);
+      const [id] = await recordIdsOf(message);
+      await press(message, 'Изменить');
+      await press(message, 'Категорию');
+      await hideCategory('Кафе');
+
+      const ctx = await press(message, 'Кафе');
+
+      expect(ctx.answerCbQuery).toHaveBeenCalledWith('Этой категории уже нет — выберите другую.');
+      expect((await record(id)).category).toBe('Транспорт');
+      expect(labels(message).flat()).not.toContain('Кафе');
+      expect(labels(message).flat()).toContain('✓ Транспорт');
+
+      await press(message, 'Продукты');
+      expect((await record(id)).category).toBe('Продукты');
+    });
+
+    it('an account hidden in the app: the accounts are drawn again without it, and the popup says why', async () => {
+      const accounts = await running.accountModule.getBook().listForUser(userId);
+      const card = accounts.find(account => account.name === 'Карта')!;
+      const cash = accounts.find(account => account.name === 'Наличные')!;
+      const message = await write('обед 145к', [lunch]);
+      const [id] = await recordIdsOf(message);
+      await press(message, 'Изменить');
+      await press(message, 'Счёт');
+      const hidden = await running.accountModule.getUpdateAccountUseCase().execute({ userId, accountId: cash.id, body: { isHidden: true } });
+      expect(hidden.success).toBe(true);
+
+      const ctx = await press(message, 'Наличные');
+
+      expect(ctx.answerCbQuery).toHaveBeenCalledWith('Этого счёта уже нет — выберите другой.');
+      expect((await record(id)).accountId).toBe(card.id);
+      expect(labels(message)).toEqual([['✓ Карта'], ['‹ Назад']]);
+    });
+
+    it('a record gone from the database: the message is drawn without it, and the popup says so', async () => {
+      const message = await write('кофе 25к, такси 18к', [coffee, taxi]);
+      const [coffeeId, taxiId] = await recordIdsOf(message);
+      // Not a path of the app: a record that left the database altogether
+      await running.ds.query('DELETE FROM "transactions" WHERE "id" = ?', [taxiId]);
+
+      const ctx = await press(message, `${MINUS}18${NB}000 · «Такси»`);
+
+      expect(ctx.answerCbQuery).toHaveBeenCalledWith('Не нашёл эту запись.');
+      expect(text(message)).not.toContain('Такси');
+      expect(labels(message)).toEqual([['Изменить', 'Отменить']]);
+      expect((await record(coffeeId)).deletedAt).toBeFalsy();
+    });
   });
 
   it('keeps working after the bot restarts: the buttons, the amount question and /undo', async () => {

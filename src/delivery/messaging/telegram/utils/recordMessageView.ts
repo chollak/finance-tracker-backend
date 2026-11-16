@@ -180,25 +180,31 @@ export async function drawRecordMessage(ctx: BotContext, content: RecordMessageC
   return { text: formatRecordMessage(input), keyboard: recordKeyboard(input), input };
 }
 
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function isNotModified(error: unknown): boolean {
-  return /message is not modified/i.test(error instanceof Error ? error.message : String(error));
+  return /message is not modified/i.test(errorText(error));
+}
+
+/** The person deleted the message or cleared the chat's history, or Telegram will not edit it any more (#277). */
+function isGoneFromChat(error: unknown): boolean {
+  return /message to edit not found|message can't be edited/i.test(errorText(error));
 }
 
 /** Draws a stored message again in its chat: after a press, an answer to «Сумму», /undo. */
 export async function redrawRecordMessage(ctx: BotContext, message: BotMessage): Promise<DrawnRecordMessage> {
   const drawn = await drawRecordMessage(ctx, message);
-  try {
-    await ctx.telegram.editMessageText(message.chatId, message.messageId, undefined, drawn.text, {
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: drawn.keyboard },
-    });
-  } catch (error) {
-    if (!isNotModified(error)) throw error;
-  }
+  await editPlainMessage(ctx, message.chatId, message.messageId, drawn.text, drawn.keyboard);
   return drawn;
 }
 
-/** Edits a plain bot message of the chat (the /undo reply), ignoring «not modified». */
+/**
+ * Edits a bot message of the chat (a record message, the /undo reply), ignoring «not modified». A message gone from
+ * the chat is only logged: what changed the records — /undo, «Вернуть» — is done by then and must finish, or it
+ * says «Произошла ошибка» and a repeat goes one record further (#277).
+ */
 export async function editPlainMessage(ctx: BotContext, chatId: string, messageId: number, text: string, keyboard: InlineKeyboardButton[][] = []): Promise<void> {
   try {
     await ctx.telegram.editMessageText(chatId, messageId, undefined, text, {
@@ -206,7 +212,9 @@ export async function editPlainMessage(ctx: BotContext, chatId: string, messageI
       reply_markup: { inline_keyboard: keyboard },
     });
   } catch (error) {
-    if (!isNotModified(error)) throw error;
+    if (isNotModified(error)) return;
+    if (!isGoneFromChat(error)) throw error;
+    logger.warn('A bot message is gone from the chat; not drawn again', { messageId, error: errorText(error) });
   }
 }
 
