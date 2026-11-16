@@ -79,7 +79,8 @@ export function networkError(method: string): Error {
   });
 }
 
-export const STAND_BOT: UserFromGetMe = {
+/** The bot getMe answers with: its @name is what a command may be addressed to. */
+const STAND_BOT: UserFromGetMe = {
   id: 7_000_000_001,
   is_bot: true,
   first_name: 'Kapelka',
@@ -121,7 +122,7 @@ export interface PressOptions extends DeliverOptions {
 }
 
 /** The `bot_command` entities Telegram marks in a text: «/word» or «/word@bot», at the start or after a space. */
-export function commandEntities(text: string): MessageEntity[] {
+function commandEntities(text: string): MessageEntity[] {
   const entities: MessageEntity[] = [];
   for (const match of text.matchAll(/(^|\s)(\/[A-Za-z0-9_]{1,64}(?:@[A-Za-z0-9_]{3,32})?)(?=$|[\s.,!?;:])/g)) {
     entities.push({ type: 'bot_command', offset: (match.index ?? 0) + match[1].length, length: match[2].length });
@@ -302,7 +303,10 @@ export class TelegramStand {
 
   // ===== What the person does =====
 
-  /** Updates as one batch of getUpdates: handled side by side, as Telegraf's polling does; resolves once all are done. */
+  /**
+   * Updates as one batch of getUpdates, handled side by side as Telegraf's polling does; resolves once all are done,
+   * with the messages the bot sent meanwhile, as they are now.
+   */
   async deliver(updates: Update | Update[], { botCatch = 'fail' }: DeliverOptions = {}): Promise<StandMessage[]> {
     const bot = this.launched;
     if (!bot) throw new Error('The bot is not started: call start() first');
