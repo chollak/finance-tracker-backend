@@ -50,17 +50,20 @@ describe('a new user under parallel first requests (FT-140)', () => {
     expect(await repository.findByTelegramId('777000001')).toMatchObject({ id: [...ids][0], firstName: 'Новый' });
   });
 
-  it('keeps an existing user and only touches when they were last seen', async () => {
+  it('keeps an existing user and writes nothing for them (#335)', async () => {
     const repository = new SqliteUserRepository(db.dataSource);
     const first = await repository.getOrCreate({ telegramId: '777000002', firstName: 'Был' });
+    const writesBefore = await count(`SELECT total_changes() AS n`);
 
     const again = await repository.getOrCreate({ telegramId: '777000002', firstName: 'Другое имя' });
 
     expect(again.id).toBe(first.id);
     expect(again.firstName).toBe('Был');
+    expect(await count(`SELECT total_changes() AS n`)).toBe(writesBefore);
     expect(await count(`SELECT COUNT(*) AS n FROM users`)).toBe(1);
+    // Nothing read last_seen_at, so nothing writes it: the column stays as the rows had it
     const [{ last_seen_at: lastSeenAt }] = await db.dataSource.query(`SELECT last_seen_at FROM users WHERE id = ?`, [first.id]);
-    expect(lastSeenAt).not.toBeNull();
+    expect(lastSeenAt).toBeNull();
   });
 
   describe('through the routes', () => {

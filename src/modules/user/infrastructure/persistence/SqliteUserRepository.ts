@@ -30,21 +30,19 @@ export class SqliteUserRepository implements UserRepository {
     return entity ? this.mapToUser(entity) : null;
   }
 
-  async updateLastSeen(id: string): Promise<void> {
-    await this.repository.update(id, { lastSeenAt: new Date() });
-  }
-
   /**
    * The first requests of a new user come at once (FT-140): each may find no user and insert. The insert
    * skips a row another request already added (`telegram_id` is unique) and the user is read back, so
    * there is one row and every caller gets it. Unlike `save()`, it opens no transaction and never fails
    * on the key: on SQLite TypeORM shares one connection, and a failed `save()` rolled back what other
    * requests had just written in its transaction.
+   *
+   * A user it finds is only read (#335): every request and bot message comes here, and writing
+   * `last_seen_at` made each read a write — nothing read the column.
    */
   async getOrCreate(dto: CreateUserDTO): Promise<UserDomain> {
     const existing = await this.findByTelegramId(dto.telegramId);
     if (existing) {
-      await this.updateLastSeen(existing.id);
       return existing;
     }
 
@@ -80,7 +78,6 @@ export class SqliteUserRepository implements UserRepository {
       timezone: entity.timezone,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
-      lastSeenAt: entity.lastSeenAt,
     };
   }
 }
