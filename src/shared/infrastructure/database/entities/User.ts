@@ -32,6 +32,10 @@ export class User {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
 
+  /**
+   * Not written since #335: getOrCreate set it on every request, and nothing read it. The column stays as the rows
+   * have it — dropping it is a migration.
+   */
   @Column({ name: 'last_seen_at', type: 'datetime', nullable: true })
   lastSeenAt?: Date;
 }

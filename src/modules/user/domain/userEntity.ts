@@ -17,7 +17,6 @@ export interface User {
   // Metadata
   createdAt: Date;
   updatedAt: Date;
-  lastSeenAt?: Date;
 }
 
 export interface CreateUserDTO {

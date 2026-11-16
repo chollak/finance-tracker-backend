@@ -34,13 +34,14 @@ const PAST_SAFE_IDS = ['9007199254740992', '9007199254740993', '1234567890123456
 
 /**
  * In-memory fake mirroring SqliteUserRepository's getOrCreate() contract:
- * getOrCreate finds by telegramId and touches lastSeenAt on hit, creates otherwise.
+ * getOrCreate finds by telegramId and only reads a user it finds (#335), creates otherwise.
  * There is no other way to make or change a user (#274).
  */
 class InMemoryUserRepository implements UserRepository {
   private usersById = new Map<string, User>();
   private seq = 0;
-  public updateLastSeenCalls: string[] = [];
+  /** Users getOrCreate wrote: only the ones it made. */
+  public written: string[] = [];
 
   async findById(id: string): Promise<User | null> {
     return this.usersById.get(id) ?? null;
@@ -68,21 +69,13 @@ class InMemoryUserRepository implements UserRepository {
       updatedAt: now,
     };
     this.usersById.set(id, user);
+    this.written.push(id);
     return user;
-  }
-
-  async updateLastSeen(id: string): Promise<void> {
-    this.updateLastSeenCalls.push(id);
-    const existing = this.usersById.get(id);
-    if (existing) {
-      this.usersById.set(id, { ...existing, lastSeenAt: new Date() });
-    }
   }
 
   async getOrCreate(dto: CreateUserDTO): Promise<User> {
     const existing = await this.findByTelegramId(dto.telegramId);
     if (existing) {
-      await this.updateLastSeen(existing.id);
       return existing;
     }
     return this.insert(dto);
@@ -124,8 +117,8 @@ describe('User module', () => {
 
       expect(second.id).toBe(first.id);
       expect(repo.size()).toBe(1);
-      // getOrCreate touches lastSeenAt on the existing user via the repository contract
-      expect(repo.updateLastSeenCalls).toEqual([first.id]);
+      // The second call only reads the user the first made (#335)
+      expect(repo.written).toEqual([first.id]);
     });
   });
 

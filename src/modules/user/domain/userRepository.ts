@@ -19,12 +19,7 @@ export interface UserRepository {
   findByTelegramId(telegramId: string): Promise<User | null>;
 
   /**
-   * Update last seen timestamp
-   */
-  updateLastSeen(id: string): Promise<void>;
-
-  /**
-   * Get or create user by Telegram ID
+   * Get or create user by Telegram ID. A user it finds is only read, never written (#335).
    */
   getOrCreate(dto: CreateUserDTO): Promise<User>;
 
