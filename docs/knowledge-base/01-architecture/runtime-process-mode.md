@@ -275,6 +275,9 @@ cancelled the record before «Такси»; «такси» and «18к» made «1
   is sent again by Telegram. The queue's timers keep nothing running.
 - **A second delete changes nothing.** `DeleteTransactionUseCase` leaves a record already deleted as it is — its
   `deleted_at` and the free-limit counter — and answers success, as a restore of a record that is not deleted does.
+  The queue orders one chat only; two deletes of one record at once from different places (the Mini App and the bot)
+  are settled by the write itself (#383): one `UPDATE … WHERE deleted_at IS NULL`, and only the delete that changed
+  the row lowers the counter.
 
 ## Proposed Mode Semantics
 
