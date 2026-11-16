@@ -695,11 +695,36 @@ describe('daily summary (FT-124)', () => {
     });
   });
 
-  it('only Telegram chats: a dev or guest id gets nothing', async () => {
-    await user('dev-user');
+  it('only Telegram chats, by the rule of ALLOWED_TELEGRAM_IDS: a dev id, `0` or a number from 2^53 on gets nothing (#255)', async () => {
+    // The regex before let `0` and any length through, so the bot wrote to chats no Telegram user has
+    for (const telegramId of ['dev-user', '0', '9007199254740993']) {
+      await record(await user(telegramId), '2026-10-14', 'Кафе', 45_000);
+    }
     at('2026-10-14', '21:00');
 
     expect(await tick()).toEqual([]);
     expect(telegram.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('a Telegram id with leading zeros is its chat without them, as the list reads it (#255)', async () => {
+    const owner = await user(`0${TELEGRAM_ID}`);
+    await record(owner, '2026-10-14', 'Кафе', 45_000);
+    at('2026-10-14', '21:00');
+
+    expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent' }]);
+    expect(sent.map(message => message.chatId)).toEqual([TELEGRAM_ID]);
+    expect(sent[0].keyboard).toEqual([[expect.objectContaining({ web_app: { url: `${BASE_URL}/?userId=${TELEGRAM_ID}` } })]]);
+  });
+
+  it('with ALLOWED_TELEGRAM_IDS set, a row with leading zeros is the listed id, as the list reads it (#255)', async () => {
+    const owner = await user(`0${TELEGRAM_ID}`);
+    const stranger = await user('0111');
+    await record(owner, '2026-10-14', 'Кафе', 45_000);
+    await record(stranger, '2026-10-14', 'Кафе', 30_000);
+    await restart(telegramAccess([TELEGRAM_ID]));
+    at('2026-10-14', '21:00');
+
+    expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent' }]);
+    expect(sent.map(message => message.chatId)).toEqual([TELEGRAM_ID]);
   });
 });
