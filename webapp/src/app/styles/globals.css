@@ -7,29 +7,7 @@
    Manrope | neutral base, pastel categories, one contrast accent | light + dark
    Raw tokens: pastel-tokens.css, generated from docs/pastel/tokens.json.
    Rules: docs/pastel/design-system.md and docs/pastel/components/.
-   The shadcn names below point at Pastel tokens so screens not yet redesigned
-   follow the theme too.
    ======================================== */
-
-/* Colours that only screens not yet redesigned use. Old screens put ink, muted or income text on
-   these tints, so in the dark theme they must be dark tints, not the light pastels (which are only
-   for pastel-ink text). Values: 20% income / 16% pastel over the dark card. */
-:root,
-[data-theme="light"] {
-  --legacy-income-muted: var(--pastel-mint);
-  --legacy-expense-muted: var(--pastel-peach);
-  --legacy-warning-muted: var(--pastel-butter);
-  --legacy-warning: oklch(52% 0.15 50);
-  --legacy-destructive: oklch(55% 0.2 25);
-}
-
-[data-theme="dark"] {
-  --legacy-income-muted: #2c4138;
-  --legacy-expense-muted: #3f3b3a;
-  --legacy-warning-muted: #3f3e37;
-  --legacy-warning: oklch(78% 0.14 70);
-  --legacy-destructive: oklch(70% 0.17 25);
-}
 
 @theme inline {
   /* ===== TYPOGRAPHY ===== */
@@ -67,93 +45,32 @@
   --color-pastel-mist: var(--pastel-mist);
   --color-mint-ink: var(--mint-ink);
   --color-peach-ink: var(--peach-ink);
+  --color-card: var(--card);
+  /* The one contrast accent: the main button, the balance card, the toast */
+  --color-primary: var(--primary);
+  /* Income is green text with «+»; expenses are ink with «−» */
+  --color-income: var(--income);
   --shadow-segment: var(--shadow-seg);
 
-  /* ===== SHADCN NAMES → PASTEL =====
-     Kept so existing shadcn components and old screens follow the theme until they are replaced. */
-  --color-background: var(--bg);
-  --color-foreground: var(--ink);
-  --color-card: var(--card);
-  --color-card-foreground: var(--ink);
-  --color-popover: var(--sheet-card);
-  --color-popover-foreground: var(--ink);
-
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--on-primary);
-
-  --color-secondary: var(--track);
-  --color-secondary-foreground: var(--ink);
-
-  --color-muted: var(--track);
-  --color-muted-foreground: var(--muted);
-
-  --color-accent: var(--track);
-  --color-accent-foreground: var(--ink);
-
-  /* Pastel has no red: deleting is a secondary text button with undo. Kept for old screens. */
-  --color-destructive: var(--legacy-destructive);
-  --color-destructive-foreground: oklch(98% 0 0);
-
-  --color-border: var(--line);
-  --color-input: var(--line);
-  --color-ring: var(--ink);
-
-  /* ===== MONEY =====
-     Income is green text with «+»; expenses are ink with «−». Tiles: mint and peach pastel. */
-  --color-income: var(--income);
-  --color-income-foreground: var(--on-primary);
-  --color-income-muted: var(--legacy-income-muted);
-
-  --color-expense: var(--ink);
-  --color-expense-foreground: var(--on-primary);
-  --color-expense-muted: var(--legacy-expense-muted);
-
-  --color-warning: var(--legacy-warning);
-  --color-warning-foreground: var(--pastel-ink);
-  --color-warning-muted: var(--legacy-warning-muted);
-
-  --color-success: var(--income);
-  --color-success-foreground: var(--on-primary);
-  --color-success-muted: var(--legacy-income-muted);
-
-  /* ===== BORDER RADIUS SCALE ===== */
-  --radius-sm: 0.5rem;    /* 8px - Badges, chips */
-  --radius-md: 0.75rem;   /* 12px - Buttons, inputs */
-  --radius-lg: 1rem;      /* 16px - Small cards */
-  --radius-xl: 1.25rem;   /* 20px - Standard cards */
-  --radius-2xl: 1.5rem;   /* 24px - Large cards */
-  --radius-3xl: 2rem;     /* 32px - Modals, feature cards */
-  --radius-full: 9999px;  /* Pills, avatars */
-
-  /* Legacy shadcn --radius (maps to md) */
-  --radius: 0.75rem;
-
-  /* ===== ANIMATION TIMING ===== */
-  --duration-fast: 150ms;
+  /* ===== ANIMATION TIMING ===== (sheets and the toast slide in with these) */
   --duration-normal: 300ms;
   --duration-slow: 400ms;
-  --duration-stagger: 50ms;
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   /* Skeleton pulse of «Пастель»: opacity 1 → 0.55, 1.6s (docs/pastel/components/Skeleton.md) */
   --animate-pastel-pulse: pastelPulse 1.6s ease-in-out infinite;
   /* The icon while the login waits for «Подтвердить»: opacity 1 → 0.25, 1.6s (board «Вход · ждём подтверждения») */
   --animate-waiting-pulse: waitingPulse 1.6s ease-in-out infinite;
-
-  /* ===== SPACING (Touch Targets) ===== */
-  --touch-target: 2.75rem;    /* 44px minimum */
-  --touch-target-lg: 3rem;    /* 48px preferred */
 }
 
 
 /* ========================================
-   MICRO-ANIMATIONS
+   ANIMATIONS
+   The sheet and its scrim (`Sheet`), the toast (`UndoToast`), the skeleton
+   pulse (`SkeletonBlock`) and the waiting icon (`ProblemScreen`, composer).
    ======================================== */
 
-/* Keyframe definitions */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -185,35 +102,6 @@
   }
 }
 
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
 @keyframes pastelPulse {
   0%, 100% {
     opacity: 1;
@@ -232,49 +120,6 @@
   }
 }
 
-@keyframes progressFill {
-  from {
-    width: 0%;
-  }
-}
-
-@keyframes checkmark {
-  0% {
-    stroke-dashoffset: 100;
-  }
-  100% {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
-}
-
-@keyframes iconBounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  20% {
-    transform: translateY(-0.3em);
-  }
-  40% {
-    transform: translateY(0);
-  }
-  60% {
-    transform: translateY(-0.1em);
-  }
-  80% {
-    transform: translateY(0);
-  }
-}
-
-/* Animation utility classes - using design tokens */
 .animate-fade-in {
   animation: fadeIn var(--duration-normal) var(--ease-out) forwards;
 }
@@ -285,127 +130,6 @@
 
 .animate-slide-in-up {
   animation: slideInUp var(--duration-slow) var(--ease-out) forwards;
-}
-
-.animate-scale-in {
-  animation: scaleIn var(--duration-normal) var(--ease-out) forwards;
-}
-
-.animate-shimmer {
-  background: linear-gradient(
-    90deg,
-    var(--color-muted) 25%,
-    var(--color-background) 50%,
-    var(--color-muted) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-
-.animate-pulse-soft {
-  animation: pulse 2s ease-in-out infinite;
-}
-
-.animate-progress-fill {
-  animation: progressFill 0.8s ease-out forwards;
-}
-
-.animate-bounce-soft {
-  animation: bounce 0.6s ease-in-out;
-}
-
-.animate-icon-bounce {
-  animation: iconBounce 0.55s var(--ease-out);
-}
-
-/* Stagger delays for list items (50ms increments) */
-.stagger-1 { animation-delay: calc(var(--duration-stagger) * 1); }
-.stagger-2 { animation-delay: calc(var(--duration-stagger) * 2); }
-.stagger-3 { animation-delay: calc(var(--duration-stagger) * 3); }
-.stagger-4 { animation-delay: calc(var(--duration-stagger) * 4); }
-.stagger-5 { animation-delay: calc(var(--duration-stagger) * 5); }
-.stagger-6 { animation-delay: calc(var(--duration-stagger) * 6); }
-.stagger-7 { animation-delay: calc(var(--duration-stagger) * 7); }
-.stagger-8 { animation-delay: calc(var(--duration-stagger) * 8); }
-
-/* Card hover effects */
-.card-hover {
-  transition: transform var(--duration-fast) var(--ease-out),
-              box-shadow var(--duration-fast) var(--ease-out);
-}
-
-.card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-/* Button press effect */
-.btn-press {
-  transition: transform var(--duration-fast) var(--ease-out);
-}
-
-.btn-press:active {
-  transform: scale(0.97);
-}
-
-/* Skeleton loading enhancement */
-.skeleton-enhanced {
-  position: relative;
-  overflow: hidden;
-  background-color: var(--color-muted);
-}
-
-.skeleton-enhanced::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.4) 50%,
-    transparent 100%
-  );
-  animation: shimmer 1.5s infinite;
-}
-
-/* Progress bar smooth transition */
-[role="progressbar"] > div {
-  transition: width 0.5s ease-out;
-}
-
-/* List item transitions */
-.list-item-transition {
-  transition: opacity var(--duration-fast) var(--ease-out),
-              transform var(--duration-fast) var(--ease-out),
-              background-color var(--duration-fast) var(--ease-out);
-}
-
-.list-item-transition:hover {
-  background-color: var(--color-muted);
-}
-
-/* Success state */
-.success-pulse {
-  animation: pulse 0.5s ease-in-out;
-  color: var(--color-success);
-}
-
-/* Sheet/Dialog animations */
-/* Old shadcn popups only; Pastel sheets (data-pastel) have their own slide-in. */
-[data-state="open"]:not([data-pastel]) {
-  animation: fadeIn var(--duration-normal) var(--ease-out);
-}
-
-[data-state="closed"]:not([data-pastel]) {
-  animation: fadeIn var(--duration-fast) var(--ease-out) reverse;
-}
-
-/* Smooth page transitions */
-.page-transition {
-  animation: fadeInUp var(--duration-normal) var(--ease-out);
 }
 
 /*
@@ -423,7 +147,7 @@
 
 @layer base {
   * {
-    /* --line directly (not --color-border) so a subtree with its own data-theme gets its own lines */
+    /* --line directly (not a theme colour) so a subtree with its own data-theme gets its own lines */
     border-color: var(--line);
   }
 
@@ -442,8 +166,8 @@
     /* «Цифры всегда табличные» — amounts line up in lists and do not jump while typing */
     font-variant-numeric: tabular-nums;
     font-synthesis-weight: none;
-    background-color: var(--color-background);
-    color: var(--color-foreground);
+    background-color: var(--bg);
+    color: var(--ink);
   }
 
   /* Typography - compact mobile finance hierarchy */
