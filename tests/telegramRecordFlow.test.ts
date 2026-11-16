@@ -1,10 +1,5 @@
 import 'reflect-metadata';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 import { DataSource } from 'typeorm';
-import { createAppDataSource } from '../src/shared/infrastructure/database/database.config';
-import { runMigrationsWithBackup } from '../src/shared/infrastructure/database/migrationRunner';
 import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
 import { TransactionModule } from '../src/modules/transaction/transactionModule';
 import { SqliteTransactionRepository } from '../src/modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
@@ -31,6 +26,7 @@ import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/applicat
 import { QuickCaptureService } from '../src/modules/quickCapture/application/quickCaptureService';
 import { TransactionLearningService } from '../src/shared/application/learning/transactionLearning';
 import { winstonLogger } from '../src/shared/infrastructure/logging';
+import { DatabaseFile, prepareDatabaseOnce } from './helpers/testDatabase';
 import { networkError, Refusal, REFUSAL, StandModules, TelegramStand } from './helpers/telegramStand';
 
 // A voice message is not downloaded in tests; what it «says» is set by the test
@@ -86,11 +82,11 @@ interface Running {
 }
 
 describe('bot record messages (FT-122)', () => {
-  let dir: string;
-  let file: string;
+  /** The bot's database: migrated once for the file, each test on its own copy, opened again on a restart. */
+  const migrated = prepareDatabaseOnce();
+  let db: DatabaseFile;
   let running: Running;
   let userId: string;
-  const open: DataSource[] = [];
   /** Telegram: the chat with the person, kept across restarts of the bot. */
   let stand: TelegramStand;
   let plan: PlannedRecord[] = [];
@@ -129,17 +125,14 @@ describe('bot record messages (FT-122)', () => {
   }
 
   async function start(): Promise<Running> {
-    const ds = createAppDataSource(file);
-    open.push(ds);
-    await ds.initialize();
-    await runMigrationsWithBackup(ds, file, path.join(dir, 'backups'));
+    const ds = await db.open();
 
     const categoryModule = new CategoryModule(new SqliteCategoryRepository(ds));
     const accountModule = new AccountModule(new SqliteAccountRepository(ds), undefined, new SqliteAccountMoveRepository(ds));
     const transactionModule = new TransactionModule(new SqliteTransactionRepository(ds));
     transactionModule.setCategoryResolver(categoryModule.getCatalog());
     transactionModule.setAccountResolver(accountModule.getBook());
-    transactionModule.setCategoryLessons(new TransactionLearningService(dir));
+    transactionModule.setCategoryLessons(new TransactionLearningService(db.dir));
     const userModule = new UserModule(new SqliteUserRepository(ds), new SqliteUserSettingsRepository(ds));
     const botMessageModule = new BotMessageModule(new SqliteBotMessageRepository(ds));
 
@@ -270,8 +263,7 @@ describe('bot record messages (FT-122)', () => {
 
   beforeEach(async () => {
     limit = { allowed: true };
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft122-flow-'));
-    file = path.join(dir, 'db.sqlite');
+    db = migrated.newFile();
     jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue('https://miniapp.test');
     stand = new TelegramStand({ id: TELEGRAM_ID, first_name: 'Shukur' });
     stand.install();
@@ -286,8 +278,7 @@ describe('bot record messages (FT-122)', () => {
 
   afterEach(async () => {
     jest.restoreAllMocks();
-    for (const ds of open.splice(0)) if (ds.isInitialized) await ds.destroy();
-    fs.rmSync(dir, { recursive: true, force: true });
+    await db.remove();
   });
 
   it('confirms a phrase with several records in one message and remembers which records it shows', async () => {
@@ -344,7 +335,7 @@ describe('bot record messages (FT-122)', () => {
       await press(message, 'Продукты');
     }
 
-    const learned = await new TransactionLearningService(dir).learnedCategoryWords();
+    const learned = await new TransactionLearningService(db.dir).learnedCategoryWords();
     expect(learned.get('groceries')).toContain('zzqx');
   });
 

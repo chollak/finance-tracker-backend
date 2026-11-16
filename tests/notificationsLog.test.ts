@@ -1,36 +1,24 @@
 import 'reflect-metadata';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 import { DataSource } from 'typeorm';
-import { createAppDataSource } from '../src/shared/infrastructure/database/database.config';
-import { findSchemaDrift, runMigrationsWithBackup } from '../src/shared/infrastructure/database/migrationRunner';
+import { findSchemaDrift } from '../src/shared/infrastructure/database/migrationRunner';
 import { SqliteNotificationLogRepository } from '../src/modules/notification/infrastructure/SqliteNotificationLogRepository';
+import { DatabaseFile, newDatabaseFile } from './helpers/testDatabase';
 
 /**
  * FT-124: what the bot already sent and for which period lives in `notifications_log`, so a notice goes out
  * at most once — a second tick, a restart, a second process over the same file. Real SQLite file.
  */
 describe('notifications log (FT-124)', () => {
-  let dir: string;
-  let file: string;
-  const open: DataSource[] = [];
+  let db: DatabaseFile;
 
   beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft124-log-'));
-    file = path.join(dir, 'db.sqlite');
+    db = newDatabaseFile();
   });
 
-  afterEach(async () => {
-    for (const ds of open.splice(0)) if (ds.isInitialized) await ds.destroy();
-    fs.rmSync(dir, { recursive: true, force: true });
-  });
+  afterEach(() => db.remove());
 
   async function connect(): Promise<{ ds: DataSource; log: SqliteNotificationLogRepository }> {
-    const ds = createAppDataSource(file);
-    open.push(ds);
-    await ds.initialize();
-    await runMigrationsWithBackup(ds, file, path.join(dir, 'backups'));
+    const ds = await db.open();
     return { ds, log: new SqliteNotificationLogRepository(ds) };
   }
 
