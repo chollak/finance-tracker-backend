@@ -5,7 +5,6 @@ import { recordsOn } from './helpers/records';
 import { resetSharedRateLimiters } from '../src/delivery/web/express/middleware/rateLimitMiddleware';
 import { createSubscriptionRoutes } from '../src/delivery/web/express/routes/subscriptionRoutes';
 import { createTransactionRouter } from '../src/modules/transaction/presentation/controllers/transactionController';
-import { GetUserTransactionsUseCase } from '../src/modules/transaction/application/getUserTransactions';
 import { SubscriptionModule } from '../src/modules/subscription/subscriptionModule';
 import { SubscriptionRepository } from '../src/modules/subscription/domain/subscriptionRepository';
 import { CreateSubscriptionDTO, Subscription } from '../src/modules/subscription/domain/subscription';
@@ -14,8 +13,8 @@ import { UserModule } from '../src/modules/user/userModule';
 import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
 
 /**
- * FT-162: the legacy routes that still carry a userId — `:userId` in the path (transactions,
- * subscription status; the dashboard is gone since #205, budgets since #264, debts since #265) or `userId` in the body (subscription actions,
+ * FT-162: the legacy routes that still carry a userId — `:userId` in the path (subscription status; the dashboard is
+ * gone since #205, budgets since #264, debts since #265, all of a user's records since #289) or `userId` in the body (subscription actions,
  * `POST /api/transactions`) — act only for the signed-in user, and refusing someone else's id touches nothing. Before, user resolution ran before the ownership
  * check and created a `users` row for any Telegram id it was given, and a userId that was not a string gave 500.
  *
@@ -54,7 +53,6 @@ const unused = {} as never;
 
 let db: TestDatabase;
 let server: TestServer;
-let userTransactions: GetUserTransactionsUseCase;
 let subscriptions: NoSubscriptions;
 let records: ReturnType<typeof recordsOn>;
 
@@ -64,7 +62,6 @@ beforeAll(async () => {
   const users = new UserModule(new SqliteUserRepository(db.dataSource));
   subscriptions = new NoSubscriptions();
 
-  userTransactions = new GetUserTransactionsUseCase(records.repository);
   // The grant goes only to a user that exists (#230), wired as in createModules()
   const grantTargets = { exists: (userId: string) => users.exists(userId) };
   const subscriptionModule = new SubscriptionModule(subscriptions, new SqliteUsageLimitRepository(db.dataSource), grantTargets, {
@@ -73,7 +70,7 @@ beforeAll(async () => {
 
   server = await startTestServer({
     '/transactions': createTransactionRouter(
-      records.create, unused, userTransactions, unused, unused, unused, unused, subscriptionModule, users
+      records.create, unused, unused, unused, unused, unused, subscriptionModule, users
     ),
     '/subscription': createSubscriptionRoutes(subscriptionModule, users),
   });
@@ -116,10 +113,9 @@ const OK = { status: 200 };
 
 /**
  * Every legacy route with `:userId` in the path. The old analytics and the archive's two went in #273 — the archive's
- * `POST …/archive/all/:userId` was the last POST among them.
+ * `POST …/archive/all/:userId` was the last POST among them — and `GET /api/transactions/user/:userId` in #289.
  */
 const PATH_ROUTES: LegacyRoute[] = [
-  { method: 'GET', path: id => `/api/transactions/user/${id}`, own: OK },
   { method: 'GET', path: id => `/api/subscription/${id}`, own: OK },
 ];
 
@@ -175,25 +171,16 @@ describe('a legacy route with :userId in the path (FT-162)', () => {
     expect(await telegramIds()).toEqual(before);
   });
 
-  // Was asked of the budget routes until they went (#264); the records route keeps the same check
-  it('GET /api/transactions/user/guest_abc without signing in reaches no record (#206)', async () => {
-    const asked = jest.spyOn(userTransactions, 'execute');
+  // Was asked of the budget routes until they went (#264), then of all of a user's records until they went (#289).
+  // That the own id reaches the use case as the own UUID: «GET /api/subscription/:userId with the own id reads the own UUID»
+  it('GET /api/subscription/guest_abc without signing in reaches no subscription (#206)', async () => {
+    const asked = subscriptions.activeAskedFor.length;
 
-    const res = await server.request('GET', `/api/transactions/user/${GUEST}`);
+    const res = await server.request('GET', `/api/subscription/${GUEST}`);
 
     expect(res.status).toBe(401);
     expect(res.body).toMatchObject({ success: false, code: 'MISSING_AUTH_HEADER' });
-    expect(asked).not.toHaveBeenCalled();
-    asked.mockRestore();
-  });
-
-  // The debts' summary (#265) and the archive's list (#273) were asked the same until they went
-  it('the own id reaches the use case as the own user, not as the id in the path', async () => {
-    const asked = jest.spyOn(userTransactions, 'execute');
-    await call('GET', `/api/transactions/user/${MINE}`);
-
-    expect(asked).toHaveBeenLastCalledWith(await myUuid());
-    asked.mockRestore();
+    expect(subscriptions.activeAskedFor).toHaveLength(asked);
   });
 });
 

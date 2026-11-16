@@ -85,7 +85,6 @@ Core module системы — управление финансовыми тр�
 - `CreateTransactionUseCase` - создание транзакции
 - `GetTransactionHistoryUseCase` - история с поиском и фильтрами (FT-107); список всех записей всех пользователей ушёл
   в FT-107, `getAll()` репозитория без вызовов — в #273
-- `GetUserTransactionsUseCase` - транзакции пользователя
 - `UpdateTransactionUseCase` - обновление транзакции; правка категории учит разбор через порт `CategoryLessons`
   (FT-184, `application/teachCategoryCorrection.ts`, реализует `TransactionLearningService`): сначала снимает уроки
   записи (`unlearnRecord`), затем учит магазин оплаты целиком или слова фразы (`lessonWordsOf`, без слов оплаты и
@@ -509,6 +508,10 @@ top-categories}/:userId` удалены вместе с use case архива, `
 `unarchive`, `archiveMultiple`, `archiveAllByUserId`, `findArchivedByUserId` и `getAll()`. Их не вызывали ни webapp, ни
 iOS, ни бот: удаление мягкое с FT-105, экран аналитики читает `/api/analytics` с FT-120. Маршруты отвечают `404`
 (`tests/deadTransactionRoutes.test.ts`).
+
+`GET /api/transactions/user/:userId` — все записи пользователя разом — удалён в #289 вместе с
+`GetUserTransactionsUseCase`: его читал только `useTransactions` Mini App, которого не вызывал ни один экран «Пастели».
+Тоже отвечает `404`.
 
 Колонка `isArchived` и фильтр в чтениях остались: запись, заархивированная раньше, скрыта везде — на главной, в истории
 и поиске, в итогах, остатках, аналитике, выгрузке и итогах бота, по id — `404` (решение Д7,

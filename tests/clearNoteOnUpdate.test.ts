@@ -43,7 +43,7 @@ describe('PUT { description: null } is an empty note (FT-249)', () => {
     const app = express();
     app.use(express.json());
     app.use('/api/transactions', createTransactionRouter(
-      unused, unused, unused,
+      unused, unused,
       new GetTransactionByIdUseCase(records.repository),
       unused,
       new UpdateTransactionUseCase(records.repository, records.catalog, records.book),

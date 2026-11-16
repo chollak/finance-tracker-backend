@@ -240,7 +240,7 @@ describe('history with search and filters (FT-107)', () => {
       const userModule = new UserModule(new SqliteUserRepository(db.dataSource), new SqliteUserSettingsRepository(db.dataSource));
       server = await startTestServer({
         '/transactions': createTransactionRouter(
-          records.create, history, unused, new GetTransactionByIdUseCase(records.repository),
+          records.create, history, new GetTransactionByIdUseCase(records.repository),
           unused, records.update, unused, undefined, userModule
         ),
         '/settings': createSettingsRoutes(userModule),

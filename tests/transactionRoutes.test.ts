@@ -11,7 +11,6 @@ import {
 import { createTransactionRouter } from '../src/modules/transaction/presentation/controllers/transactionController';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
 import { GetTransactionHistoryUseCase } from '../src/modules/transaction/application/getTransactionHistory';
-import { GetUserTransactionsUseCase } from '../src/modules/transaction/application/getUserTransactions';
 import { GetTransactionByIdUseCase } from '../src/modules/transaction/application/getTransactionById';
 import { DeleteTransactionUseCase, RestoreTransactionUseCase } from '../src/modules/transaction/application/deleteTransaction';
 import { UpdateTransactionUseCase } from '../src/modules/transaction/application/updateTransaction';
@@ -59,7 +58,6 @@ function buildTransactionTestApp(options: { userModule?: UserModule } = {}) {
 
   const createUseCase = { execute: jest.fn() } as unknown as CreateTransactionUseCase;
   const getUseCase = { execute: jest.fn() } as unknown as GetTransactionHistoryUseCase;
-  const getUserUseCase = { execute: jest.fn() } as unknown as GetUserTransactionsUseCase;
   const getByIdUseCase = { execute: jest.fn() } as unknown as GetTransactionByIdUseCase;
   const deleteUseCase = { execute: jest.fn() } as unknown as DeleteTransactionUseCase;
   const updateUseCase = { execute: jest.fn() } as unknown as UpdateTransactionUseCase;
@@ -69,7 +67,6 @@ function buildTransactionTestApp(options: { userModule?: UserModule } = {}) {
   router.use('/transactions', createTransactionRouter(
     createUseCase,
     getUseCase,
-    getUserUseCase,
     getByIdUseCase,
     deleteUseCase,
     updateUseCase,
