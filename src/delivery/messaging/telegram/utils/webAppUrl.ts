@@ -30,16 +30,40 @@ export interface WebAppUrlParams {
 }
 
 /**
+ * The one rule for a link from the bot to the app (#278): an HTTPS address. Telegram opens a Mini App only there, and a
+ * `web_app` button to any other makes it refuse the whole message, not the one button — `npm run dev` without a tunnel
+ * runs with `WEB_APP_URL=http://localhost:3000`. The login's «Вернуться в браузер ↗» follows it too.
+ */
+export function isHttpsUrl(url: string | undefined): url is string {
+  if (!url) return false;
+  try {
+    return new URL(url).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/** Whether the bot links to the Mini App at all: WEB_APP_URL is an HTTPS address. */
+export function canLinkMiniApp(): boolean {
+  try {
+    return isHttpsUrl(AppConfig.getWebAppUrl());
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Creates a URL for the Telegram Mini App
  * @param userId - Telegram user ID
  * @param params - Optional parameters for deep linking
  * @returns Full URL for Mini App
+ * @throws when WEB_APP_URL is not an HTTPS address: Telegram would refuse the message with it (#278)
  */
 export function createWebAppUrl(userId: string, params: WebAppUrlParams = {}): string {
   const baseUrl = AppConfig.getWebAppUrl();
 
-  if (!baseUrl) {
-    throw new Error('WEB_APP_URL not configured');
+  if (!isHttpsUrl(baseUrl)) {
+    throw new Error(baseUrl ? 'WEB_APP_URL is not an HTTPS address' : 'WEB_APP_URL not configured');
   }
 
   // A record to change: Home with its sheet open (the webapp's ROUTES.RECORD)
@@ -58,9 +82,9 @@ export function createWebAppUrl(userId: string, params: WebAppUrlParams = {}): s
   return url.toString();
 }
 
-/** The Mini App for this user — Home, or a screen of it; undefined when the Mini App is not configured. */
+/** The Mini App for this user — Home, or a screen of it; undefined without an HTTPS WEB_APP_URL. */
 function appUrl(telegramId: string, path?: WebAppPath): string | undefined {
-  if (!isWebAppConfigured()) return undefined;
+  if (!canLinkMiniApp()) return undefined;
   try {
     return createWebAppUrl(telegramId, path ? { path } : {});
   } catch {
@@ -95,16 +119,4 @@ export function createDeepLink(botUsername: string, startParam: string): string 
 export function parseStartParam(startParam: string): { action: string; id?: string } {
   const [action, id] = startParam.split('_');
   return { action, id };
-}
-
-/**
- * Check if Web App URL is configured
- */
-export function isWebAppConfigured(): boolean {
-  try {
-    const url = AppConfig.getWebAppUrl();
-    return !!url;
-  } catch {
-    return false;
-  }
 }

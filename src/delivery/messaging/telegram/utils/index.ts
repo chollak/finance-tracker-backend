@@ -2,7 +2,7 @@ export {
   createWebAppUrl,
   createDeepLink,
   parseStartParam,
-  isWebAppConfigured
+  canLinkMiniApp
 } from './webAppUrl';
 
 export {

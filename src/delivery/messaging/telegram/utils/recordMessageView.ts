@@ -11,7 +11,7 @@ import {
   RecordView,
 } from '../formatters/recordMessage';
 import { recordKeyboard } from '../keyboards/recordKeyboard';
-import { createWebAppUrl, isWebAppConfigured, WEB_APP_PATHS } from './webAppUrl';
+import { canLinkMiniApp, createWebAppUrl, WEB_APP_PATHS } from './webAppUrl';
 import { messageClientId } from './messageClientId';
 import {
   AssumedThousands,
@@ -137,8 +137,9 @@ async function pickerCategories(ctx: BotContext, userId: string): Promise<{ fact
   };
 }
 
+/** «Открыть в Kapelka ↗», «Другая дата ↗», «Остальные — в Kapelka ↗»; none without an HTTPS WEB_APP_URL (#278). */
 function appLinks(telegramId: string): Pick<RecordMessageInput, 'recordUrl' | 'historyUrl'> {
-  if (!isWebAppConfigured()) return {};
+  if (!canLinkMiniApp()) return {};
   const safe = (build: () => string) => {
     try {
       return build();
