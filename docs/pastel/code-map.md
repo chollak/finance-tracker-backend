@@ -1,27 +1,34 @@
-# Карта кода перед переносом «Пастели»
+# Карта кода
 
-Снимок на коммите `64e2726` (7 сентября 2026). Цель — чтобы любой агент или человек за 10 минут понял, что
-в проекте есть, что работает и на что опирается перенос. Подробности по API — в коде контроллеров, здесь
-только то, что важно для решения.
+Что есть в проекте и где это лежит — чтобы агент или человек за 10 минут понял, на что опираться. Сверено с кодом
+`main` 2026-11-16 (#292). Контракты API — в [`api.md`](api.md), модель денег — в [`money-model.md`](money-model.md),
+модули подробнее — в `CLAUDE.md` («Module System»). Первая версия — снимок перед переносом «Пастели» на коммите
+`64e2726` (7 сентября 2026) с найденными тогда багами: `git show df7710fa:docs/pastel/code-map.md`.
 
 ## Backend — `src/`
 
-Node + TypeScript, Express (REST под `/api`) и Telegraf (бот, long polling) в одном процессе. Clean
-Architecture: `domain → application → infrastructure → presentation` внутри каждого модуля.
+Node + TypeScript в одном процессе: Express (REST под `/api`) и Telegraf (бот, long polling; с
+`ENABLE_TELEGRAM_POLLING=false` бот не опрашивает Telegram). Clean Architecture: `domain → application → infrastructure →
+presentation` внутри каждого модуля `src/modules/`; правила слоёв и циклы проверяет dependency-cruiser (`npm run analyze`).
 
-| Модуль | Что делает | Судьба при переносе |
-|---|---|---|
-| `transaction` | CRUD, архив, аналитика (summary, categories, trends, patterns), обучение на исправлениях | Ядро. Расширяется: счёт, валюта, суммы в целых, категория по id, мягкое удаление |
-| `voiceProcessing` | Whisper → GPT-разбор, быстрые пути без ИИ, несколько записей за раз; долги из текста выключены (Д2), их остатки уходят в #266 | Остаётся. Учится счёту («нал», «карта», «$») и категориям пользователя |
-| `quickCapture` | Единая обёртка ввода для бота, mini app и iOS Shortcut, текст подтверждения | Остаётся, контракт для Shortcut не ломаем |
-| `user` | telegramId → UUID, `default_currency`, `timezone` (не используется) | Остаётся + настройки пользователя |
-| `subscription` | Telegram Stars, пробный период, лимиты free (50 записей и 10 голосовых в месяц; лимит 5 долгов удалён в #265) | Остаётся в коде. Лимиты — решение Шукура (см. README) |
-| `budget` | Бюджеты по категориям и периодам, пересчёт `spent` | Ушёл из интерфейса (Д2), код удалён в #264; таблица `budgets` с данными осталась. Цели ревизии — отдельная сущность |
-| `debt` | Долги, частичные платежи, связанная запись | Ушёл из интерфейса (Д2), код удалён вне пути записи в #265: остался `CreateDebtUseCase` для замороженного пути записи до #266. Таблицы `debts` и `debt_payments` с данными остались, записи с прежней связью с долгом — обычные |
-| `openai-usage` | Расход OpenAI по организации | Удалён в FT-174: админские маршруты не работали, их никто не звал |
-| `dashboard` (не модуль) | Инсайты, health score, алерты | Заменяется аналитикой и ревизией «Пастели», удаляется в уборке |
+| Модуль | Что делает |
+|---|---|
+| `transaction` | Записи: создание, история с поиском и фильтрами (FT-107), правка, мягкое удаление и возврат (FT-105), итоги периода (FT-103, FT-111), частые траты (FT-114), аналитика месяца и категории (FT-120) |
+| `voiceProcessing` | Разбор фразы и голоса: Whisper → GPT, быстрые пути без ИИ, несколько записей за фразу; долги из текста не разбираются (Д2) |
+| `quickCapture` | Запись фразой поверх разбора текста (`QuickCaptureService`): текст бота и `POST /api/quick-capture` — Mini App, Shortcut, iOS-приложение; `POST /api/quick-capture/payment` — оплата Apple Pay (FT-176) |
+| `category` | Категории пользователя (FT-099): 8 + 8 стартовых, переименование, цвет, скрытие, свои; категория каждой записи (`CategoryResolver`) |
+| `account` | Счета (FT-101): остатки при чтении, итог в сумах, начальные остатки первого запуска (FT-109), перемещения — перевод, обмен, корректировка (FT-104) |
+| `fx` | Курс доллара (FT-102): ЦБ по дате и свой курс пользователя |
+| `user` | telegramId → UUID и настройки пользователя (`user_settings`, FT-098): тема, уведомления, свой курс, счёт по умолчанию, первый запуск, валюта показа |
+| `subscription` | Telegram Stars, пробный период, лимиты free (50 записей и 10 голосовых в месяц) — выключены, пока `FREE_LIMITS_ENABLED` не `true` (Д3); судьба `/premium` — #319 |
+| `botMessage` | Какие записи показывает каждое подтверждение бота (`bot_messages`, FT-122) и какие сообщения чата уже обработаны (`handled_messages`, FT-172) |
+| `notification` | Итоги дня, `/today`, `/month` (FT-124), напоминания о целях, подписках и ревизии (FT-133); каждое — не больше одного раза (`notifications_log`) |
+| `export` | CSV всех записей и перемещений (FT-126): скачать или прислать в чат с ботом |
+| `auth` | Вход в браузере через бота (FT-128): одноразовая ссылка на 5 минут, сессия — httpOnly-cookie |
+| `audit` | Ревизия трат и цели (FT-130, FT-131): `/api/audits`, `/api/goals` |
+| `debt` | Только `CreateDebtUseCase` с записью в `debts` — для замороженного пути записи: `createModules()` создаёт модуль для `voiceProcessing` и не возвращает; уберёт #266 после FT-217 |
 
-**Бот** (`src/delivery/messaging/telegram/`; сверено с кодом в #281, остальной раздел — снимок): меню команд
+**Бот** (`src/delivery/messaging/telegram/`; сверено с кодом в #281): меню команд
 (`setMyCommands`, FT-124) — `/today`, `/month`, `/undo`, `/help`, `/start`; вне меню `/stats` отвечает как `/month`,
 `/premium` и `/cancel_subscription` работают (Д3), любая другая команда — «Такой команды нет. Список — /help»
 (`/budget`, `/week`, `/weekly`, `/transactions` тоже). `/start login_<token>` — подтверждение входа из браузера
@@ -35,82 +42,95 @@ Architecture: `domain → application → infrastructure → presentation` вн�
 подписках и ревизии (FT-133), отправленное — в `notifications_log`. Ссылки в Mini App — только при HTTPS-адресе
 `WEB_APP_URL` (#278) и без Telegram id в адресе (#281). Только русский.
 
-**Данные.** TypeORM + SQLite (`data/database.sqlite`, `synchronize` в dev). Параллельно живёт путь Supabase
-через `supabase-js` со своими репозиториями и ручными SQL-миграциями в `migrations/` (проект на паузе).
-Сущности: `transactions`, `budgets`, `debts`, `debt_payments`, `users`, `subscriptions`, `usage_limits`.
+**Данные.** TypeORM + SQLite (`data/database.sqlite`); схема меняется только миграциями
+(`src/shared/infrastructure/database/migrations/`), они применяются при старте после копии базы в `data/backups/`;
+`synchronize` выключен (Д6, FT-090). Пути `supabase-js` в `src/` нет; SQL Supabase в корневой `migrations/` и
+скрипты `supabase:*` остались от проекта на паузе. Таблицы: `transactions`, `categories`, `accounts`,
+`account_moves`, `fx_rates`, `users`, `user_settings`, `subscriptions`, `usage_limits`, `bot_messages`,
+`handled_messages`, `notifications_log`, `login_tokens`, `audits`, `goals`; `budgets`, `debts` и `debt_payments`
+остались с прежними строками, код их не читает.
 
-`transactions`: `amount decimal(10,2)`, `type`, `semanticType` (8 значений), `needsReview`, `description`,
-`date` (без времени), `merchant`, `confidence`, `originalText`, `originalParsing`, `category` (строка, по
-умолчанию `'Другое'`), `isArchived`, `isDebtRelated`, `relatedDebtId`, `splitGroupId`, `userId`.
+`transactions`: `amount_minor` (целые минорные единицы), `currency`, `account_id`, `category_id`, `type`,
+`semanticType`, `needsReview`, `description`, `date` (без времени), `merchant`, `confidence`, `originalText`,
+`originalParsing`, `source` (откуда запись), `client_id` (повтор без дубля, FT-106), `search_text` (поиск, FT-107),
+`deleted_at` (мягкое удаление, FT-105), `isArchived` (архивные скрыты отовсюду, Д7), `legacy_category` (категория до
+FT-099), `userId`. `isDebtRelated`, `relatedDebtId`, `tags` и `splitGroupId` в схеме есть, при записи не заполняются.
 
-**Деньги.** Только сумы. Сумма — JS `number` с плавающей точкой и округлением `Math.round(x*100)/100`.
-`decimal(10,2)` в Postgres вмещает до 99 999 999,99 — меньше одной зарплаты в сумах за год. Счетов, валюты
-у записи, курсов и переводов нет. «$50» сохраняется как 50 сум.
+**Деньги.** Суммы — целые минорные единицы: тийины для сумов, центы для долларов (FT-097). Счета в сумах или
+долларах (`Currency = 'UZS' | 'USD'`); запись хранит свой счёт и валюту, остаток счёта считается при чтении.
+Перемещения между счетами — `account_moves`: `transfer`, `exchange`, `adjustment` (FT-104). Курс — ЦБ на дату или свой
+(FT-102); итог и плитки в сумах — по действующему курсу. Правила — [`money-model.md`](money-model.md).
 
-**Категории.** Один источник — `src/shared/domain/entities/Category.ts`: 26 расходных и 7 доходных id с эмодзи
-и синонимами, плюс `transfer` и `debt`. Таблицы категорий нет, в записи хранится строка. Копия списка —
-`webapp/src/entities/category/model/categories.ts`.
+**Категории.** Таблица `categories`, у каждого пользователя свои (FT-099): 8 + 8 стартовых
+(`src/modules/category/domain/categoryPresets.ts`), источник — `CategoryModule`. `src/shared/domain/entities/Category.ts`
+— только словарь старых 26 + 7 id и синонимов, чтобы переводить старые значения. Webapp читает `GET /api/categories`
+(`useCategories()`), своей копии списка нет; бот строит клавиатуры из категорий пользователя.
 
-**ИИ.** `gpt-4.1-mini` (JSON-ответ; `gpt-4-turbo` OpenAI снял — `model_not_found`) и `whisper-1`; промпты в `src/shared/domain/constants/messages.ts`.
-Уверенность ниже 0,6 — кнопки подтверждения в боте; `needsReview` исключает запись из итогов. Обучение
-глобальное, в `data/patterns.json`. Фото и QR чеков нет.
+**ИИ.** Разбор фразы — `OPENAI_MODEL` (по умолчанию `gpt-4.1-mini`), голос — `WHISPER_MODEL` (по умолчанию
+`whisper-1`); промпты — `src/shared/domain/constants/messages.ts`, в промпт идут видимые категории пользователя.
+Категорию, которую не назвало ни одно слово записи, ответ помечает в `assumptions` — «?» в боте и на проверке записей
+(FT-138). `needsReview` — запись на проверке, в итоги она не входит. Обучение на исправлениях категории (FT-184) общее
+для всех: `src/shared/application/learning/`, начальные паттерны — `data/patterns.seed.json`, выученные —
+`data/patterns.json`. Фото и QR чеков нет (FT-089, FT-134, FT-135).
 
-**Проверки.** 34 файла Jest, около 410 тестов (`npm test`); `npm run verify` — сборки, Jest, Vitest
-webapp, проверка архитектуры и шрифтов.
+**Проверки** (на 2026-11-16). Jest — 151 файл в `tests/`, 2660 тестов (один пропущен); Vitest — 136 файлов в
+`webapp/src/`, 1339 тестов. `npm run verify` — сборка backend, типы тестов и скриптов, ESLint webapp, Jest по одному, Vitest, сборка
+webapp, проверка шрифтов и токенов, dependency-cruiser.
 
-### Баги, которые мешают переносу
+### Баги первого снимка — что с ними
 
-Найдены при составлении карты. Все подтверждены чтением кода.
-
-| Где | Что | Чем мешает |
+| Где | Что было | Сейчас |
 |---|---|---|
-| `SqliteTransactionRepository.update()` | нет ветки для `category` — смена категории молча теряется на SQLite | Карточка операции и проверка записей правят категорию |
-| `callbackHandlers.ts`, «Удалить» в боте | `DeleteTransactionUseCase.execute(transactionId)` вызывается строкой вместо `{ id }`; проверка «последней записи» сравнивает разные ключи | Исправлено в FT-087; с FT-122 «Удалить» старых сообщений — отмена с «Вернуть», память о «последней записи» убрана |
-| `CreateTransactionUseCase` + обработчики бота + middleware `POST /transactions` | счётчик записей free-лимита увеличивается дважды | Лимит наступает вдвое раньше |
-| `requireAdmin` на `transactionController.ts:97, 254` и в `openAIUsageRoutes.ts` (до FT-174) | перед ним нет авторизации — всегда 401 (на `/subscription/grant` авторизация есть) | Мёртвый `GET /api/transactions` убран в FT-107: путь занят историей. `GET /api/transactions/analytics` и `/api/openai/usage*` убраны в FT-174 вместе с `OpenAIUsageModule`; `requireAdmin` остался только на `/subscription/grant` |
-| Репозитории транзакций | `isDebtRelated`, `relatedDebtId`, `tags`, `splitGroupId` не сохраняются | Не мешает, если долги уходят из интерфейса |
+| `SqliteTransactionRepository.update()` | нет ветки для категории — смена категории молча терялась на SQLite | Исправлено в FT-087; с FT-099 правится `categoryId` |
+| `callbackHandlers.ts`, «Удалить» в боте | `DeleteTransactionUseCase.execute(transactionId)` строкой вместо `{ id }`; «последняя запись» сравнивала разные ключи | Исправлено в FT-087; с FT-122 «Удалить» старых сообщений — отмена с «Вернуть», памяти о «последней записи» нет |
+| `CreateTransactionUseCase` + обработчики бота + middleware `POST /transactions` | счётчик записей free-лимита рос дважды | Исправлено в FT-087: к счётчику записей прибавляет только `CreateTransactionUseCase`, бот считает только голосовые |
+| `requireAdmin` | перед ним не было авторизации — всегда 401 | Маршруты с ним убраны в FT-107 и FT-174; остался только на `POST /api/subscription/grant`, после `requireAuth`; админы — `ADMIN_TELEGRAM_IDS` (#255) |
+| Репозитории транзакций | `isDebtRelated`, `relatedDebtId`, `tags`, `splitGroupId` не сохраняются | Так и есть; долги из текста не разбираются (Д2), остатки — #266 |
 
 ## Webapp — `webapp/src/`
 
-React 19, Vite, Tailwind 4 (`@theme inline` в `app/styles/globals.css`), компоненты «Пастели» в `shared/ui/pastel/` (шторка — Radix Dialog), React Query, zustand,
-Dexie, react-router 7 (recharts убран в FT-121, motion — в #289, слой shadcn, sonner и React Hook Form + Zod — в #290). Feature-Sliced Design: `app`, `pages` (12), `widgets` (11),
-`features` (12), `entities` (7), `shared`. Около 258 файлов, 20 файлов тестов Vitest (только чистые функции).
+React 19, Vite 7 с `vite-plugin-pwa`, Tailwind 4 (`@theme inline` в `app/styles/globals.css`, токены «Пастели» —
+сгенерированный `pastel-tokens.css`), компоненты «Пастели» в `shared/ui/pastel/` (шторка — Radix Dialog), TanStack
+Query, zustand, Dexie, React Router 7; ESLint входит в `verify` (#296). Библиотеки графиков, `motion`, React Hook Form
+и Zod нет (recharts убран в FT-121, motion — в #289, React Hook Form и Zod — в #290). Вне `pastel/` в `shared/ui` — `error-boundary` и пять
+примитивов shadcn (`badge`, `button`, `card`, `progress`, `skeleton`); они, `sonner`, `@radix-ui/react-slot` и
+`@radix-ui/react-progress` нужны только виджетам лимитов и подписки (`widgets/usage-limits`,
+`entities/subscription/ui`, `features/limit-warning`), которые ни один экран не показывает, — до решения по #319.
 
-**Маршруты.** `/` Главная, `/transactions` История (FT-116: поиск и фильтры), `/add[?type=income]` ручной ввод (FT-113; `/transactions/add`
-убран; `?type=income` — с «Доход», из пустого месяца доходов аналитики), `/review` проверка записей фразы (FT-114), `/offline-voice` и `/offline-receipt` — голос и чек без связи (FT-129, `pages/capture-offline`), `/?record=<id>` — главная с карточкой операции (FT-115;
-`/transactions/:id/edit` убран), `/accounts` счета с итогом и курсом и `/accounts/:id` экран счёта (FT-118; его запись открывает
-`/transactions?account=<id>&record=<id>` — историю, суженную до счёта, с карточкой операции), `/accounts/transfer[?from=<id>]`
-перевод и обмен (FT-119), `/analytics[?month=YYYY-MM&type=income]` аналитика месяца и
-`/analytics/categories/:id[?month=]` категория по дням (FT-121; старые `FinancialHealth`, круговая диаграмма и вызовы
-`dashboard` из webapp удалены; экраны бюджетов удалены в #264, долгов — в #265: `/budgets…`, `/debts…` — «Такой страницы нет»),
-`/more` — «Ещё» (FT-125: счета и курс,
-категории, уведомления бота, тема, выгрузка — с FT-126 CSV всех записей приходит в чат с ботом или скачивается в
-браузере, `features/export-records`; в браузере ещё «Аккаунт»), `/more/categories` — категории (FT-127: переименовать,
-цвет, скрыть, своя; `pages/categories`), `/audit` — ревизия трат прошлого месяца (FT-132: `pages/audit`, данные —
-`entities/audit`; открывается приглашением и «Целями после ревизии» на главной — `widgets/audit-card`, строкой «Ревизия
-трат» в «Ещё» и карточкой под расходами ревизуемого месяца в аналитике). Любой другой адрес — «Такой страницы нет» (#222,
-`pages/not-found`). Экран, который не загрузился или упал, — «Экран не открылся» (#240, `pages/route-error`): его
-показывают страница ошибки роутера и верхний `ErrorBoundary`. Внутри Telegram ответ `401` — initData Mini App сервер
-больше не принимает (#316) — ставит на место всего приложения «Откройте Kapelka заново» (`pages/mini-app-reopen`,
-`app/providers/MiniAppReopenGate`): кнопка закрывает Mini App, записи в очереди ждут — `OfflineSync` их до нового
-открытия не отправляет (#385) — и уходят после него.
-Нижний бар (FT-086): Главная · История · Записать · Ещё.
-`BackButton`/`MainButton` Telegram написаны, но не используются.
+Feature-Sliced Design: `app`, `pages` (16), `widgets` (7), `features` (11), `entities` (10), `shared`. 444 файла, из
+них 136 — тесты Vitest: чистые функции, компоненты и экраны (jsdom). `entities/debt` — только ключи кэша `debtKeys`:
+их сбрасывает запись фразы с долгом (замороженный путь записи, #266).
 
-**Что переиспользуется при переносе**
+**Запуск.** `app/index.tsx`: `AppProviders` — `ErrorBoundary` (сбой вне роутера — «Экран не открылся», #240),
+`ThemeController`, TanStack Query, `HydrationGate` (ждёт сохранённое состояние zustand, а без связи — и сохранённые чтения),
+`UserInitializer`, `OfflineSync` (очередь записей без связи; пока стоит «Откройте Kapelka заново», ничего не
+отправляет — #385), `ThemeSettingsSync` и `MiniAppReopenGate` (#316) — вокруг роутера. В роутере перед экранами —
+`AuthGate` (вход в браузере, FT-128) и `FirstLaunchGate` (первый запуск, FT-109), рамка экранов — `AppShell`.
 
-- `shared/api/client.ts` — клиент с `Authorization: tma <initData>`.
-- `entities/*/api` — запросы и мутации React Query, ключи кэша (`toViewModel` и старые строки записей убраны в #289).
-- `features/quick-capture` — отправка текста, разбор ответа (`toCaptureFeedback`); с FT-114 там же `Composer`,
-  чипы частых трат и экран проверки записей `/review`.
-- `entities/transaction/lib` — группировка по дням, подписи строк.
-- `plural.ts`, `haptic.ts` (`shared/lib/formatters` убраны в #289: деньги считает `shared/lib/money`).
-- `useUserStore` (zustand) (`shared/hooks/useTelegram.ts` убран в #289).
+**Маршруты** — таблица в [`webapp/README.md`](../../webapp/README.md#routes); источник — `app/router/appRoutes.tsx`,
+ссылки в коде — `ROUTES` (`shared/lib/constants/routes.ts`). Коротко: `/` главная (`/?record=<id>` — с карточкой
+операции), `/transactions` история, `/add` ручной ввод, `/review` проверка записей фразы, `/offline-voice` и
+`/offline-receipt` — голос и чек без связи, `/analytics` и `/analytics/categories/:id`, `/accounts`, `/accounts/:id`,
+`/accounts/transfer`, `/audit`, `/more`, `/more/categories`, `/dev/pastel`; любой другой адрес — «Такой страницы нет»
+(#222). Каждая страница — свой кусок кода (`app/router/pageLoaders.ts`), куски экранов, куда ведёт главная, грузятся
+заранее после неё (`screenPrefetch.ts`, #291); пока кусок грузится — `PageLoader`: у главной `HomeSkeleton`, у
+остальных `LoadingScreen`.
 
-**Что заменяется целиком.** Токены и шрифт (Onest, нейтральный shadcn, только светлая тема), нижний бар,
-страницы и виджеты Главной, Истории, Аналитики, «Ещё», формы ввода и правки.
+**Навигация.** Нижнего бара нет (FT-110): главная открывает историю и аналитику, «Ещё» — остальное. «Назад» вложенных
+экранов — BackButton Telegram (`useTelegramBackButton`, `shared/lib/navigation`), вне Telegram — своя круглая кнопка.
+`MainButton` Telegram не используется: он есть только в типах `shared/types/telegram.ts`.
 
-**Чего в webapp нет вообще.** Тёмной темы, голоса (только в боте), счетов и валют, шторок-выборщиков, отмены
-действий, настроек, управления категориями, выгрузки. (Гостевой режим с записями в IndexedDB убран в
-FT-128 по Д4: в браузере теперь вход через бота и сессия-cookie.) С FT-129 Dexie держит офлайн-очередь записей и
-сохранённые ответы чтений главной и счетов (`shared/lib/offline`, база `daftar-offline`).
+**Где что лежит.**
+
+- `shared/api/client.ts` — клиент API: в Telegram `Authorization: tma <initData>`, в браузере httpOnly-cookie сессии
+  (FT-128), в разработке без Telegram — `X-Dev-User-Id` из `VITE_MOCK_USER_ID`.
+- `entities/*/api` — запросы и мутации TanStack Query, ключи кэша.
+- `features/quick-capture` — поле ввода `Composer`, чипы частых трат, проверка записей `/review`, разбор простого
+  текста без связи (`model/offlineText`). `features/record-sheet` — карточка операции.
+- `shared/lib` — `money` (формат, клавиатура), `undo` (стопка Toast), `dates`, `theme`, `pastel` (цвета категорий),
+  `offline` (связь, очередь Dexie в базе `daftar-offline`, сохранённые чтения), `navigation`, `telegram`,
+  `plural.ts`, `haptic.ts`.
+- `entities/user` — `useUserStore` (zustand): кто вошёл и отказал ли сервер Mini App.
+
+**Чего в webapp нет.** Голоса — он в боте и iOS-приложении (FT-117 снята, микрофон поля ввода говорит «Голос здесь —
+скоро»); фото и QR чеков (FT-134, FT-135).
