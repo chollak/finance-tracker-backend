@@ -23,13 +23,13 @@ vi.mock('@/shared/api/client', () => {
 });
 
 // Home and Analytics fall while drawing; the other pages are the app's own
-vi.mock('@/pages', async (importOriginal) => {
-  const pages = await importOriginal<typeof import('@/pages')>();
-  const fall = (): never => {
+const { fall } = vi.hoisted(() => ({
+  fall: (): never => {
     throw new TypeError("Cannot read properties of undefined (reading 'amountMinor')");
-  };
-  return { ...pages, HomePage: fall, AnalyticsPage: fall };
-});
+  },
+}));
+vi.mock('@/pages/home', () => ({ HomePage: fall }));
+vi.mock('@/pages/analytics', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/pages/analytics')>()), AnalyticsPage: fall }));
 
 vi.mock('@/pages/route-error/model/reload', () => ({ reloadHere: vi.fn(), reloadHome: vi.fn() }));
 
@@ -40,8 +40,9 @@ let root: Root;
 let container: HTMLDivElement;
 let logged: ReturnType<typeof vi.spyOn>;
 
+// Analytics' own code (its category screen is real) loads once here, so a slow first import does not decide
 beforeAll(async () => {
-  await import('@/pages');
+  await import('@/pages/analytics');
 }, 60_000);
 
 beforeEach(() => {

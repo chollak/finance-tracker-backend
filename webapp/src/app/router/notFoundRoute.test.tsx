@@ -30,8 +30,9 @@ let root: Root;
 let container: HTMLDivElement;
 let onboardedAt: string | null;
 
+// The screens these tests reach load their code once here, so a slow first import (a busy test run) does not decide
 beforeAll(async () => {
-  await import('@/pages');
+  await Promise.all([import('@/pages/home'), import('@/pages/login'), import('@/pages/first-launch')]);
 }, 60_000);
 
 beforeEach(() => {

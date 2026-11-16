@@ -86,6 +86,12 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
+        // Each screen loads its own piece (#291), named after its page — `page-home-*.js`, not one more `index-*.js`:
+        // in the build's list and in a «Failed to fetch dynamically imported module» in the log
+        chunkFileNames: (chunk) => {
+          const page = chunk.facadeModuleId?.match(/[\\/]src[\\/]pages[\\/]([^\\/]+)[\\/]index\.tsx?$/)?.[1]
+          return page ? `assets/page-${page}-[hash].js` : 'assets/[name]-[hash].js'
+        },
         manualChunks: {
           // React and router
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],

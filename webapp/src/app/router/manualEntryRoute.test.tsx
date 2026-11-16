@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { matchRoutes, MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { HomePage } from '@/pages';
+import { HomePage } from '@/pages/home';
 import { ManualEntryPage } from '@/pages/manual-entry';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { useUserStore } from '@/entities/user';
