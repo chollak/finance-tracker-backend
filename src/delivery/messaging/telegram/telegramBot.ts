@@ -24,6 +24,7 @@ import { registerLoginHandlers } from './handlers/loginHandlers';
 import { closeAmountQuestionOnCommand, registerRecordHandlers } from './handlers/recordHandlers';
 import { registerPaymentHandlers } from './handlers/paymentHandlers';
 import { allowedUsersOnly } from './middleware/allowedUsersOnly';
+import { chatQueue } from './middleware/chatQueue';
 import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
 
 const logger = createLogger(LogCategory.TELEGRAM);
@@ -176,8 +177,11 @@ export function startTelegramBot(
       return NO_BOT;
     }
 
-    // Create bot instance with custom context
-    const bot = new Telegraf<BotContext>(AppConfig.TG_BOT_API_KEY);
+    // No handler limit (#317). Telegraf's 90 s ended in bot.catch — «Произошла ошибка. Попробуйте снова.» — while the
+    // handler went on and could still write and confirm, so the repeat was a second record; and with the chat queue
+    // the wait behind the chat's earlier updates would count too. The slow parts have limits of their own (OpenAI, the
+    // voice download); an update that runs long is logged by the queue
+    const bot = new Telegraf<BotContext>(AppConfig.TG_BOT_API_KEY, { handlerTimeout: Infinity });
 
     // Prepare modules for context injection
     const modules: BotModules = {
@@ -201,6 +205,9 @@ export function startTelegramBot(
 
     // Closed access (FT-153): first of all, so someone not in ALLOWED_TELEGRAM_IDS reaches nothing below
     bot.use(allowedUsersOnly(AppConfig.TELEGRAM_ACCESS));
+
+    // One update of a chat at a time, in Telegram's order (#317): before anything that awaits, or the order is lost
+    bot.use(chatQueue());
 
     // Inject modules into context
     bot.use((ctx, next) => {

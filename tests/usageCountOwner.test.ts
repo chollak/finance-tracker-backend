@@ -78,13 +78,13 @@ describe('the record counter counts on the record owner (FT-171)', () => {
     const first = await record(ownerId);
     await record(ownerId);
 
-    expect((await remove.execute({ id: first, userId: ownerId })).success).toBe(true);
+    // The delete reads the owner from the record
+    expect((await remove.execute({ id: first })).success).toBe(true);
     expect(await counted()).toEqual([{ user_id: ownerId, transactions_count: 1 }]);
 
     expect((await restore.execute({ id: first })).success).toBe(true);
     expect(await counted()).toEqual([{ user_id: ownerId, transactions_count: 2 }]);
 
-    // Without a userId the delete reads the owner from the record
     expect((await remove.execute({ id: first })).success).toBe(true);
     expect(await counted()).toEqual([{ user_id: ownerId, transactions_count: 1 }]);
     expect(await userRows()).toBe(1);
