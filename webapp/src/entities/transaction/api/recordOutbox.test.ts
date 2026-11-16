@@ -230,7 +230,7 @@ describe('when the connection is back', () => {
 
     await cancelQueuedRecords(queryClient, { clientIds: [taxi.clientId], userId: USER });
 
-    expect(apiClient.delete).toHaveBeenCalledWith(`/transactions/srv-1?userId=${USER}`);
+    expect(apiClient.delete).toHaveBeenCalledWith(`/transactions/srv-1`);
   });
 });
 
@@ -277,7 +277,7 @@ describe('«Отменить» while the record is being sent', () => {
     send.answer('srv-7');
     await flushed;
 
-    expect(apiClient.delete).toHaveBeenCalledWith(`/transactions/srv-7?userId=${USER}`);
+    expect(apiClient.delete).toHaveBeenCalledWith(`/transactions/srv-7`);
     expect(outboxOf(USER)).toEqual([]);
     expect(await storage.listOutbox(USER)).toEqual([]);
     expect(queryClient.getQueryData(transactionKeys.recent(USER, 5))).toEqual([]);
@@ -302,7 +302,7 @@ describe('«Отменить» while the record is being sent', () => {
     await flushRecordOutbox(queryClient, USER);
 
     expect(sentClientIds()).toEqual([taxi.clientId, taxi.clientId]);
-    expect(apiClient.delete).toHaveBeenCalledWith(`/transactions/srv-1?userId=${USER}`);
+    expect(apiClient.delete).toHaveBeenCalledWith(`/transactions/srv-1`);
     expect(outboxOf(USER)).toEqual([]);
     expect(await storage.listOutbox(USER)).toEqual([]);
   });
@@ -322,7 +322,7 @@ describe('«Отменить» while the record is being sent', () => {
 
     expect(pendingRecordsOf(USER)).toEqual([]);
     await flushRecordOutbox(queryClient, USER);
-    expect(apiClient.delete).toHaveBeenCalledWith(`/transactions/srv-1?userId=${USER}`);
+    expect(apiClient.delete).toHaveBeenCalledWith(`/transactions/srv-1`);
     expect(outboxOf(USER)).toEqual([]);
   });
 

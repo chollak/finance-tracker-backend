@@ -45,7 +45,6 @@ function buildTestApp() {
 
   const records = {
     create: { execute: jest.fn() },
-    ofUser: { execute: jest.fn() },
     byId: { execute: jest.fn() },
   };
   const unused = { execute: jest.fn() } as never;
@@ -55,7 +54,7 @@ function buildTestApp() {
     getGetUserUseCase: () => ({ execute: jest.fn().mockResolvedValue({ success: true, data: { id: OWNER_UUID } }) }),
   } as unknown as UserModule;
   router.use('/transactions', createTransactionRouter(
-    records.create as never, unused, records.ofUser as never, records.byId as never,
+    records.create as never, unused, records.byId as never,
     unused, unused, unused,
     undefined,
     userModule
@@ -156,26 +155,27 @@ describe('API routes and middleware (characterization)', () => {
       expect(records().create.execute).not.toHaveBeenCalled();
     });
 
+    // Asked of `GET /api/transactions/user/:userId` until it went (#289); one record signs in the same way
     it('rejects a request with no auth header (401)', async () => {
-      const res = await fetch(`${baseUrl}/api/transactions/user/555111`);
+      const res = await fetch(`${baseUrl}/api/transactions/record-1`);
       expect(res.status).toBe(401);
       const body = await res.json();
       expect(body).toMatchObject({ success: false, code: 'MISSING_AUTH_HEADER' });
-      expect(records().ofUser.execute).not.toHaveBeenCalled();
+      expect(records().byId.execute).not.toHaveBeenCalled();
     });
 
     it('allows a signed-in request via the X-Dev-User-Id bypass (non-production only)', async () => {
-      records().ofUser.execute.mockResolvedValue({ success: true, data: [] });
+      records().byId.execute.mockResolvedValue({ success: true, data: { id: 'record-1', userId: OWNER_UUID } });
 
-      const res = await fetch(`${baseUrl}/api/transactions/user/555111`, {
+      const res = await fetch(`${baseUrl}/api/transactions/record-1`, {
         headers: { 'X-Dev-User-Id': '555111' },
       });
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.success).toBe(true);
-      // The Telegram id in the path is resolved to the owner's UUID
-      expect(records().ofUser.execute).toHaveBeenCalledWith(OWNER_UUID);
+      expect(body).toMatchObject({ success: true, data: { id: 'record-1' } });
+      // The Telegram id of the bypass is resolved to the owner's UUID, who owns the record
+      expect(records().byId.execute).toHaveBeenCalledWith('record-1', undefined);
     });
 
     it('maps a record that is not there to a 404, not a 500', async () => {

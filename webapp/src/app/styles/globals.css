@@ -21,7 +21,6 @@
   --legacy-warning-muted: var(--pastel-butter);
   --legacy-warning: oklch(52% 0.15 50);
   --legacy-destructive: oklch(55% 0.2 25);
-  --legacy-chart-5: oklch(42% 0.1 265);
 }
 
 [data-theme="dark"] {
@@ -30,7 +29,6 @@
   --legacy-warning-muted: #3f3e37;
   --legacy-warning: oklch(78% 0.14 70);
   --legacy-destructive: oklch(70% 0.17 25);
-  --legacy-chart-5: oklch(66% 0.12 265);
 }
 
 @theme inline {
@@ -117,17 +115,6 @@
   --color-success: var(--income);
   --color-success-foreground: var(--on-primary);
   --color-success-muted: var(--legacy-income-muted);
-
-  /* ===== CHART COLORS =====
-     Category identity palette only — mirrors `colors.chart` in
-     webapp/src/shared/lib/design-tokens.ts. Deliberately skips the income-green
-     and expense-red hues so a category slice never reads as money meaning. */
-  --color-chart-1: oklch(55% 0.15 250);   /* Blue */
-  --color-chart-2: oklch(55% 0.15 195);   /* Teal */
-  --color-chart-3: oklch(55% 0.15 320);   /* Purple */
-  --color-chart-4: oklch(70% 0.13 75);    /* Amber */
-  --color-chart-5: var(--legacy-chart-5); /* Indigo */
-  --color-chart-6: oklch(60% 0.01 250);   /* Gray */
 
   /* ===== BORDER RADIUS SCALE ===== */
   --radius-sm: 0.5rem;    /* 8px - Badges, chips */

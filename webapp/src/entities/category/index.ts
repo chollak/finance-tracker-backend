@@ -4,4 +4,3 @@ export type { Category, CategoryType, CategoryPatch, NewCategory } from './model
 export { useCategories, categoryKeys } from './api/queries';
 export { createCategory, updateCategory, deleteCategory } from './api/writes';
 export { pickableCategories, findCategory, cleanCategoryName, categoryNameKey } from './lib/categoryList';
-export { categoryMarkClass, categoryInitial } from './lib/display';
