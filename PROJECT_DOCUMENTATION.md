@@ -462,7 +462,7 @@ npm test budget          # Run specific test file
 ```
 
 ### Test Configuration
-- **Framework**: Jest with ts-jest preset
+- **Framework**: Jest with ts-jest, translation only (`tsconfig.test.json`); test types — `npm run typecheck:tests`
 - **Environment**: Node.js
 - **Configuration**: `jest.config.js`
 
