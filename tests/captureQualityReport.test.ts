@@ -4,8 +4,8 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import sqlite3 from 'sqlite3';
-import { createAppDataSource } from '../src/shared/infrastructure/database/database.config';
 import { main } from '../scripts/capture-quality-report';
+import { DatabaseFile, newDatabaseFile } from './helpers/testDatabase';
 
 /**
  * The capture quality report (FT-217) on a real SQLite file built by the app's own migrations: every source, edits,
@@ -107,11 +107,10 @@ const BOT_MESSAGES = [
   { id: 'm7', records: ['r16', 'r17'], heard: null, state: { selected: 1, guessed: [], changed: 'Дата: вчера' } },
 ];
 
-async function buildDatabase(file: string): Promise<void> {
-  const ds = createAppDataSource(file);
-  await ds.initialize();
+/** The file migrated as the app migrates its own, then the rows written straight into it; closed after. */
+async function buildDatabase(database: DatabaseFile): Promise<void> {
+  const ds = await database.open();
   try {
-    await ds.runMigrations();
     for (const [id, telegramId] of [['user-1', '111'], ['user-2', '222']]) {
       await ds.query(`INSERT INTO users (id, telegram_id, first_name) VALUES (?, ?, ?)`, [id, telegramId, `ИМЯ-${SECRET}`]);
     }
@@ -152,25 +151,19 @@ async function buildDatabase(file: string): Promise<void> {
       );
     }
   } finally {
-    await ds.destroy();
+    await database.closeAll();
   }
 }
 
 const sha256 = (file: string) => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 
 describe('capture quality report (FT-217)', () => {
-  let dir: string;
-  let copy: string;
+  const database = newDatabaseFile('kapelka-report.sqlite');
+  const { dir, file: copy } = database;
 
-  beforeAll(async () => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft217-'));
-    copy = path.join(dir, 'kapelka-report.sqlite');
-    await buildDatabase(copy);
-  });
+  beforeAll(() => buildDatabase(database));
 
-  afterAll(() => {
-    fs.rmSync(dir, { recursive: true, force: true });
-  });
+  afterAll(() => database.remove());
 
   async function run(args: string[], appRoot = dir): Promise<{ code: number; out: string; err: string }> {
     let out = '';

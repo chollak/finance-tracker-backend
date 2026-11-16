@@ -1,10 +1,5 @@
 import 'reflect-metadata';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 import { DataSource } from 'typeorm';
-import { createAppDataSource } from '../src/shared/infrastructure/database/database.config';
-import { runMigrationsWithBackup } from '../src/shared/infrastructure/database/migrationRunner';
 import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
 import { TransactionModule } from '../src/modules/transaction/transactionModule';
 import { SqliteTransactionRepository } from '../src/modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
@@ -18,43 +13,45 @@ import { SqliteUserRepository } from '../src/modules/user/infrastructure/persist
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
 import { NotificationModule } from '../src/modules/notification/notificationModule';
 import { SqliteNotificationLogRepository } from '../src/modules/notification/infrastructure/SqliteNotificationLogRepository';
-import { registerSummaryHandlers, summarySender } from '../src/delivery/messaging/telegram/handlers/summaryHandlers';
+import { summarySender } from '../src/delivery/messaging/telegram/handlers/summaryHandlers';
 import { TelegramAccess, telegramAccess } from '../src/shared/domain/access/telegramAccess';
-import { prepareDatabaseOnce } from './helpers/testDatabase';
-import { refuseWebAppOffHttps } from './helpers/telegramWebAppRefusal';
+import { DatabaseFile, prepareDatabaseOnce } from './helpers/testDatabase';
+import { SentMessage, TelegramStand } from './helpers/telegramStand';
 
 /**
  * FT-124 end to end on a real SQLite file: the daily summary goes out at the user's chosen time on the user's
  * clock, once — a second tick or a restart does not repeat it; a day without records asks «Трат правда не
  * было?» at most 2 evenings in a row and again after a record, never before the first record and not on the
  * evening the user came after the chosen time; «Да, не было» answers it, unless the day has records by then.
- * Telegram is a fake that keeps what the bot sent; the text is drawn by the bot's own sender.
+ * The text is drawn by the bot's own sender into the stand's chats (`tests/helpers/telegramStand.ts`), and «Да, не
+ * было» is pressed through the bot `startTelegramBot` assembles (#294).
  */
 
 const NB = '\u00a0';
 const TELEGRAM_ID = '597843119';
 const BASE_URL = 'https://miniapp.test';
 
-interface Sent { chatId: string; text: string; keyboard: Array<Array<{ text: string; callback_data?: string; web_app?: { url: string } }>>; messageId: number }
-
 describe('daily summary (FT-124)', () => {
-  let dir: string;
-  let file: string;
-  const open: DataSource[] = [];
+  let db: DatabaseFile;
   let clock: Date;
-  let sent: Sent[];
-  let refuse: Error | null;
-  let nextMessageId: number;
+  /** Telegram: the chats of the users, kept across restarts of the bot. */
+  let stand: TelegramStand;
 
-  const telegram = {
-    sendMessage: jest.fn(async (chatId: string, text: string, extra?: any) => {
-      if (refuse) throw refuse;
-      refuseWebAppOffHttps(extra);
-      const message = { chatId: String(chatId), text, keyboard: extra?.reply_markup?.inline_keyboard ?? [], messageId: nextMessageId++ };
-      sent.push(message);
-      return { message_id: message.messageId, chat: { id: Number(chatId) } };
-    }),
-  };
+  /** How many of the messages sent so far a test has put aside: `sent()` starts after them. */
+  let forgotten = 0;
+  /** What the bot sent, in every chat, oldest first, as it sent it. */
+  const sent = (): SentMessage[] => stand.sent().slice(forgotten);
+
+  /** Only the messages from now on count in `sent()`. */
+  function forgetSent(): void {
+    forgotten = stand.sent().length;
+  }
+
+  /** Telegram refuses every message with `error` — the request never got through, say — until `null`. */
+  function refuse(error: Error | null): void {
+    stand.stopRefusing('sendMessage');
+    if (error) stand.refuse('sendMessage', error, { times: Infinity });
+  }
 
   interface Running {
     ds: DataSource;
@@ -66,11 +63,9 @@ describe('daily summary (FT-124)', () => {
   /** Migrated once for the file; each test's bot starts over its own copy (#250). */
   const migrated = prepareDatabaseOnce();
 
+  /** The bot's process: its modules over the file and the bot over them; the summary's ticks are the test's. */
   async function start(access?: TelegramAccess): Promise<Running> {
-    const ds = createAppDataSource(file);
-    open.push(ds);
-    await ds.initialize();
-    await runMigrationsWithBackup(ds, file, path.join(dir, 'backups'));
+    const ds = await db.open();
     const categoryModule = new CategoryModule(new SqliteCategoryRepository(ds));
     const accountModule = new AccountModule(new SqliteAccountRepository(ds), undefined, new SqliteAccountMoveRepository(ds));
     const transactionModule = new TransactionModule(new SqliteTransactionRepository(ds));
@@ -78,6 +73,7 @@ describe('daily summary (FT-124)', () => {
     transactionModule.setAccountResolver(accountModule.getBook());
     const userModule = new UserModule(new SqliteUserRepository(ds), new SqliteUserSettingsRepository(ds));
     const notificationModule = new NotificationModule(new SqliteNotificationLogRepository(ds), { transactionModule, userModule, access }, () => clock);
+    stand.start({ transactionModule, userModule, notificationModule, categoryModule, accountModule });
     return { ds, transactionModule, userModule, notificationModule };
   }
 
@@ -94,6 +90,7 @@ describe('daily summary (FT-124)', () => {
 
   /** A user with the bot since September, before any of the days below — whatever the real date is. */
   async function user(telegramId: string = TELEGRAM_ID): Promise<string> {
+    stand.chatWith(Number(telegramId));
     const created = await running.userModule.getGetOrCreateUserUseCase().execute({ telegramId, firstName: 'Shukur' });
     await joined(created.id, '2026-09-01', '09:00');
     return created.id;
@@ -117,44 +114,35 @@ describe('daily summary (FT-124)', () => {
     await running.ds.query('UPDATE users SET created_at = ? WHERE id = ?', [utc, owner]);
   }
 
-  /** «Да, не было» pressed under the message the bot sent. */
-  async function pressNoSpending(message: Sent) {
-    const actions: Array<{ trigger: RegExp; handler: (ctx: any) => Promise<void> }> = [];
-    registerSummaryHandlers({ action: (trigger: RegExp, handler: any) => actions.push({ trigger, handler }) } as any);
-    const data = message.keyboard[0][0].callback_data!;
-    const action = actions.find(({ trigger }) => trigger.test(data))!;
-    const ctx: any = {
-      from: { id: Number(TELEGRAM_ID) },
-      match: action.trigger.exec(data),
-      callbackQuery: { data, message: { message_id: message.messageId, chat: { id: Number(TELEGRAM_ID) } } },
-      modules: { userModule: running.userModule, notificationModule: running.notificationModule },
-      answerCbQuery: jest.fn().mockResolvedValue(true),
-      editMessageText: jest.fn().mockResolvedValue(true),
-    };
-    await action.handler(ctx);
-    return ctx;
+  /**
+   * «Да, не было» pressed under the message the bot sent, by the person: every answer the bot gave the press, and the
+   * edits it made of the message — the text and what came with it.
+   */
+  async function pressNoSpending(message: SentMessage) {
+    const editsBefore = stand.calls.length;
+    const answers = await stand.press(message.messageId, 'Да, не было');
+    const edits: Array<[string, any]> = stand.calls.slice(editsBefore)
+      .filter(call => call.method === 'editMessageText' && call.payload.message_id === message.messageId)
+      .map(({ payload: { chat_id: _chat, message_id: _message, inline_message_id: _inline, text, ...extra } }) => [text, extra]);
+    return { answers, edits };
   }
 
   async function tick() {
-    return running.notificationModule.getDailySummary().tick(summarySender(telegram as any));
+    return running.notificationModule.getDailySummary().tick(summarySender(stand.telegram));
   }
 
   beforeEach(async () => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft124-'));
-    file = path.join(dir, 'db.sqlite');
-    migrated.copyTo(file);
-    sent = [];
-    refuse = null;
-    nextMessageId = 700;
-    telegram.sendMessage.mockClear();
+    db = migrated.newFile();
+    forgotten = 0;
+    stand = new TelegramStand({ id: Number(TELEGRAM_ID), first_name: 'Shukur' });
+    stand.install();
     jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue(BASE_URL);
     running = await start();
   });
 
   afterEach(async () => {
     jest.restoreAllMocks();
-    for (const ds of open.splice(0)) if (ds.isInitialized) await ds.destroy();
-    fs.rmSync(dir, { recursive: true, force: true });
+    await db.remove();
   });
 
   it('at 21:00 in Tashkent: the total, the categories and the month against the same days of September — once', async () => {
@@ -169,13 +157,13 @@ describe('daily summary (FT-124)', () => {
 
     at('2026-10-14', '20:59');
     expect(await tick()).toEqual([]);
-    expect(sent).toEqual([]);
+    expect(sent()).toEqual([]);
 
     at('2026-10-14', '21:00');
     expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent' }]);
-    expect(sent).toHaveLength(1);
-    expect(sent[0].chatId).toBe(TELEGRAM_ID);
-    expect(sent[0].text).toBe([
+    expect(sent()).toHaveLength(1);
+    expect(sent()[0].chatId).toBe(TELEGRAM_ID);
+    expect(sent()[0].text).toBe([
       `<b>Итоги дня · 14${NB}октября</b>`,
       `Потрачено 210${NB}400${NB}сум · 2 записи`,
       '',
@@ -184,7 +172,7 @@ describe('daily summary (FT-124)', () => {
       '',
       `С начала октября — 387${NB}400${NB}сум, на 187${NB}400${NB}сум больше, чем за 1–14 сентября.`,
     ].join('\n'));
-    expect(sent[0].keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗', web_app: { url: `${BASE_URL}/` } })]]);
+    expect(sent()[0].keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗', web_app: { url: `${BASE_URL}/` } })]]);
 
     // Every minute until midnight: nothing more; after a restart neither
     at('2026-10-14', '21:01');
@@ -192,9 +180,9 @@ describe('daily summary (FT-124)', () => {
     await restart();
     at('2026-10-14', '22:30');
     expect(await tick()).toEqual([]);
-    expect(sent).toHaveLength(1);
+    expect(sent()).toHaveLength(1);
     expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({
-      status: 'sent', variant: 'summary', chatId: TELEGRAM_ID, messageId: 700,
+      status: 'sent', variant: 'summary', chatId: TELEGRAM_ID, messageId: sent()[0].messageId,
     });
   });
 
@@ -205,10 +193,10 @@ describe('daily summary (FT-124)', () => {
     at('2026-10-14', '21:00');
 
     expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent' }]);
-    expect(sent).toHaveLength(1);
-    expect(sent[0].text).toContain(`Потрачено 45${NB}000${NB}сум · 1 запись`);
-    expect(sent[0].keyboard).toEqual([]);
-    expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({ status: 'sent', messageId: 700 });
+    expect(sent()).toHaveLength(1);
+    expect(sent()[0].text).toContain(`Потрачено 45${NB}000${NB}сум · 1 запись`);
+    expect(sent()[0].keyboard).toEqual([]);
+    expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({ status: 'sent', messageId: sent()[0].messageId });
   });
 
   it('goes only to the users on ALLOWED_TELEGRAM_IDS from the config; the rest of the base is left as it is (FT-153)', async () => {
@@ -222,7 +210,7 @@ describe('daily summary (FT-124)', () => {
     at('2026-10-14', '21:00');
 
     expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent' }]);
-    expect(sent.map(message => message.chatId)).toEqual([TELEGRAM_ID]);
+    expect(sent().map(message => message.chatId)).toEqual([TELEGRAM_ID]);
     expect(await logEntry(tester, 'daily_summary', '2026-10-14')).toBeNull();
   });
 
@@ -232,9 +220,9 @@ describe('daily summary (FT-124)', () => {
     const second = await start();
     at('2026-10-14', '21:00');
 
-    await Promise.all([tick(), second.notificationModule.getDailySummary().tick(summarySender(telegram as any))]);
+    await Promise.all([tick(), second.notificationModule.getDailySummary().tick(summarySender(stand.telegram))]);
 
-    expect(sent).toHaveLength(1);
+    expect(sent()).toHaveLength(1);
   });
 
   it('at the time the user chose, not at all when switched off', async () => {
@@ -250,7 +238,7 @@ describe('daily summary (FT-124)', () => {
     expect(await tick()).toEqual([{ userId: late, day: '2026-10-14', outcome: 'asked' }]);
     at('2026-10-14', '23:59');
     expect(await tick()).toEqual([]);
-    expect(sent.map(message => message.chatId)).toEqual(['597843120']);
+    expect(sent().map(message => message.chatId)).toEqual(['597843120']);
   });
 
   // No route writes users.timezone since #274, and nothing reads it since #275: every user is on Tashkent's clock
@@ -264,7 +252,7 @@ describe('daily summary (FT-124)', () => {
     expect(await tick()).toEqual([]);
     at('2026-10-14', '21:00'); // 19:00 in Moscow
     expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent' }]);
-    expect(sent[0].text).toContain(`Потрачено 45${NB}000${NB}сум · 1 запись`);
+    expect(sent()[0].text).toContain(`Потрачено 45${NB}000${NB}сум · 1 запись`);
   });
 
   it('a day without records: «Трат правда не было?» two evenings in a row, then silence until the next record', async () => {
@@ -277,18 +265,18 @@ describe('daily summary (FT-124)', () => {
     };
 
     expect(await evening('2026-10-11')).toEqual(['asked']);
-    expect(sent[0].text).toBe([
+    expect(sent()[0].text).toBe([
       `<b>Итоги дня · 11${NB}октября</b>`,
       'Записей нет. Трат правда не было?',
       '',
       '<i>Если что-то было — просто напишите, например «обед 45к».</i>',
     ].join('\n'));
-    expect(sent[0].keyboard).toEqual([[{ text: 'Да, не было', callback_data: 'n:none:2026-10-11', hide: false }]]);
+    expect(sent()[0].keyboard).toEqual([[{ text: 'Да, не было', callback_data: 'n:none:2026-10-11', hide: false }]]);
 
     expect(await evening('2026-10-12')).toEqual(['asked']);
     expect(await evening('2026-10-13')).toEqual(['skipped']);
     expect(await evening('2026-10-14')).toEqual(['skipped']);
-    expect(sent).toHaveLength(2);
+    expect(sent()).toHaveLength(2);
 
     await record(owner, '2026-10-15', 'Такси', 18_000);
     expect(await evening('2026-10-15')).toEqual(['sent']);
@@ -310,7 +298,7 @@ describe('daily summary (FT-124)', () => {
 
     expect(await evening('2026-10-11')).toEqual(['skipped']);
     expect(await evening('2026-10-12')).toEqual(['skipped']);
-    expect(sent).toEqual([]);
+    expect(sent()).toEqual([]);
     expect(await logEntry(owner, 'daily_summary', '2026-10-12')).toMatchObject({ status: 'skipped', variant: 'empty' });
 
     // The first record: from now on the empty evenings are asked about, two in a row
@@ -319,7 +307,7 @@ describe('daily summary (FT-124)', () => {
     expect(await evening('2026-10-14')).toEqual(['asked']);
     expect(await evening('2026-10-15')).toEqual(['asked']);
     expect(await evening('2026-10-16')).toEqual(['skipped']);
-    expect(sent).toHaveLength(3);
+    expect(sent()).toHaveLength(3);
   });
 
   it('a new user who came at 22:15, after the chosen time: nothing that evening, even after a first record', async () => {
@@ -329,7 +317,7 @@ describe('daily summary (FT-124)', () => {
     // The minute after /start: no question under the greeting, nothing claimed for the day
     at('2026-10-20', '22:16');
     expect(await tick()).toEqual([]);
-    expect(sent).toEqual([]);
+    expect(sent()).toEqual([]);
     expect(await logEntry(owner, 'daily_summary', '2026-10-20')).toBeNull();
 
     // The first record a few minutes later is not followed by a summary of it
@@ -338,7 +326,7 @@ describe('daily summary (FT-124)', () => {
     expect(await tick()).toEqual([]);
     at('2026-10-20', '23:59');
     expect(await tick()).toEqual([]);
-    expect(sent).toEqual([]);
+    expect(sent()).toEqual([]);
 
     // Nothing to catch up the next morning: that evening was not theirs (FT-164)
     at('2026-10-21', '08:00');
@@ -365,13 +353,13 @@ describe('daily summary (FT-124)', () => {
     at('2026-10-19', '21:00');
     await tick();
 
-    const ctx = await pressNoSpending(sent[0]);
+    const press = await pressNoSpending(sent()[0]);
 
-    expect(ctx.editMessageText).toHaveBeenCalledWith(
+    expect(press.edits).toEqual([[
       `<b>Итоги дня · 19${NB}октября</b>\nОтметил: 19${NB}октября трат не было.`,
-      { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } }
-    );
-    expect(ctx.answerCbQuery).toHaveBeenCalled();
+      { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } },
+    ]]);
+    expect(press.answers).toHaveLength(1);
     expect(await logEntry(owner, 'daily_summary', '2026-10-19')).toMatchObject({ answer: 'no_spending' });
   });
 
@@ -384,10 +372,10 @@ describe('daily summary (FT-124)', () => {
     await record(owner, '2026-10-19', 'Кафе', 45_000);
     at('2026-10-19', '21:10');
 
-    const ctx = await pressNoSpending(sent[0]);
+    const press = await pressNoSpending(sent()[0]);
 
-    expect(ctx.editMessageText).toHaveBeenCalledTimes(1);
-    const [text, extra] = ctx.editMessageText.mock.calls[0];
+    expect(press.edits).toHaveLength(1);
+    const [[text, extra]] = press.edits;
     expect(text).toBe([
       `<b>Итоги дня · 19${NB}октября</b>`,
       `Потрачено 45${NB}000${NB}сум · 1 запись`,
@@ -398,29 +386,30 @@ describe('daily summary (FT-124)', () => {
     ].join('\n'));
     // No «Да, не было» any more: the link to the app instead
     expect(extra.reply_markup.inline_keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗' })]]);
-    expect(ctx.answerCbQuery).toHaveBeenCalled();
+    expect(press.answers).toHaveLength(1);
     expect(await logEntry(owner, 'daily_summary', '2026-10-19')).toMatchObject({ variant: 'empty', answer: null });
   });
 
   it('Telegram refuses (the bot is blocked): kept as failed, not tried again that day', async () => {
     const owner = await user();
     await record(owner, '2026-10-14', 'Кафе', 45_000);
-    refuse = new Error('403: Forbidden: bot was blocked by the user');
+    // The notices name the chat by a string: blocked is blocked all the same
+    stand.block(TELEGRAM_ID);
 
     at('2026-10-14', '21:00');
     expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'failed' }]);
-    refuse = null;
+    stand.unblock(TELEGRAM_ID);
     await restart();
     at('2026-10-14', '21:05');
     expect(await tick()).toEqual([]);
-    expect(sent).toEqual([]);
+    expect(sent()).toEqual([]);
     expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({
       status: 'failed', error: '403: Forbidden: bot was blocked by the user',
     });
     // A refusal is not caught up the next morning either (FT-164)
     at('2026-10-15', '08:00');
     expect(await tick()).toEqual([]);
-    expect(sent).toEqual([]);
+    expect(sent()).toEqual([]);
   });
 
   /** What Telegraf's fetch throws when the request did not get through: no DNS after sleep, no route, a reset. */
@@ -434,7 +423,7 @@ describe('daily summary (FT-124)', () => {
   it('no network (the Mac woke without it): tried again the next minute; the attempts survive a restart (FT-144, FT-164)', async () => {
     const owner = await user();
     await record(owner, '2026-10-14', 'Кафе', 45_000);
-    refuse = networkError('ENOTFOUND');
+    refuse(networkError('ENOTFOUND'));
 
     at('2026-10-14', '21:00');
     expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'retry' }]);
@@ -442,7 +431,7 @@ describe('daily summary (FT-124)', () => {
       status: 'not_sent', attempts: 1, error: expect.stringContaining('getaddrinfo ENOTFOUND api.telegram.org'),
     });
 
-    refuse = networkError('EAI_AGAIN');
+    refuse(networkError('EAI_AGAIN'));
     await restart();
     at('2026-10-14', '21:01');
     expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'retry' }]);
@@ -450,12 +439,12 @@ describe('daily summary (FT-124)', () => {
       status: 'not_sent', attempts: 2, error: expect.stringContaining('EAI_AGAIN'),
     });
 
-    refuse = null;
+    refuse(null);
     at('2026-10-14', '21:02');
     expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent' }]);
     at('2026-10-14', '21:03');
     expect(await tick()).toEqual([]);
-    expect(sent).toHaveLength(1);
+    expect(sent()).toHaveLength(1);
     // The attempt that went out is the third one
     expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({ status: 'sent', attempts: 3 });
   });
@@ -463,17 +452,17 @@ describe('daily summary (FT-124)', () => {
   it.each(['ETIMEDOUT', 'ECONNRESET'])('%s may have reached Telegram: kept as failed, never sent twice (FT-144)', async (code) => {
     const owner = await user();
     await record(owner, '2026-10-14', 'Кафе', 45_000);
-    refuse = networkError(code);
+    refuse(networkError(code));
 
     at('2026-10-14', '21:00');
     expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'failed' }]);
-    refuse = null;
+    refuse(null);
     at('2026-10-14', '21:01');
     expect(await tick()).toEqual([]);
     // It may have reached the chat: not caught up the next morning (FT-164)
     at('2026-10-15', '08:00');
     expect(await tick()).toEqual([]);
-    expect(sent).toEqual([]);
+    expect(sent()).toEqual([]);
   });
 
   describe('a summary that did not go out by midnight (FT-164)', () => {
@@ -482,7 +471,7 @@ describe('daily summary (FT-124)', () => {
       await record(owner, '2026-10-13', 'Такси', 18_000);
       at('2026-10-13', '21:00');
       expect(await tick()).toEqual([{ userId: owner, day: '2026-10-13', outcome: 'sent' }]);
-      sent = [];
+      forgetSent();
     }
 
     const LATE_14 = [
@@ -498,7 +487,7 @@ describe('daily summary (FT-124)', () => {
       const owner = await user();
       await summaryOfThe13thSent(owner);
       await record(owner, '2026-10-14', 'Кафе', 45_000);
-      refuse = networkError('ENOTFOUND');
+      refuse(networkError('ENOTFOUND'));
 
       at('2026-10-14', '21:00');
       expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'retry' }]);
@@ -506,7 +495,7 @@ describe('daily summary (FT-124)', () => {
       expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'retry' }]);
 
       // After midnight: the trace, and nothing at night
-      refuse = null;
+      refuse(null);
       at('2026-10-15', '00:00');
       expect(await tick()).toEqual([]);
       expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({
@@ -516,14 +505,14 @@ describe('daily summary (FT-124)', () => {
       });
       at('2026-10-15', '07:59');
       expect(await tick()).toEqual([]);
-      expect(sent).toEqual([]);
+      expect(sent()).toEqual([]);
 
       at('2026-10-15', '08:00');
       expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent', late: true }]);
-      expect(sent).toHaveLength(1);
-      expect(sent[0].text).toBe(LATE_14);
-      expect(sent[0].keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗' })]]);
-      expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toMatchObject({ status: 'sent', attempts: 1, messageId: sent[0].messageId });
+      expect(sent()).toHaveLength(1);
+      expect(sent()[0].text).toBe(LATE_14);
+      expect(sent()[0].keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗' })]]);
+      expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toMatchObject({ status: 'sent', attempts: 1, messageId: sent()[0].messageId });
 
       // Once: not on the next tick, not after a restart
       at('2026-10-15', '08:01');
@@ -536,8 +525,8 @@ describe('daily summary (FT-124)', () => {
       await record(owner, '2026-10-15', 'Продукты', 100_000);
       at('2026-10-15', '21:00');
       expect(await tick()).toEqual([{ userId: owner, day: '2026-10-15', outcome: 'sent' }]);
-      expect(sent).toHaveLength(2);
-      expect(sent[1].text).toContain(`<b>Итоги дня · 15${NB}октября</b>`);
+      expect(sent()).toHaveLength(2);
+      expect(sent()[1].text).toContain(`<b>Итоги дня · 15${NB}октября</b>`);
     });
 
     it('the bot was off all evening (the PC slept): the day is kept failed with no attempts, «Итоги за вчера» at 08:00', async () => {
@@ -558,7 +547,7 @@ describe('daily summary (FT-124)', () => {
       await restart();
       at('2026-10-15', '08:00');
       expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent', late: true }]);
-      expect(sent.map(message => message.text)).toEqual([LATE_14]);
+      expect(sent().map(message => message.text)).toEqual([LATE_14]);
     });
 
     it('the bot comes back after 08:00: «Итоги за вчера» at once; the month is told up to that day, without today\'s records', async () => {
@@ -570,7 +559,7 @@ describe('daily summary (FT-124)', () => {
 
       at('2026-10-15', '10:00');
       expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent', late: true }]);
-      expect(sent.map(message => message.text)).toEqual([LATE_14]);
+      expect(sent().map(message => message.text)).toEqual([LATE_14]);
     });
 
     it('«Итоги за вчера» are tried until the next day ends, across a restart; then kept failed and the next day is the one caught up', async () => {
@@ -578,7 +567,7 @@ describe('daily summary (FT-124)', () => {
       await summaryOfThe13thSent(owner);
       await record(owner, '2026-10-14', 'Кафе', 45_000);
       await record(owner, '2026-10-15', 'Такси', 18_000);
-      refuse = networkError('ENOTFOUND');
+      refuse(networkError('ENOTFOUND'));
       at('2026-10-14', '21:00');
       await tick();
 
@@ -595,7 +584,7 @@ describe('daily summary (FT-124)', () => {
       expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toMatchObject({ status: 'not_sent', attempts: 2 });
 
       // Two evenings missed in a row: only the last one is caught up
-      refuse = null;
+      refuse(null);
       at('2026-10-16', '00:00');
       expect(await tick()).toEqual([]);
       expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toMatchObject({
@@ -604,9 +593,9 @@ describe('daily summary (FT-124)', () => {
       expect(await logEntry(owner, 'daily_summary', '2026-10-15')).toMatchObject({ status: 'failed', attempts: 1 });
       at('2026-10-16', '08:00');
       expect(await tick()).toEqual([{ userId: owner, day: '2026-10-15', outcome: 'sent', late: true }]);
-      expect(sent).toHaveLength(1);
-      expect(sent[0].text).toContain(`<b>Итоги за вчера · 15${NB}октября</b>`);
-      expect(sent[0].text).toContain(`Потрачено 18${NB}000${NB}сум · 1 запись`);
+      expect(sent()).toHaveLength(1);
+      expect(sent()[0].text).toContain(`<b>Итоги за вчера · 15${NB}октября</b>`);
+      expect(sent()[0].text).toContain(`Потрачено 18${NB}000${NB}сум · 1 запись`);
     });
 
     it('the bot off for two evenings: only the last day is caught up, the one before leaves no row', async () => {
@@ -617,7 +606,7 @@ describe('daily summary (FT-124)', () => {
 
       at('2026-10-16', '09:00');
       expect(await tick()).toEqual([{ userId: owner, day: '2026-10-15', outcome: 'sent', late: true }]);
-      expect(sent).toHaveLength(1);
+      expect(sent()).toHaveLength(1);
       expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toBeNull();
       expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toBeNull();
       expect(await logEntry(owner, 'daily_summary', '2026-10-15')).toMatchObject({ status: 'failed', attempts: 0 });
@@ -629,20 +618,20 @@ describe('daily summary (FT-124)', () => {
 
       at('2026-10-15', '08:00');
       expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'asked', late: true }]);
-      expect(sent[0].text).toBe([
+      expect(sent()[0].text).toBe([
         `<b>Итоги за вчера · 14${NB}октября</b>`,
         'Записей нет. Трат правда не было?',
         '',
         // Plain «обед 45к» would be written for today
         '<i>Если что-то было — просто напишите, например «вчера обед 45к».</i>',
       ].join('\n'));
-      expect(sent[0].keyboard).toEqual([[{ text: 'Да, не было', callback_data: 'n:none:2026-10-14', hide: false }]]);
+      expect(sent()[0].keyboard).toEqual([[{ text: 'Да, не было', callback_data: 'n:none:2026-10-14', hide: false }]]);
 
-      const ctx = await pressNoSpending(sent[0]);
-      expect(ctx.editMessageText).toHaveBeenCalledWith(
+      const press = await pressNoSpending(sent()[0]);
+      expect(press.edits).toEqual([[
         `<b>Итоги за вчера · 14${NB}октября</b>\nОтметил: 14${NB}октября трат не было.`,
-        { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } }
-      );
+        { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } },
+      ]]);
       expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toMatchObject({ variant: 'empty', answer: 'no_spending' });
 
       at('2026-10-15', '21:00');
@@ -658,9 +647,9 @@ describe('daily summary (FT-124)', () => {
       expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'asked', late: true }]);
       await record(owner, '2026-10-14', 'Кафе', 45_000);
 
-      const ctx = await pressNoSpending(sent[0]);
+      const press = await pressNoSpending(sent()[0]);
 
-      const [text, extra] = ctx.editMessageText.mock.calls[0];
+      const [text, extra] = press.edits[0];
       expect(text).toBe(LATE_14);
       expect(extra.reply_markup.inline_keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗' })]]);
       expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toMatchObject({ variant: 'empty', answer: null });
@@ -677,7 +666,7 @@ describe('daily summary (FT-124)', () => {
       expect(await tick()).toEqual([]);
       at('2026-10-15', '08:00');
       expect(await tick()).toEqual([]);
-      expect(sent).toEqual([]);
+      expect(sent()).toEqual([]);
       expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({ status: 'sending' });
       expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toBeNull();
     });
@@ -688,7 +677,7 @@ describe('daily summary (FT-124)', () => {
 
       at('2026-10-15', '08:00');
       expect(await tick()).toEqual([]);
-      expect(sent).toEqual([]);
+      expect(sent()).toEqual([]);
       expect(await logEntry(fresh, 'daily_summary', '2026-10-14')).toBeNull();
       expect(await logEntry(fresh, 'daily_summary_late', '2026-10-14')).toBeNull();
     });
@@ -697,15 +686,15 @@ describe('daily summary (FT-124)', () => {
       const owner = await user();
       await summaryOfThe13thSent(owner);
       await record(owner, '2026-10-14', 'Кафе', 45_000);
-      refuse = networkError('ENOTFOUND');
+      refuse(networkError('ENOTFOUND'));
       at('2026-10-14', '21:00');
       await tick();
-      refuse = null;
+      refuse(null);
       await running.userModule.getUpdateUserSettingsUseCase().execute({ userId: owner, patch: { dailySummaryEnabled: false } });
 
       at('2026-10-15', '08:00');
       expect(await tick()).toEqual([]);
-      expect(sent).toEqual([]);
+      expect(sent()).toEqual([]);
       expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({ status: 'failed', attempts: 1 });
       expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toBeNull();
     });
@@ -719,7 +708,7 @@ describe('daily summary (FT-124)', () => {
     at('2026-10-14', '21:00');
 
     expect(await tick()).toEqual([]);
-    expect(telegram.sendMessage).not.toHaveBeenCalled();
+    expect(stand.calls.filter(call => call.method === 'sendMessage')).toEqual([]);
   });
 
   it('a Telegram id with leading zeros is its chat without them, as the list reads it (#255)', async () => {
@@ -728,8 +717,8 @@ describe('daily summary (FT-124)', () => {
     at('2026-10-14', '21:00');
 
     expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent' }]);
-    expect(sent.map(message => message.chatId)).toEqual([TELEGRAM_ID]);
-    expect(sent[0].keyboard).toEqual([[expect.objectContaining({ web_app: { url: `${BASE_URL}/` } })]]);
+    expect(sent().map(message => message.chatId)).toEqual([TELEGRAM_ID]);
+    expect(sent()[0].keyboard).toEqual([[expect.objectContaining({ web_app: { url: `${BASE_URL}/` } })]]);
   });
 
   it('with ALLOWED_TELEGRAM_IDS set, a row with leading zeros is the listed id, as the list reads it (#255)', async () => {
@@ -741,6 +730,6 @@ describe('daily summary (FT-124)', () => {
     at('2026-10-14', '21:00');
 
     expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent' }]);
-    expect(sent.map(message => message.chatId)).toEqual([TELEGRAM_ID]);
+    expect(sent().map(message => message.chatId)).toEqual([TELEGRAM_ID]);
   });
 });

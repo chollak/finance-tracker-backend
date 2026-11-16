@@ -1,38 +1,26 @@
 import 'reflect-metadata';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 import { DataSource } from 'typeorm';
-import { createAppDataSource } from '../src/shared/infrastructure/database/database.config';
-import { findSchemaDrift, runMigrationsWithBackup } from '../src/shared/infrastructure/database/migrationRunner';
+import { findSchemaDrift } from '../src/shared/infrastructure/database/migrationRunner';
 import { BotMessageModule } from '../src/modules/botMessage/botMessageModule';
 import { SqliteBotMessageRepository } from '../src/modules/botMessage/infrastructure/SqliteBotMessageRepository';
+import { DatabaseFile, newDatabaseFile } from './helpers/testDatabase';
 
 /**
  * FT-122: the link «bot message → its records» lives in `bot_messages`, so «Изменить», «Вернуть» and
  * /undo keep working after the bot restarts. Runs on a real SQLite file that is closed and opened again.
  */
 describe('bot messages (FT-122)', () => {
-  let dir: string;
-  let file: string;
-  const open: DataSource[] = [];
+  let db: DatabaseFile;
 
   beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft122-'));
-    file = path.join(dir, 'db.sqlite');
+    db = newDatabaseFile();
   });
 
-  afterEach(async () => {
-    for (const ds of open.splice(0)) if (ds.isInitialized) await ds.destroy();
-    fs.rmSync(dir, { recursive: true, force: true });
-  });
+  afterEach(() => db.remove());
 
   /** The bot's process starting: a new connection to the same file and a new module over it. */
   async function startBot(): Promise<{ ds: DataSource; module: BotMessageModule }> {
-    const ds = createAppDataSource(file);
-    open.push(ds);
-    await ds.initialize();
-    await runMigrationsWithBackup(ds, file, path.join(dir, 'backups'));
+    const ds = await db.open();
     return { ds, module: new BotMessageModule(new SqliteBotMessageRepository(ds)) };
   }
 

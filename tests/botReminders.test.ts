@@ -1,10 +1,5 @@
 import 'reflect-metadata';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 import { DataSource } from 'typeorm';
-import { createAppDataSource } from '../src/shared/infrastructure/database/database.config';
-import { runMigrationsWithBackup } from '../src/shared/infrastructure/database/migrationRunner';
 import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
 import { TransactionModule } from '../src/modules/transaction/transactionModule';
 import { SqliteTransactionRepository } from '../src/modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
@@ -22,28 +17,26 @@ import { SqliteGoalRepository } from '../src/modules/audit/infrastructure/Sqlite
 import { AuditView } from '../src/modules/audit/application/auditViews';
 import { NotificationModule } from '../src/modules/notification/notificationModule';
 import { SqliteNotificationLogRepository } from '../src/modules/notification/infrastructure/SqliteNotificationLogRepository';
-import { registerReminderHandlers, reminderSender } from '../src/delivery/messaging/telegram/handlers/reminderHandlers';
+import { reminderSender } from '../src/delivery/messaging/telegram/handlers/reminderHandlers';
 import { Result } from '../src/shared/domain/types/Result';
 import { prototypeRecords } from './helpers/auditPrototype';
 import { TelegramAccess, telegramAccess } from '../src/shared/domain/access/telegramAccess';
-import { prepareDatabaseOnce } from './helpers/testDatabase';
-import { refuseWebAppOffHttps } from './helpers/telegramWebAppRefusal';
+import { DatabaseFile, databaseFileAt, prepareDatabaseOnce } from './helpers/testDatabase';
+import { ApiCall, REFUSAL, SentMessage, StandButton, TelegramStand } from './helpers/telegramStand';
 
 /**
  * FT-133 end to end on a real SQLite file (board «Бот · напоминания», BotNotice.md): a goal is told once at 80% of its
  * limit and once when it is exceeded; a subscription the day before its charge when «Напомнить» was pressed; the audit
  * on the 1st at the chosen time, and «Позже» brings it back once. Every notice goes out at most once — a second tick or
- * a restart does not repeat it — and only while its setting is on. Telegram is a fake that keeps what the bot sent; the
- * text is drawn by the bot's own sender, the buttons are pressed through the bot's own handlers.
+ * a restart does not repeat it — and only while its setting is on. The text is drawn by the bot's own sender into the
+ * stand's chats (`tests/helpers/telegramStand.ts`); the buttons are pressed through the bot `startTelegramBot`
+ * assembles (#294).
  */
 
 const NB = ' ';
 const TELEGRAM_ID = '597843119';
 const BASE_URL = 'https://miniapp.test';
 const AUDIT_URL = `${BASE_URL}/audit`;
-
-interface Button { text: string; callback_data?: string; web_app?: { url: string } }
-interface Sent { chatId: string; text: string; keyboard: Button[][]; messageId: number }
 
 function unwrap<T>(result: Result<T>): T {
   if (!result.success) throw result.error;
@@ -57,24 +50,30 @@ const spendings = (n: number) => {
   return `${n} ${word}`;
 };
 
-describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
-  let dir: string;
-  let file: string;
-  const open: DataSource[] = [];
-  let clock: Date;
-  let sent: Sent[];
-  let refuse: Error | null;
-  let nextMessageId: number;
+/** What a press did to the message: every answer, and each edit the bot asked for with what Telegram answered it. */
+interface Pressed {
+  answers: Array<string | undefined>;
+  /** editMessageText: the text and what came with it. */
+  texts: Array<{ text: string; extra: any; call: ApiCall }>;
+  /** editMessageReplyMarkup: the keyboard. */
+  markups: Array<{ markup: any; call: ApiCall }>;
+}
 
-  const telegram = {
-    sendMessage: jest.fn(async (chatId: string, text: string, extra?: any) => {
-      if (refuse) throw refuse;
-      refuseWebAppOffHttps(extra);
-      const message = { chatId: String(chatId), text, keyboard: extra?.reply_markup?.inline_keyboard ?? [], messageId: nextMessageId++ };
-      sent.push(message);
-      return { message_id: message.messageId, chat: { id: Number(chatId) } };
-    }),
-  };
+describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
+  /** The test's copy of the audited file, opened again on a restart. */
+  let db: DatabaseFile;
+  let clock: Date;
+  /** Telegram: the chats of the users, kept across restarts of the bot. */
+  let stand: TelegramStand;
+
+  /** What the bot sent, in every chat, oldest first, as it sent it. */
+  const sent = (): SentMessage[] => stand.sent();
+
+  /** Telegram refuses every message with `error` — the request never got through, say — until `null`. */
+  function refuse(error: Error | null): void {
+    stand.stopRefusing('sendMessage');
+    if (error) stand.refuse('sendMessage', error, { times: Infinity });
+  }
 
   interface Running {
     ds: DataSource;
@@ -89,11 +88,8 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
   /** The owner of the board's records in the file `audited` prepares (#237). */
   let auditedOwner: string;
 
-  async function start(access?: TelegramAccess, databaseFile: string = file): Promise<Running> {
-    const ds = createAppDataSource(databaseFile);
-    open.push(ds);
-    await ds.initialize();
-    await runMigrationsWithBackup(ds, databaseFile, path.join(path.dirname(databaseFile), 'backups'));
+  /** The modules of the bot's process over `ds`, with ALLOWED_TELEGRAM_IDS when given (FT-153). */
+  function modulesOver(ds: DataSource, access?: TelegramAccess): Running {
     const categoryModule = new CategoryModule(new SqliteCategoryRepository(ds));
     const accountModule = new AccountModule(new SqliteAccountRepository(ds), undefined, new SqliteAccountMoveRepository(ds));
     const transactionModule = new TransactionModule(new SqliteTransactionRepository(ds));
@@ -118,6 +114,13 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       () => clock
     );
     return { ds, transactionModule, userModule, auditModule, notificationModule };
+  }
+
+  /** The bot's process over the test's file: its modules and the bot over them; the reminders' ticks are the test's. */
+  async function start(access?: TelegramAccess): Promise<Running> {
+    const started = modulesOver(await db.open(), access);
+    stand.start({ transactionModule: started.transactionModule, userModule: started.userModule, notificationModule: started.notificationModule });
+    return started;
   }
 
   /** The bot process stops and starts again over the same file, with ALLOWED_TELEGRAM_IDS when given (FT-153). */
@@ -167,7 +170,6 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
    */
   async function auditedOnOctober14(): Promise<void> {
     at('2026-10-14', '14:00');
-    audited.copyTo(file);
     running = await start();
     owner = auditedOwner;
   }
@@ -183,45 +185,35 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
   }
 
   async function tick() {
-    return running.notificationModule.getReminders()!.tick(reminderSender(telegram as any));
+    return running.notificationModule.getReminders()!.tick(reminderSender(stand.telegram));
   }
 
   const outcomes = async () => (await tick()).map(result => `${result.kind}:${result.outcome}`);
 
-  /** A button under a message the bot sent, pressed through the bot's own handlers. */
-  async function press(message: Sent, label: string) {
-    const actions: Array<{ trigger: RegExp; handler: (ctx: any) => Promise<void> }> = [];
-    registerReminderHandlers({ action: (trigger: RegExp, handler: any) => actions.push({ trigger, handler }) } as any);
+  /**
+   * A button under a message the bot sent, pressed by the person through the bot — the button as the message had it
+   * when sent: pressed again after an edit, it is a stale keyboard or a double tap.
+   */
+  async function press(message: SentMessage, label: string): Promise<Pressed> {
     const data = message.keyboard.flat().find(button => button.text === label)!.callback_data!;
-    const action = actions.find(({ trigger }) => trigger.test(data))!;
-    const ctx: any = {
-      from: { id: Number(TELEGRAM_ID) },
-      match: action.trigger.exec(data),
-      callbackQuery: { data, message: { message_id: message.messageId, chat: { id: Number(TELEGRAM_ID) } } },
-      modules: { userModule: running.userModule, notificationModule: running.notificationModule },
-      answerCbQuery: jest.fn().mockResolvedValue(true),
-      editMessageText: jest.fn(async (_text: string, extra?: any) => {
-        refuseWebAppOffHttps(extra);
-        return true;
+    const before = stand.calls.length;
+    const answers = await stand.pressData(message.messageId, data);
+    const edits = stand.calls.slice(before).filter(call => call.payload.message_id === message.messageId);
+    return {
+      answers,
+      texts: edits.filter(call => call.method === 'editMessageText').map(call => {
+        const { chat_id: _chat, message_id: _message, inline_message_id: _inline, text, ...extra } = call.payload;
+        return { text, extra, call };
       }),
-      editMessageReplyMarkup: jest.fn(async (markup?: any) => {
-        refuseWebAppOffHttps({ reply_markup: markup });
-        return true;
-      }),
+      markups: edits.filter(call => call.method === 'editMessageReplyMarkup').map(call => ({ markup: call.payload.reply_markup, call })),
     };
-    await action.handler(ctx);
-    return ctx;
   }
 
   /** What the message became after a press: its text and its buttons. */
-  function edited(ctx: any): { text: string; keyboard: Button[][] } {
-    const [text, extra] = ctx.editMessageText.mock.calls[0];
+  function edited(pressed: Pressed): { text: string; keyboard: StandButton[][] } {
+    const [{ text, extra }] = pressed.texts;
     return { text, keyboard: extra.reply_markup.inline_keyboard };
   }
-
-  const closeOpen = async () => {
-    for (const ds of open.splice(0)) if (ds.isInitialized) await ds.destroy();
-  };
 
   /**
    * The board's months and the audit, written once for the file (#237). Writing three months of records through the
@@ -230,29 +222,24 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
    */
   const audited = prepareDatabaseOnce(async auditedFile => {
     at('2026-08-01', '09:00');
-    running = await start(undefined, auditedFile);
+    const prepared = databaseFileAt(auditedFile);
+    running = modulesOver(await prepared.open());
     owner = (await running.userModule.getGetOrCreateUserUseCase().execute({ telegramId: TELEGRAM_ID, firstName: 'Shukur' })).id;
     await recordTheBoardAndAudit();
-    await closeOpen();
+    await prepared.closeAll();
     auditedOwner = owner;
   });
 
-  afterAll(closeOpen);
-
   beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft133-'));
-    file = path.join(dir, 'db.sqlite');
-    sent = [];
-    refuse = null;
-    nextMessageId = 900;
-    telegram.sendMessage.mockClear();
+    db = audited.newFile();
+    stand = new TelegramStand({ id: Number(TELEGRAM_ID), first_name: 'Shukur' });
+    stand.install();
     jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue(BASE_URL);
   });
 
   afterEach(async () => {
     jest.restoreAllMocks();
-    await closeOpen();
-    fs.rmSync(dir, { recursive: true, force: true });
+    await db.remove();
   });
 
   describe('a goal', () => {
@@ -266,15 +253,15 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       at('2026-10-27', '12:30');
       const goal = (await goalNamed('Такси'))!;
       expect(await tick()).toEqual([{ userId: owner, kind: 'goal_near', period: goal.id, outcome: 'sent' }]);
-      expect(sent).toHaveLength(1);
-      expect(sent[0].chatId).toBe(TELEGRAM_ID);
-      expect(sent[0].text).toBe([
+      expect(sent()).toHaveLength(1);
+      expect(sent()[0].chatId).toBe(TELEGRAM_ID);
+      expect(sent()[0].text).toBe([
         `<b>Цель «Такси»: 84${NB}000 из 102${NB}000${NB}сум</b>`,
         `До конца октября по лимиту осталось 18${NB}000${NB}сум.`,
         '',
         '<i>Напишу ещё раз, только если лимит будет превышен.</i>',
       ].join('\n'));
-      expect(sent[0].keyboard).toEqual([[expect.objectContaining({ text: 'Открыть цели ↗', web_app: { url: AUDIT_URL } })]]);
+      expect(sent()[0].keyboard).toEqual([[expect.objectContaining({ text: 'Открыть цели ↗', web_app: { url: AUDIT_URL } })]]);
 
       at('2026-10-27', '12:31');
       expect(await tick()).toEqual([]);
@@ -282,7 +269,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       await record('2026-10-28', 'Транспорт', 10_000, 'Такси');
       at('2026-10-28', '12:00');
       expect(await tick()).toEqual([]);
-      expect(sent).toHaveLength(1);
+      expect(sent()).toHaveLength(1);
     });
 
     it('without HTTPS — WEB_APP_URL=http://localhost:3000 — comes without «Открыть цели ↗» (#278)', async () => {
@@ -294,9 +281,9 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       const goal = (await goalNamed('Такси'))!;
 
       expect(await tick()).toEqual([{ userId: owner, kind: 'goal_near', period: goal.id, outcome: 'sent' }]);
-      expect(sent).toHaveLength(1);
-      expect(sent[0].text).toContain('<b>Цель «Такси»');
-      expect(sent[0].keyboard).toEqual([]);
+      expect(sent()).toHaveLength(1);
+      expect(sent()[0].text).toContain('<b>Цель «Такси»');
+      expect(sent()[0].keyboard).toEqual([]);
     });
 
     it('only to the users on ALLOWED_TELEGRAM_IDS (FT-153)', async () => {
@@ -306,11 +293,11 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
 
       await restart(telegramAccess(['111']));
       expect(await tick()).toEqual([]);
-      expect(sent).toEqual([]);
+      expect(sent()).toEqual([]);
 
       await restart(telegramAccess([TELEGRAM_ID]));
       expect(await outcomes()).toEqual(['goal_near:sent']);
-      expect(sent.map(message => message.chatId)).toEqual([TELEGRAM_ID]);
+      expect(sent().map(message => message.chatId)).toEqual([TELEGRAM_ID]);
     });
 
     /** The owner's Telegram id in `users` rewritten as given: rows the resolver did not write (#255). */
@@ -326,7 +313,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
         await ownerTelegramIdIs(telegramId);
         expect(await tick()).toEqual([]);
       }
-      expect(telegram.sendMessage).not.toHaveBeenCalled();
+      expect(stand.calls.filter(call => call.method === 'sendMessage')).toEqual([]);
     });
 
     it('a Telegram id with leading zeros is its chat without them, as the list reads it (#255)', async () => {
@@ -336,7 +323,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       await ownerTelegramIdIs(`00${TELEGRAM_ID}`);
 
       expect(await outcomes()).toEqual(['goal_near:sent']);
-      expect(sent.map(message => message.chatId)).toEqual([TELEGRAM_ID]);
+      expect(sent().map(message => message.chatId)).toEqual([TELEGRAM_ID]);
     });
 
     it('with ALLOWED_TELEGRAM_IDS set, a row with leading zeros is the listed id, as the list reads it (#255)', async () => {
@@ -350,7 +337,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
 
       await restart(telegramAccess([TELEGRAM_ID]));
       expect(await outcomes()).toEqual(['goal_near:sent']);
-      expect(sent.map(message => message.chatId)).toEqual([TELEGRAM_ID]);
+      expect(sent().map(message => message.chatId)).toEqual([TELEGRAM_ID]);
     });
 
     it('over its limit: once more, by how much; the 80% message never comes after it', async () => {
@@ -362,7 +349,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       await record('2026-10-29', 'Транспорт', 26_000, 'Такси домой');
       at('2026-10-29', '19:00');
       expect(await outcomes()).toEqual(['goal_over:sent']);
-      expect(sent[1].text).toBe([
+      expect(sent()[1].text).toBe([
         `<b>Цель «Такси»: 110${NB}000 из 102${NB}000${NB}сум</b>`,
         `Лимит до конца октября превышен на 8${NB}000${NB}сум.`,
         '',
@@ -372,7 +359,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       await restart();
       at('2026-10-30', '12:00');
       expect(await tick()).toEqual([]);
-      expect(sent).toHaveLength(2);
+      expect(sent()).toHaveLength(2);
     });
 
     it('straight over the limit: one message about the excess; back under it later, no 80% message', async () => {
@@ -385,7 +372,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       await record('2026-10-26', 'Транспорт', 60_000, 'Такси');
       at('2026-10-26', '12:00');
       expect(await tick()).toEqual([]);
-      expect(sent).toHaveLength(1);
+      expect(sent()).toHaveLength(1);
     });
 
     it('in the daytime: a goal crossed at night is told in the morning', async () => {
@@ -419,7 +406,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       expect((await tick()).filter(result => result.kind === 'subscription')).toEqual([
         { userId: owner, kind: 'subscription', period: `${goal.id}:2026-11-02`, outcome: 'sent' },
       ]);
-      const reminder = sent.find(message => message.text.includes('Кинопоиск'))!;
+      const reminder = sent().find(message => message.text.includes('Кинопоиск'))!;
       expect(reminder.text).toBe([
         `<b>3${NB}ноября Кинопоиск спишет 50${NB}000${NB}сум</b>`,
         'В ревизии вы решили отменить подписку. Отменить можно только в самом сервисе.',
@@ -434,7 +421,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       expect((await tick()).filter(result => result.kind === 'subscription')).toEqual([]);
       at('2026-11-03', '10:00');
       expect((await tick()).filter(result => result.kind === 'subscription')).toEqual([]);
-      expect(sent.filter(message => message.text.includes('Кинопоиск'))).toHaveLength(1);
+      expect(sent().filter(message => message.text.includes('Кинопоиск'))).toHaveLength(1);
     });
 
     it('without «Напомнить», or after «Уже отменено», the bot says nothing', async () => {
@@ -454,12 +441,12 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       await remindAboutKinopoisk();
       at('2026-11-02', '10:00');
       await tick();
-      const reminder = sent.find(message => message.text.includes('Кинопоиск'))!;
+      const reminder = sent().find(message => message.text.includes('Кинопоиск'))!;
 
       at('2026-11-02', '10:05');
-      const ctx = await press(reminder, 'Отменено');
-      expect(ctx.answerCbQuery).toHaveBeenCalled();
-      expect(edited(ctx)).toEqual({
+      const pressed = await press(reminder, 'Отменено');
+      expect(pressed.answers).toHaveLength(1);
+      expect(edited(pressed)).toEqual({
         text: `<b>Кинопоиск: подписка отменена</b>\nМинус 50${NB}000${NB}сум в месяц. Цель из ревизии выполнена.`,
         keyboard: [],
       });
@@ -471,12 +458,12 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       await remindAboutKinopoisk();
       at('2026-11-02', '10:00');
       await tick();
-      const reminder = sent.find(message => message.text.includes('Кинопоиск'))!;
+      const reminder = sent().find(message => message.text.includes('Кинопоиск'))!;
       expect((await audit('2026-11-02')).candidates.map(candidate => candidate.name)).toContain('Кинопоиск');
 
       at('2026-11-02', '10:05');
-      const ctx = await press(reminder, 'Оставить');
-      expect(edited(ctx)).toEqual({
+      const pressed = await press(reminder, 'Оставить');
+      expect(edited(pressed)).toEqual({
         text: '<b>Кинопоиск остаётся</b>\nЦель «отменить» снята. Подписка снова попадёт в ревизию, только если подорожает.',
         keyboard: [],
       });
@@ -491,13 +478,13 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       await remindAboutKinopoisk();
       at('2026-11-02', '10:00');
       await tick();
-      const reminder = sent.find(message => message.text.includes('Кинопоиск'))!;
+      const reminder = sent().find(message => message.text.includes('Кинопоиск'))!;
       await press(reminder, 'Оставить');
 
       const again = await press(reminder, 'Отменено');
-      expect(again.editMessageText).not.toHaveBeenCalled();
-      expect(again.editMessageReplyMarkup).toHaveBeenCalledWith({ inline_keyboard: [] });
-      expect(again.answerCbQuery).toHaveBeenCalledWith('Этой цели уже нет');
+      expect(again.texts).toEqual([]);
+      expect(again.markups.map(edit => edit.markup)).toContainEqual({ inline_keyboard: [] });
+      expect(again.answers).toContain('Этой цели уже нет');
     });
   });
 
@@ -511,7 +498,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       expect((await tick()).filter(result => result.kind === 'audit')).toEqual([{ userId: owner, kind: 'audit', period: '2026-10', outcome: 'sent' }]);
       const left = (await audit('2026-11-01')).summary.left;
       expect(left).toBeGreaterThan(0);
-      const call = sent.find(message => message.text.startsWith('<b>Ревизия'))!;
+      const call = sent().find(message => message.text.startsWith('<b>Ревизия'))!;
       expect(call.text).toBe(`<b>Ревизия октября готова</b>\n${spendings(left)} на проверку — пара минут.`);
       expect(call.keyboard).toEqual([
         [expect.objectContaining({ text: 'Открыть ревизию ↗', web_app: { url: AUDIT_URL } })],
@@ -525,7 +512,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       expect((await tick()).filter(result => result.kind.startsWith('audit'))).toEqual([]);
       at('2026-11-02', '10:00');
       expect((await tick()).filter(result => result.kind.startsWith('audit'))).toEqual([]);
-      expect(sent.filter(message => message.text.startsWith('<b>Ревизия'))).toHaveLength(1);
+      expect(sent().filter(message => message.text.startsWith('<b>Ревизия'))).toHaveLength(1);
     });
 
     it('at the chosen time; not at all when «Звать на ревизию» is off', async () => {
@@ -539,7 +526,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       await save({ auditEnabled: false });
       at('2026-12-01', '19:00');
       expect((await tick()).filter(result => result.kind === 'audit')).toEqual([]);
-      expect(sent.filter(message => message.text.startsWith('<b>Ревизия'))).toHaveLength(1);
+      expect(sent().filter(message => message.text.startsWith('<b>Ревизия'))).toHaveLength(1);
     });
 
     it('nothing to call to: already done that morning, or before a whole month of records', async () => {
@@ -553,27 +540,28 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
 
       at('2026-11-01', '10:00');
       expect((await tick()).filter(result => result.kind === 'audit')).toEqual([{ userId: owner, kind: 'audit', period: '2026-10', outcome: 'skipped' }]);
-      expect(sent.filter(message => message.text.startsWith('<b>Ревизия'))).toEqual([]);
+      expect(sent().filter(message => message.text.startsWith('<b>Ревизия'))).toEqual([]);
 
+      stand.chatWith(597843120);
       const newcomer = (await running.userModule.getGetOrCreateUserUseCase().execute({ telegramId: '597843120', firstName: 'New' })).id;
       await running.transactionModule.getCreateTransactionUseCase().execute({
         userId: newcomer, amountMinor: 2_500_000, category: 'Кафе', type: 'expense', description: 'Кофе', date: '2026-11-20', source: 'telegram',
       } as any);
       at('2026-12-01', '10:00');
       expect((await tick()).filter(result => result.userId === newcomer && result.kind === 'audit').map(result => result.outcome)).toEqual(['skipped']);
-      expect(sent.filter(message => message.chatId === '597843120')).toEqual([]);
+      expect(sent().filter(message => message.chatId === '597843120')).toEqual([]);
     });
 
     it('«Позже»: the call says when it comes again; it comes the next day at the same time, once, without «Позже»', async () => {
       await auditedOnOctober14();
       at('2026-11-01', '10:00');
       await tick();
-      const call = sent.find(message => message.text.startsWith('<b>Ревизия'))!;
+      const call = sent().find(message => message.text.startsWith('<b>Ревизия'))!;
       const left = (await audit('2026-11-01')).summary.left;
 
       at('2026-11-01', '10:05');
-      const ctx = await press(call, 'Позже');
-      expect(edited(ctx)).toEqual({
+      const pressed = await press(call, 'Позже');
+      expect(edited(pressed)).toEqual({
         text: `<b>Ревизия октября готова</b>\n${spendings(left)} на проверку — пара минут.\n\n<i>Напомню 2${NB}ноября в 10:00, один раз.</i>`,
         keyboard: [[expect.objectContaining({ text: 'Открыть ревизию ↗', web_app: { url: AUDIT_URL } })]],
       });
@@ -587,7 +575,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       expect((await tick()).filter(result => result.kind.startsWith('audit'))).toEqual([
         { userId: owner, kind: 'audit_again', period: '2026-10', outcome: 'sent' },
       ]);
-      const again = sent.filter(message => message.text.startsWith('<b>Ревизия')).slice(-1)[0];
+      const again = sent().filter(message => message.text.startsWith('<b>Ревизия')).slice(-1)[0];
       expect(again.text).toBe(`<b>Ревизия октября готова</b>\n${spendings(left)} на проверку — пара минут.\n\n<i>Больше не напомню — ревизия ждёт на главной.</i>`);
       expect(again.keyboard).toEqual([[expect.objectContaining({ text: 'Открыть ревизию ↗' })]]);
 
@@ -597,14 +585,14 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       expect(edited(second).text).toContain(`Напомню 2${NB}ноября в 10:00, один раз.`);
       at('2026-11-03', '10:00');
       expect((await tick()).filter(result => result.kind.startsWith('audit'))).toEqual([]);
-      expect(sent.filter(message => message.text.startsWith('<b>Ревизия'))).toHaveLength(2);
+      expect(sent().filter(message => message.text.startsWith('<b>Ревизия'))).toHaveLength(2);
     });
 
     it('«Позже», then the audit done or «Звать на ревизию» off: no second call', async () => {
       await auditedOnOctober14();
       at('2026-11-01', '10:00');
       await tick();
-      const call = sent.find(message => message.text.startsWith('<b>Ревизия'))!;
+      const call = sent().find(message => message.text.startsWith('<b>Ревизия'))!;
       at('2026-11-01', '10:05');
       await press(call, 'Позже');
 
@@ -620,14 +608,14 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       unwrap(await running.auditModule.getFinishAuditUseCase().execute({ userId: owner, auditId: opened.id!, today: '2026-11-02' }));
       at('2026-11-02', '11:00');
       expect((await tick()).filter(result => result.kind.startsWith('audit')).map(result => result.outcome)).toEqual(['skipped']);
-      expect(sent.filter(message => message.text.startsWith('<b>Ревизия'))).toHaveLength(1);
+      expect(sent().filter(message => message.text.startsWith('<b>Ревизия'))).toHaveLength(1);
     });
 
     it('«Позже» while «Звать на ревизию» is off promises nothing; under last month\'s audit it only drops the button', async () => {
       await auditedOnOctober14();
       at('2026-11-01', '10:00');
       await tick();
-      const call = sent.find(message => message.text.startsWith('<b>Ревизия'))!;
+      const call = sent().find(message => message.text.startsWith('<b>Ревизия'))!;
 
       await save({ auditEnabled: false });
       at('2026-11-01', '10:05');
@@ -637,9 +625,9 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
 
       at('2026-12-01', '08:00');
       const closed = await press(call, 'Позже');
-      expect(closed.editMessageText).not.toHaveBeenCalled();
-      expect(closed.editMessageReplyMarkup).toHaveBeenCalledWith({ inline_keyboard: [[expect.objectContaining({ text: 'Открыть ревизию ↗' })]] });
-      expect(closed.answerCbQuery).toHaveBeenCalledWith('Эта ревизия уже закрыта');
+      expect(closed.texts).toEqual([]);
+      expect(closed.markups.map(edit => edit.markup)).toContainEqual({ inline_keyboard: [[expect.objectContaining({ text: 'Открыть ревизию ↗' })]] });
+      expect(closed.answers).toContain('Эта ревизия уже закрыта');
     });
 
     it('without HTTPS — WEB_APP_URL=http://localhost:3000 — the call and «Позже» go without «Открыть ревизию ↗» (#278)', async () => {
@@ -648,20 +636,22 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       at('2026-11-01', '10:00');
 
       expect((await tick()).filter(result => result.kind === 'audit').map(result => result.outcome)).toEqual(['sent']);
-      const call = sent.find(message => message.text.startsWith('<b>Ревизия'))!;
+      const call = sent().find(message => message.text.startsWith('<b>Ревизия'))!;
       expect(call.keyboard).toEqual([[expect.objectContaining({ text: 'Позже' })]]);
 
       at('2026-11-01', '10:05');
       const later = await press(call, 'Позже');
       expect(edited(later).text).toContain(`Напомню 2${NB}ноября в 10:00, один раз.`);
       expect(edited(later).keyboard).toEqual([]);
-      await expect(later.editMessageText.mock.results[0].value).resolves.toBe(true);
+      // Telegram took it: no button it refuses off HTTPS (#278)
+      expect(later.texts[0].call.refusedWith).toBeUndefined();
 
-      // Under last month's audit «Позже» only drops its button: editMessageReplyMarkup, no link either
+      // Under last month's audit «Позже» only drops its button: editMessageReplyMarkup, no link either. The message has
+      // had no buttons since the first «Позже», so Telegram answers «not modified» — not a refusal of an off-HTTPS link
       at('2026-12-01', '08:00');
       const closed = await press(call, 'Позже');
-      expect(closed.editMessageReplyMarkup).toHaveBeenCalledWith({ inline_keyboard: [] });
-      await expect(closed.editMessageReplyMarkup.mock.results[0].value).resolves.toBe(true);
+      expect(closed.markups.map(edit => edit.markup)).toContainEqual({ inline_keyboard: [] });
+      expect(closed.markups[0].call.refusedWith).toMatchObject({ response: REFUSAL.notModified });
     });
   });
 
@@ -685,14 +675,15 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
   it('Telegram refuses (the bot is blocked): kept as failed, not tried again', async () => {
     await auditedOnOctober14();
     await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
-    refuse = new Error('403: Forbidden: bot was blocked by the user');
+    // The reminders name the chat by a string: blocked is blocked all the same
+    stand.block(TELEGRAM_ID);
     at('2026-10-27', '12:30');
     expect(await outcomes()).toEqual(['goal_near:failed']);
 
-    refuse = null;
+    stand.unblock(TELEGRAM_ID);
     at('2026-10-27', '12:31');
     expect(await tick()).toEqual([]);
-    expect(sent).toEqual([]);
+    expect(sent()).toEqual([]);
   });
 
   /** What Telegraf's fetch throws when the request did not get through. */
@@ -709,42 +700,42 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
     await auditedOnOctober14();
     const goal = (await goalNamed('Такси'))!;
     await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
-    refuse = networkError('ENOTFOUND');
+    refuse(networkError('ENOTFOUND'));
     at('2026-10-27', '12:30');
     expect(await outcomes()).toEqual(['goal_near:retry']);
     expect(await logEntry('goal_near', goal.id)).toMatchObject({ status: 'not_sent', attempts: 1, error: expect.stringContaining('ENOTFOUND') });
 
-    refuse = null;
+    refuse(null);
     at('2026-10-27', '12:31');
     expect(await outcomes()).toEqual(['goal_near:sent']);
     expect(await logEntry('goal_near', goal.id)).toMatchObject({ status: 'sent', attempts: 2 });
     at('2026-10-27', '12:32');
     expect(await tick()).toEqual([]);
-    expect(sent).toHaveLength(1);
+    expect(sent()).toHaveLength(1);
 
     await record('2026-10-28', 'Транспорт', 60_000, 'Такси');
-    refuse = networkError('ECONNRESET');
+    refuse(networkError('ECONNRESET'));
     at('2026-10-28', '12:30');
     expect(await outcomes()).toEqual(['goal_over:failed']);
-    refuse = null;
+    refuse(null);
     at('2026-10-28', '12:31');
     expect(await tick()).toEqual([]);
-    expect(sent).toHaveLength(1);
+    expect(sent()).toHaveLength(1);
   });
 
   it('straight over the limit with no network: the excess is told once it is back, never the 80% (FT-144)', async () => {
     await auditedOnOctober14();
     await record('2026-10-25', 'Транспорт', 90_000, 'Такси');
-    refuse = networkError('EAI_AGAIN');
+    refuse(networkError('EAI_AGAIN'));
     at('2026-10-25', '12:00');
     expect(await outcomes()).toEqual(['goal_over:retry']);
 
-    refuse = null;
+    refuse(null);
     at('2026-10-25', '12:01');
     expect(await outcomes()).toEqual(['goal_over:sent']);
     at('2026-10-25', '12:02');
     expect(await tick()).toEqual([]);
-    expect(sent).toHaveLength(1);
+    expect(sent()).toHaveLength(1);
   });
 
   describe('a reminder that did not leave (FT-164)', () => {
@@ -752,7 +743,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       await auditedOnOctober14();
       const goal = (await goalNamed('Такси'))!;
       await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
-      refuse = networkError('ENOTFOUND');
+      refuse(networkError('ENOTFOUND'));
       at('2026-10-27', '12:30');
       expect(await outcomes()).toEqual(['goal_near:retry']);
       at('2026-10-27', '21:59');
@@ -760,13 +751,13 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       expect(await logEntry('goal_near', goal.id)).toMatchObject({ status: 'not_sent', attempts: 2, sendUntil: '2026-10-28' });
 
       await restart();
-      refuse = null;
+      refuse(null);
       at('2026-10-28', '09:59');
       expect(await tick()).toEqual([]);
       at('2026-10-28', '10:00');
       expect(await outcomes()).toEqual(['goal_near:sent']);
-      expect(sent).toHaveLength(1);
-      expect(sent[0].text).toContain('Цель «Такси»');
+      expect(sent()).toHaveLength(1);
+      expect(sent()[0].text).toContain('Цель «Такси»');
       expect(await logEntry('goal_near', goal.id)).toMatchObject({ status: 'sent', attempts: 3 });
     });
 
@@ -774,16 +765,16 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       await auditedOnOctober14();
       const goal = (await goalNamed('Такси'))!;
       await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
-      refuse = networkError('ENOTFOUND');
+      refuse(networkError('ENOTFOUND'));
       at('2026-10-27', '12:30');
       expect(await outcomes()).toEqual(['goal_near:retry']);
       at('2026-10-28', '12:30');
       expect(await outcomes()).toEqual(['goal_near:retry']);
 
-      refuse = null;
+      refuse(null);
       at('2026-10-29', '12:30');
       expect(await tick()).toEqual([]);
-      expect(sent).toEqual([]);
+      expect(sent()).toEqual([]);
       expect(await logEntry('goal_near', goal.id)).toMatchObject({
         status: 'failed', attempts: 2, error: expect.stringMatching(/^не ушло: нет сети, 2 попытки, последняя ошибка .*ENOTFOUND/),
       });
@@ -793,15 +784,15 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       await auditedOnOctober14();
       const goal = (await goalNamed('Такси'))!;
       await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
-      refuse = networkError('ENOTFOUND');
+      refuse(networkError('ENOTFOUND'));
       at('2026-10-27', '12:30');
       expect(await outcomes()).toEqual(['goal_near:retry']);
 
-      refuse = null;
+      refuse(null);
       await record('2026-10-28', 'Транспорт', 30_000, 'Такси');
       at('2026-10-28', '12:30');
       expect(await outcomes()).toEqual(['goal_over:sent']);
-      expect(sent).toHaveLength(1);
+      expect(sent()).toHaveLength(1);
       expect(await logEntry('goal_near', goal.id)).toMatchObject({ status: 'skipped' });
     });
 
@@ -809,7 +800,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       await auditedOnOctober14();
       await remindAboutKinopoisk();
       const goal = (await goalNamed('Кинопоиск'))!;
-      refuse = networkError('ENOTFOUND');
+      refuse(networkError('ENOTFOUND'));
       const subscriptions = async () => (await tick()).filter(result => result.kind === 'subscription').map(result => result.outcome);
 
       at('2026-11-02', '10:00');
@@ -818,10 +809,10 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       at('2026-11-02', '23:59');
       expect(await subscriptions()).toEqual(['retry']);
 
-      refuse = null;
+      refuse(null);
       at('2026-11-03', '10:00');
       expect(await subscriptions()).toEqual([]);
-      expect(sent.filter(message => message.text.includes('Кинопоиск'))).toEqual([]);
+      expect(sent().filter(message => message.text.includes('Кинопоиск'))).toEqual([]);
       expect(await logEntry('subscription', `${goal.id}:2026-11-02`)).toMatchObject({
         status: 'failed', attempts: 2, error: expect.stringMatching(/^не ушло: нет сети, 2 попытки, последняя ошибка /),
       });
@@ -829,7 +820,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
 
     it('the audit call not out on the 1st: kept failed with the reason on the 2nd, not sent then', async () => {
       await auditedOnOctober14();
-      refuse = networkError('EAI_AGAIN');
+      refuse(networkError('EAI_AGAIN'));
       const audits = async () => (await tick()).filter(result => result.kind.startsWith('audit')).map(result => result.outcome);
 
       at('2026-11-01', '10:00');
@@ -837,10 +828,10 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       at('2026-11-01', '23:59');
       expect(await audits()).toEqual(['retry']);
 
-      refuse = null;
+      refuse(null);
       at('2026-11-02', '10:00');
       expect(await audits()).toEqual([]);
-      expect(sent.filter(message => message.text.startsWith('<b>Ревизия'))).toEqual([]);
+      expect(sent().filter(message => message.text.startsWith('<b>Ревизия'))).toEqual([]);
       expect(await logEntry('audit', '2026-10')).toMatchObject({
         status: 'failed', attempts: 2, error: expect.stringMatching(/^не ушло: нет сети, 2 попытки, последняя ошибка .*EAI_AGAIN/),
       });
@@ -857,7 +848,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       expect(await tick()).toEqual([]);
       at('2026-10-28', '12:30');
       expect(await tick()).toEqual([]);
-      expect(sent).toEqual([]);
+      expect(sent()).toEqual([]);
       expect(await logEntry('goal_near', goal.id)).toMatchObject({ status: 'sending' });
     });
   });
@@ -880,7 +871,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       await restart();
       at('2026-11-03', '18:00');
       expect((await tick()).filter(result => result.kind === 'subscription')).toEqual([]);
-      expect(sent.filter(message => message.text.includes('Кинопоиск'))).toEqual([]);
+      expect(sent().filter(message => message.text.includes('Кинопоиск'))).toEqual([]);
       expect(await logEntry('subscription', `${goal.id}:2026-11-02`)).toMatchObject(missed);
     });
 
@@ -892,7 +883,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
 
       at('2026-11-02', '20:00');
       expect((await tick()).filter(result => result.kind.startsWith('audit'))).toEqual([]);
-      expect(sent.filter(message => message.text.startsWith('<b>Ревизия'))).toEqual([]);
+      expect(sent().filter(message => message.text.startsWith('<b>Ревизия'))).toEqual([]);
     });
 
     it('nothing to call to on the 1st, or the setting off: no row', async () => {
@@ -957,8 +948,8 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
     const second = await start();
     at('2026-10-27', '12:30');
 
-    await Promise.all([tick(), second.notificationModule.getReminders()!.tick(reminderSender(telegram as any))]);
+    await Promise.all([tick(), second.notificationModule.getReminders()!.tick(reminderSender(stand.telegram))]);
 
-    expect(sent).toHaveLength(1);
+    expect(sent()).toHaveLength(1);
   });
 });

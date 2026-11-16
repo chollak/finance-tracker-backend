@@ -6,92 +6,50 @@ import { LOGIN_START_PREFIX } from '../src/modules/auth/domain/webLogin';
 import { UserModule } from '../src/modules/user/userModule';
 import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
-import { registerCommandHandlers } from '../src/delivery/messaging/telegram/handlers/commandHandlers';
-import { registerLoginHandlers } from '../src/delivery/messaging/telegram/handlers/loginHandlers';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
+import { StandButton, TelegramStand } from './helpers/telegramStand';
 
 /**
  * FT-128: the bot's side of the web login (boards «Бот · подтверждение входа», «Бот, вход из браузера, тёмная»). The
  * link from the browser opens the chat on «Запустить», which sends `/start login_<token>`; the bot names the browser,
- * the system and the time, and asks «Подтвердить» or «Это не я». The answer replaces the question.
+ * the system and the time, and asks «Подтвердить» or «Это не я». The answer replaces the question. The bot is the one
+ * `startTelegramBot` assembles, on the stand (`tests/helpers/telegramStand.ts`, #294): Telegraf finds /start and the
+ * presses, Telegram keeps the messages and their edits.
  */
 
 const TELEGRAM_ID = 597843119;
 const MINUTE = 60 * 1000;
 const CHROME_WINDOWS = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 
-interface Button { text: string; callback_data?: string; url?: string; web_app?: { url: string } }
-interface ChatMessage { text: string; keyboard: Button[][] }
-
-class Bot {
-  readonly commands = new Map<string, (ctx: any) => Promise<void>>();
-  readonly actions: Array<{ trigger: RegExp | string; handler: (ctx: any) => Promise<void> }> = [];
-
-  command(name: string, handler: (ctx: any) => Promise<void>) {
-    this.commands.set(name, handler);
-  }
-
-  action(trigger: RegExp | string, handler: (ctx: any) => Promise<void>) {
-    this.actions.push({ trigger, handler });
-  }
-
-  on() {}
-
-  use() {}
-}
+interface ChatMessage { text: string; keyboard: StandButton[][] }
 
 describe('the bot confirms a web login (FT-128)', () => {
   let db: TestDatabase;
   let userModule: UserModule;
   let authModule: AuthModule;
-  let bot: Bot;
+  let stand: TelegramStand;
   let now: Date;
   let webAppUrl: string;
-  const messages = new Map<number, ChatMessage>();
-  let nextMessageId = 100;
+  /** Every answer the bot gave the presses of the test. */
   let answers: Array<string | undefined>;
 
-  function context(from = TELEGRAM_ID) {
-    return {
-      from: { id: from, first_name: 'Шукур', username: 'shukur' },
-      chat: { id: from },
-      session: {},
-      modules: { userModule, authModule },
-      reply: jest.fn(async (text: string, extra?: any) => {
-        const id = nextMessageId++;
-        messages.set(id, { text, keyboard: extra?.reply_markup?.inline_keyboard ?? [] });
-        return { message_id: id, chat: { id: from } };
-      }),
-      answerCbQuery: jest.fn(async (text?: string) => {
-        answers.push(text);
-        return true;
-      }),
-    };
+  /** A bot message as the chat shows it now. */
+  function shown(messageId: number): ChatMessage {
+    const { text, keyboard } = stand.message(messageId);
+    return { text, keyboard };
   }
 
-  /** «Запустить» in the chat the link opened: Telegram sends /start with the link's parameter. */
-  async function start(payload: string, from = TELEGRAM_ID): Promise<number> {
-    const ctx: any = { ...context(from), message: { text: `/start ${payload}` }, payload };
-    await bot.commands.get('start')!(ctx);
-    return nextMessageId - 1;
+  /**
+   * «Запустить» in the chat the link opened: Telegram sends /start with the link's parameter — from the person, or from
+   * another account `from`. Returns the id of the bot's answer.
+   */
+  async function start(payload: string, from?: number): Promise<number> {
+    await stand.write(payload ? `/start ${payload}` : '/start', { from });
+    return stand.lastMessageId;
   }
 
-  async function press(messageId: number, label: string, from = TELEGRAM_ID): Promise<void> {
-    const button = messages.get(messageId)!.keyboard.flat().find(candidate => candidate.text === label);
-    if (!button?.callback_data) throw new Error(`No button «${label}» under ${messageId}`);
-    const data = button.callback_data;
-    const action = bot.actions.find(({ trigger }) => (typeof trigger === 'string' ? trigger === data : trigger.test(data)));
-    if (!action) throw new Error(`No handler for ${data}`);
-    const ctx: any = {
-      ...context(from),
-      callbackQuery: { data, message: { message_id: messageId, chat: { id: from } } },
-      match: typeof action.trigger === 'string' ? [data] : action.trigger.exec(data),
-      editMessageText: jest.fn(async (text: string, extra?: any) => {
-        messages.set(messageId, { text, keyboard: extra?.reply_markup?.inline_keyboard ?? [] });
-        return true;
-      }),
-    };
-    await action.handler(ctx);
+  async function press(messageId: number, label: string): Promise<void> {
+    answers.push(...await stand.press(messageId, label));
   }
 
   async function login(): Promise<{ payload: string; browserSecret: string }> {
@@ -117,11 +75,10 @@ describe('the bot confirms a web login (FT-128)', () => {
       botUsername: { username: async () => 'KapelkaBot' },
       now: () => now,
     });
-    messages.clear();
     answers = [];
-    bot = new Bot();
-    registerCommandHandlers(bot as any);
-    registerLoginHandlers(bot as any);
+    stand = new TelegramStand({ id: TELEGRAM_ID, first_name: 'Шукур' });
+    stand.install();
+    stand.start({ userModule, authModule });
   });
 
   afterEach(async () => {
@@ -135,15 +92,15 @@ describe('the bot confirms a web login (FT-128)', () => {
     now = new Date(now.getTime() + 30 * 1000);
 
     const question = await start(payload);
-    expect(messages.get(question)!.text).toBe([
+    expect(shown(question)!.text).toBe([
       '<b>Вход в Kapelka из браузера</b>',
       'Chrome · Windows, 14 октября в 19:42',
       '',
       '<i>Если это вы — подтвердите. Если нет — нажмите «Это не я», и вход не состоится.</i>',
     ].join('\n'));
-    expect(messages.get(question)!.keyboard.map(row => row.map(button => button.text))).toEqual([['Подтвердить'], ['Это не я']]);
+    expect(shown(question)!.keyboard.map(row => row.map(button => button.text))).toEqual([['Подтвердить'], ['Это не я']]);
     // Every button fits Telegram's 64 bytes of callback data
-    for (const button of messages.get(question)!.keyboard.flat()) expect(Buffer.byteLength(button.callback_data!)).toBeLessThanOrEqual(64);
+    for (const button of shown(question)!.keyboard.flat()) expect(Buffer.byteLength(button.callback_data!)).toBeLessThanOrEqual(64);
   });
 
   // users.timezone is read by nothing since #275: every user is on Tashkent's clock
@@ -154,7 +111,7 @@ describe('the bot confirms a web login (FT-128)', () => {
 
     const question = await start(payload);
 
-    expect(messages.get(question)!.text).toContain('Chrome · Windows, 14 октября в 19:42');
+    expect(shown(question)!.text).toContain('Chrome · Windows, 14 октября в 19:42');
   });
 
   it('«Подтвердить»: the browser opens, the message says so and leads back to the browser', async () => {
@@ -162,7 +119,7 @@ describe('the bot confirms a web login (FT-128)', () => {
     const question = await start(payload);
 
     await press(question, 'Подтвердить');
-    expect(messages.get(question)).toEqual({
+    expect(shown(question)).toEqual({
       text: '<b>Вход подтверждён</b>\nChrome · Windows. Вернитесь в браузер — Kapelka уже открыта.',
       keyboard: [[expect.objectContaining({ text: 'Вернуться в браузер ↗', url: 'https://kapelka.example/' })]],
     });
@@ -174,7 +131,7 @@ describe('the bot confirms a web login (FT-128)', () => {
     const { payload } = await login();
     const question = await start(payload);
     await press(question, 'Подтвердить');
-    expect(messages.get(question)!.keyboard).toEqual([]);
+    expect(shown(question)!.keyboard).toEqual([]);
   });
 
   it('«Это не я»: nobody gets in, and nothing else to do', async () => {
@@ -182,7 +139,7 @@ describe('the bot confirms a web login (FT-128)', () => {
     const question = await start(payload);
 
     await press(question, 'Это не я');
-    expect(messages.get(question)).toEqual({
+    expect(shown(question)).toEqual({
       text: '<b>Вход отклонён</b>\nНикто не получил доступ к вашим записям. Если входили не вы — ничего делать не нужно.',
       keyboard: [],
     });
@@ -195,7 +152,7 @@ describe('the bot confirms a web login (FT-128)', () => {
     now = new Date(now.getTime() + 5 * MINUTE);
 
     await press(question, 'Подтвердить');
-    expect(messages.get(question)).toEqual({
+    expect(shown(question)).toEqual({
       text: '<b>Вход не подтвердили</b>\nСсылка для входа действует 5 минут, и это время вышло. Вернитесь в браузер и нажмите «Войти через Telegram» ещё раз.',
       keyboard: [],
     });
@@ -208,16 +165,16 @@ describe('the bot confirms a web login (FT-128)', () => {
       'Вернитесь в браузер и нажмите «Войти через Telegram» ещё раз.',
     ].join('\n');
 
-    expect(messages.get(await start(`${LOGIN_START_PREFIX}no-such-token`))).toEqual({ text: stale, keyboard: [] });
+    expect(shown(await start(`${LOGIN_START_PREFIX}no-such-token`))).toEqual({ text: stale, keyboard: [] });
 
     const { payload, browserSecret } = await login();
     const question = await start(payload);
     // Another Telegram account opened the same link
-    expect(messages.get(await start(payload, 111))).toEqual({ text: stale, keyboard: [] });
+    expect(shown(await start(payload, 111))).toEqual({ text: stale, keyboard: [] });
 
     await press(question, 'Подтвердить');
     // The link again after the answer
-    expect(messages.get(await start(payload))).toEqual({ text: stale, keyboard: [] });
+    expect(shown(await start(payload))).toEqual({ text: stale, keyboard: [] });
     expect(await browserSees(browserSecret)).toBe('confirmed');
   });
 
@@ -227,12 +184,12 @@ describe('the bot confirms a web login (FT-128)', () => {
     await authModule.getCancelWebLoginUseCase().execute({ browserSecret });
 
     await press(question, 'Подтвердить');
-    expect(messages.get(question)!.text).toContain('Ссылка для входа устарела');
+    expect(shown(question)!.text).toContain('Ссылка для входа устарела');
     expect(answers).toEqual([undefined]);
   });
 
   it('/start without a login is the first message, as before', async () => {
     const greeting = await start('');
-    expect(messages.get(greeting)!.text).toContain('Это Kapelka — учёт расходов и доходов.');
+    expect(shown(greeting)!.text).toContain('Это Kapelka — учёт расходов и доходов.');
   });
 });

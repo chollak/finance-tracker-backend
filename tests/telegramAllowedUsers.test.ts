@@ -1,11 +1,7 @@
 import 'reflect-metadata';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
 import { telegramAccess } from '../src/shared/domain/access/telegramAccess';
 import { winstonLogger } from '../src/shared/infrastructure/logging';
-import { startTelegramBot } from '../src/delivery/messaging/telegram/telegramBot';
 import { allowedUsersOnly } from '../src/delivery/messaging/telegram/middleware/allowedUsersOnly';
 import { AuthModule } from '../src/modules/auth/authModule';
 import { SqliteLoginTokenRepository } from '../src/modules/auth/infrastructure/SqliteLoginTokenRepository';
@@ -13,43 +9,15 @@ import { UserModule } from '../src/modules/user/userModule';
 import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
+import { TelegramStand } from './helpers/telegramStand';
 
 /**
  * FT-153 in the bot: the bot is public in Telegram, so anyone who finds it can write. A message, a voice or a button
  * press from someone not in ALLOWED_TELEGRAM_IDS creates no user, reaches no OpenAI and writes nothing; the bot stays
- * silent and the log names who was turned away. The bot here is the real one `startTelegramBot` assembles, on a real
- * Telegraf: only polling and Telegram's API are fakes.
+ * silent and the log names who was turned away. The bot is the one `startTelegramBot` assembles, on the stand
+ * (`tests/helpers/telegramStand.ts`, #294): only polling and Telegram's API are fakes. Each stranger writes from a
+ * private chat of their own.
  */
-
-interface ApiCall { method: string; payload: any }
-
-// The real Telegraf without the network: launch() does not poll; every Bot API call — from the bot's client and from
-// the client Telegraf makes for each update — is kept and answered
-jest.mock('telegraf', () => {
-  const actual = jest.requireActual('telegraf');
-  class TestTelegraf extends actual.Telegraf {
-    static last: TestTelegraf;
-    readonly calls: ApiCall[] = [];
-
-    constructor(token: string, options?: unknown) {
-      super(token, options);
-      this.botInfo = { id: 1, is_bot: true, first_name: 'Kapelka', username: 'KapelkaBot' };
-      TestTelegraf.last = this;
-    }
-
-    launch() {
-      return new Promise(() => undefined);
-    }
-  }
-  let nextMessageId = 100;
-  actual.Telegram.prototype.callApi = async function (method: string, payload: any) {
-    TestTelegraf.last.calls.push({ method, payload });
-    return method === 'sendMessage'
-      ? { message_id: nextMessageId++, date: 0, chat: { id: payload.chat_id, type: 'private' }, text: payload.text }
-      : true;
-  };
-  return { ...actual, Telegraf: TestTelegraf };
-});
 
 const ALLOWED = 111;
 const STRANGER = 222;
@@ -57,14 +25,12 @@ const OTHER_STRANGER = 333;
 
 describe('the bot answers only the allowed (FT-153)', () => {
   let db: TestDatabase;
-  let downloads: string;
   let userModule: UserModule;
   let authModule: AuthModule;
-  let bot: { calls: ApiCall[]; handleUpdate(update: unknown): Promise<void> };
+  let stand: TelegramStand;
   /** Every use of the modules that would reach OpenAI or write records. */
   let touched: string[];
   let warn: jest.SpyInstance;
-  let updateId = 1;
 
   const watched = (name: string) => new Proxy({}, {
     get: (_target, property) => {
@@ -73,24 +39,22 @@ describe('the bot answers only the allowed (FT-153)', () => {
     },
   }) as any;
 
-  function from(id: number) {
-    return { id, is_bot: false, first_name: 'Test', username: `user${id}` };
-  }
-
-  function message(sender: number, content: Record<string, unknown>) {
-    return bot.handleUpdate({
-      update_id: updateId++,
-      message: { message_id: updateId, date: Math.floor(Date.now() / 1000), chat: { id: sender, type: 'private' }, from: from(sender), ...content },
+  /** The bot as the app starts it, with ALLOWED_TELEGRAM_IDS as AppConfig has it then. */
+  function startBot(): void {
+    stand.start({
+      voiceModule: watched('voiceModule'), transactionModule: watched('transactionModule'), userModule,
+      quickCaptureModule: watched('quickCaptureModule'), authModule,
     });
   }
 
-  const command = (sender: number, text: string) =>
-    message(sender, { text, entities: [{ type: 'bot_command', offset: 0, length: text.split(' ')[0].length }] });
+  function message(sender: number, content: Record<string, unknown>) {
+    return stand.deliver(stand.messageUpdate(content, { from: { id: sender, first_name: 'Test' } }));
+  }
 
-  const press = (sender: number, data: string) => bot.handleUpdate({
-    update_id: updateId++,
-    callback_query: { id: `q${updateId}`, from: from(sender), chat_instance: 'c', data, message: { message_id: 5, date: 0, chat: { id: sender, type: 'private' } } },
-  });
+  const command = (sender: number, text: string) => stand.deliver(stand.textUpdate(text, { from: { id: sender, first_name: 'Test' } }));
+
+  /** A press under a message no longer in the presser's chat. */
+  const press = (sender: number, data: string) => stand.pressData(5, data, { from: sender });
 
   async function startLogin(): Promise<{ payload: string; browserSecret: string }> {
     const started = await authModule.getStartWebLoginUseCase().execute({ userAgent: 'test' });
@@ -100,33 +64,24 @@ describe('the bot answers only the allowed (FT-153)', () => {
 
   const usersInDb = async () => (await db.dataSource.query('SELECT telegram_id FROM users')).map((row: { telegram_id: string }) => row.telegram_id);
   /** What the bot sent after it started (the command menu goes out at start). */
-  const sent = () => bot.calls.filter(call => call.method !== 'setMyCommands');
+  const sent = () => stand.calls.filter(call => call.method !== 'setMyCommands');
 
   beforeEach(async () => {
     touched = [];
-    downloads = fs.mkdtempSync(path.join(os.tmpdir(), 'ft153-downloads-'));
-    jest.replaceProperty(AppConfig, 'TG_BOT_API_KEY', '123:test');
-    jest.replaceProperty(AppConfig, 'ENABLE_TELEGRAM_POLLING', true);
-    jest.replaceProperty(AppConfig, 'DOWNLOADS_PATH', downloads);
-    jest.replaceProperty(AppConfig, 'TELEGRAM_ACCESS', telegramAccess([String(ALLOWED)]));
-    jest.spyOn(process, 'once').mockImplementation(() => process);
     warn = jest.spyOn(winstonLogger, 'warn').mockImplementation(() => winstonLogger);
 
     db = await openMigratedDatabase();
     userModule = new UserModule(new SqliteUserRepository(db.dataSource), new SqliteUserSettingsRepository(db.dataSource));
     authModule = new AuthModule(new SqliteLoginTokenRepository(db.dataSource), { botUsername: { username: async () => 'KapelkaBot' } });
 
-    startTelegramBot(
-      watched('voiceModule'), watched('transactionModule'), userModule, watched('quickCaptureModule'),
-      undefined, undefined, undefined, undefined, undefined, authModule
-    );
-    bot = (jest.requireMock('telegraf') as any).Telegraf.last;
+    stand = new TelegramStand({ id: ALLOWED, first_name: 'Test' });
+    stand.install({ allowed: [ALLOWED] });
+    startBot();
     touched = [];
   });
 
   afterEach(async () => {
     await db.close();
-    fs.rmSync(downloads, { recursive: true, force: true });
     jest.restoreAllMocks();
   });
 
@@ -188,11 +143,7 @@ describe('the bot answers only the allowed (FT-153)', () => {
 
   it('with an empty list everyone gets through, as before', async () => {
     jest.replaceProperty(AppConfig, 'TELEGRAM_ACCESS', telegramAccess([]));
-    startTelegramBot(
-      watched('voiceModule'), watched('transactionModule'), userModule, watched('quickCaptureModule'),
-      undefined, undefined, undefined, undefined, undefined, authModule
-    );
-    bot = (jest.requireMock('telegraf') as any).Telegraf.last;
+    startBot();
     const { payload } = await startLogin();
 
     await command(STRANGER, `/start ${payload}`);

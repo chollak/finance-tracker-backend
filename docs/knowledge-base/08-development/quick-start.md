@@ -342,13 +342,32 @@ npm test transaction     # Run specific test file
 Jest does not check types: ts-jest only translates each file (#293). A type error in a test fails
 `npm run typecheck:tests` (a step of `verify`), not `npm test`.
 
-Bot scenarios run on `tests/helpers/telegramStand.ts` (#280): the real `startTelegramBot` on the real Telegraf, so
-Telegraf routes the commands, presses and handler order; only the Bot API is a fake private chat. It refuses as
-Telegram does (an edit of a deleted message, an edit that changes nothing, a second answer to a press, a Mini App
-button off HTTPS) and on demand (`refuse()` — 429, a network error; `block()` — 403), and takes updates one at a time
-or as one getUpdates batch (`deliver([...])`, handed over side by side as polling does; the bot's chat queue then takes
-one chat's updates in order, #317). An update that ends in `bot.catch` fails the delivery unless the test passes
-`botCatch: 'allow'`. Used by `telegramRecordFlow`, `telegramCommands` and `telegramChatQueue`.
+Bot scenarios run on `tests/helpers/telegramStand.ts` (#280, #294): the real `startTelegramBot` on the real Telegraf,
+so Telegraf routes the commands, presses and the order `telegramBot.ts` registers the handlers in; only the Bot API is
+a fake — Telegram's private chats with the bot. A chat is its person's Telegram id, so a `chat_id` sent as a string (the
+notices do) is the same chat; a chat Telegram does not have with the bot — not the person's, not of someone whose update
+came, not named with `chatWith()` — is refused «chat not found», and a message is edited only in its own chat. It
+refuses as Telegram does (an edit of a deleted message, an edit that changes nothing, a second answer to a press, a
+Mini App button off HTTPS) and on demand (`refuse()` / `stopRefusing()` — 429, a network error; `block()` /
+`unblock()` — 403; `hang()` — a process killed while it waits for Telegram, until the next `start()`). Updates come one
+at a time or as one getUpdates batch (`deliver([...])`, handed over side by side as polling does; the bot's chat queue
+then takes one chat's updates in order, #317), from the person or `from` someone else, with `sentAt` as Telegram's
+`message.date`. An update that ends in `bot.catch` fails the delivery unless the test passes `botCatch: 'allow'`.
+`start(modules, { botId })` is a restart, as another bot if asked; the notices' schedulers send through
+`stand.telegram`, and `stand.sent()` is every message Telegram took, as sent. The bot's scenarios use it. Three suites
+fake Telegram otherwise, for what the stand does not do: `telegramBot.test.ts` (`jest.doMock('telegraf')` — the launch,
+409 polling conflicts, the stop), `telegramBotGracefulStop.test.ts` (the Bot API under Telegraf's own polling loop) and
+`premiumWithoutDebts.test.ts` (an object that keeps what `registerPaymentHandlers` registers).
+
+A suite whose bot restarts opens the same file again: a `DatabaseFile` from `tests/helpers/testDatabase.ts`
+(`prepareDatabaseOnce().newFile()` — the file migrated once per suite — or `newDatabaseFile()`); each `open()` is a new
+connection made as the app makes one, `remove()` closes them and deletes the folder.
+
+`tests/appModules.test.ts` runs the app as `src/index.ts` assembles it (#294): `createModules()` on `AppDataSource`
+pointed at a temp file (`setOptions` before it connects, checked before anything is migrated; the project's
+`data/database.sqlite` is never opened), `buildServer` and `createHttpApp`, the bot from the same modules. Each of the
+ten `set…` links of `createModules()` fails a test there when it is left out — a new link gets its check there too;
+the other suites wire the modules they need by hand.
 
 ### Code Quality
 

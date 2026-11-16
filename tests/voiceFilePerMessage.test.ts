@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import type { Update } from 'telegraf/types';
 import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
 import { TransactionModule } from '../src/modules/transaction/transactionModule';
 import { SqliteTransactionRepository } from '../src/modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
@@ -15,12 +16,12 @@ import { SqliteUserRepository } from '../src/modules/user/infrastructure/persist
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
 import { BotMessageModule } from '../src/modules/botMessage/botMessageModule';
 import { SqliteBotMessageRepository } from '../src/modules/botMessage/infrastructure/SqliteBotMessageRepository';
-import { registerMessageHandlers } from '../src/delivery/messaging/telegram/handlers/messageHandlers';
 import { downloadVoiceFile } from '../src/delivery/messaging/telegram/utils';
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
 import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/application/processVoiceInput';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { listenOnLoopback, LoopbackServer } from './helpers/testServer';
+import { TelegramStand } from './helpers/telegramStand';
 
 /**
  * FT-222: the same voice forwarded to the bot twice comes as two messages with one `file_id`, and the two handlers run
@@ -28,38 +29,26 @@ import { listenOnLoopback, LoopbackServer } from './helpers/testServer';
  * files (FT-216) — the second's too, and the second failed on the transcription instead of writing its record. Each
  * download has a path of its own now, and each handler removes only its own files.
  *
- * Real downloads from a server on 127.0.0.1 into a temporary `downloads/`, the real voice pipeline and SQLite; ffmpeg
- * is faked (it copies the voice to the `.mp3`), and so is OpenAI: it reads the file it is given, as the real one does.
+ * The bot is the one `startTelegramBot` assembles, on the stand (`tests/helpers/telegramStand.ts`, #294). Since #317 it
+ * takes the updates of one chat one at a time, so two voices of one chat no longer run side by side; the two handlers
+ * still do when two chats send the same voice at once — the person and someone they forwarded it to, say — and that is
+ * the race here. Real downloads from a server on 127.0.0.1 — Telegram's file storage — into a temporary `downloads/`,
+ * the real voice pipeline and SQLite; ffmpeg is faked (it copies the voice to the `.mp3`), and so is OpenAI: it reads
+ * the file it is given, as the real one does.
  */
 
 jest.mock('child_process', () => jest.requireActual('./helpers/fakeFfmpeg').childProcessWithFakeFfmpeg());
 
 const TELEGRAM_ID = 131184740;
+/** The other person who sends the same voice. */
+const OTHER_ID = 131184741;
 const FILE_ID = 'AwACAgIAAxkBAAIBVoice-the-same';
-
-type Middleware = (ctx: any, next: () => Promise<void>) => Promise<void> | void;
-
-/** The handlers registerMessageHandlers puts on a bot; an update runs the first chain that matches it. */
-class Bot {
-  readonly handlers: Array<{ filter: (update: any) => boolean; chain: Middleware[] }> = [];
-  on(filter: (update: any) => boolean, ...chain: Middleware[]) { this.handlers.push({ filter, chain }); }
-  async handle(ctx: any): Promise<void> {
-    const chain = this.handlers.find(({ filter }) => filter(ctx.update))?.chain ?? [];
-    const step = async (index: number): Promise<void> => {
-      if (index < chain.length) await chain[index](ctx, () => step(index + 1));
-    };
-    await step(0);
-  }
-}
 
 describe('the same voice twice at once: each message has its own file (FT-222)', () => {
   let db: TestDatabase;
   let telegramFiles: LoopbackServer;
   let downloads: string;
-  let bot: Bot;
-  let modules: Record<string, unknown>;
-  let sent: string[];
-  let nextMessageId: number;
+  let stand: TelegramStand;
   const parser = {
     transcribe: jest.fn(),
     analyzeInput: jest.fn(),
@@ -67,10 +56,6 @@ describe('the same voice twice at once: each message has its own file (FT-222)',
   };
 
   beforeEach(async () => {
-    sent = [];
-    nextMessageId = 10;
-    downloads = fs.mkdtempSync(path.join(os.tmpdir(), 'ft222-downloads-'));
-    jest.replaceProperty(AppConfig, 'DOWNLOADS_PATH', downloads);
     jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue('https://miniapp.test');
     parser.transcribe.mockReset();
     parser.analyzeInput.mockReset().mockResolvedValue({
@@ -91,16 +76,19 @@ describe('the same voice twice at once: each message has its own file (FT-222)',
     const userModule = new UserModule(new SqliteUserRepository(ds), new SqliteUserSettingsRepository(ds));
     const voice = new ProcessVoiceInputUseCase(parser as unknown as TranscriptionService, transactionModule.getCreateTransactionUseCase());
 
-    bot = new Bot();
-    registerMessageHandlers(bot as any, undefined, userModule);
-    modules = {
+    stand = new TelegramStand({ id: TELEGRAM_ID, first_name: 'Shukur' });
+    stand.install({ fileRoot: telegramFiles.baseUrl });
+    // After install(), which points the downloads at the system's temp folder
+    downloads = fs.mkdtempSync(path.join(os.tmpdir(), 'ft222-downloads-'));
+    jest.replaceProperty(AppConfig, 'DOWNLOADS_PATH', downloads);
+    stand.start({
       transactionModule,
       accountModule,
       categoryModule,
       userModule,
       botMessageModule: new BotMessageModule(new SqliteBotMessageRepository(ds)),
       voiceModule: { getProcessVoiceInputUseCase: () => voice },
-    };
+    });
   });
 
   afterEach(async () => {
@@ -110,30 +98,13 @@ describe('the same voice twice at once: each message has its own file (FT-222)',
     fs.rmSync(downloads, { recursive: true, force: true });
   });
 
-  /** A message with the voice, as Telegram sends a forwarded one: a message of its own, the same `file_id`. */
-  function sendVoice(): Promise<void> {
-    const chat = { id: TELEGRAM_ID, type: 'private' };
-    const from = { id: TELEGRAM_ID, first_name: 'Shukur' };
-    const message = { message_id: nextMessageId++, date: Math.floor(Date.now() / 1000), chat, from, voice: { file_id: FILE_ID, duration: 2 } };
-    let nextBotMessageId = 1000 + message.message_id * 10;
-    return bot.handle({
-      from,
-      chat,
-      message,
-      update: { update_id: 500 + message.message_id, message },
-      session: {},
-      modules,
-      sendChatAction: jest.fn().mockResolvedValue(undefined),
-      reply: jest.fn(async (text: string) => {
-        sent.push(text);
-        return { message_id: nextBotMessageId++, chat };
-      }),
-      telegram: {
-        editMessageText: jest.fn().mockResolvedValue(true),
-        getFileLink: jest.fn(async () => new URL(`${telegramFiles.baseUrl}/file/voice.oga`)),
-      },
-    });
+  /** The voice sent by the person and by the other person at once: a message in each chat, the same `file_id`. */
+  function sameVoiceTwice(): Update.MessageUpdate[] {
+    return [stand.voiceUpdate(FILE_ID), stand.voiceUpdate(FILE_ID, { from: OTHER_ID })];
   }
+
+  /** What the bot wrote back, in every chat. */
+  const sent = () => stand.sent().map(message => message.text);
 
   async function storedRecords(): Promise<number> {
     const [{ count }] = await db.dataSource.query('SELECT COUNT(*) AS count FROM transactions WHERE deleted_at IS NULL');
@@ -157,13 +128,14 @@ describe('the same voice twice at once: each message has its own file (FT-222)',
       return 'кофе двадцать тысяч';
     });
 
-    const handlers = [sendVoice(), sendVoice()];
+    // Handled side by side, as polling handles a batch; each delivery settles when its handler is done
+    const handlers = sameVoiceTwice().map(update => stand.deliver(update));
     firstDone = Promise.race(handlers);
     await Promise.all(handlers);
 
     expect(parser.transcribe).toHaveBeenCalledTimes(2);
     // Two confirmations, no «Не удалось обработать»
-    expect(sent).toEqual([expect.stringContaining('Расход'), expect.stringContaining('Расход')]);
+    expect(sent()).toEqual([expect.stringContaining('Расход'), expect.stringContaining('Расход')]);
     expect(await storedRecords()).toBe(2);
     expect(fs.readdirSync(downloads)).toEqual([]);
   });
@@ -174,7 +146,7 @@ describe('the same voice twice at once: each message has its own file (FT-222)',
       return 'кофе двадцать тысяч';
     });
 
-    await Promise.all([sendVoice(), sendVoice()]);
+    await stand.deliver(sameVoiceTwice());
 
     const [first, second] = parser.transcribe.mock.calls.map(([file]) => file as string);
     expect(path.dirname(first)).toBe(downloads);

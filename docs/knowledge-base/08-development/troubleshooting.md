@@ -419,8 +419,8 @@ the 197 records of a board written through the use case (~0.5 s of CPU on an idl
 goes over Jest's 5 s.
 
 **Solution:** do it once per file with `prepareDatabaseOnce()` from `tests/helpers/testDatabase.ts` and give each test
-a copy: `open()` instead of `openMigratedDatabase()`, `copyTo(file)` for a suite that starts the bot over its own file,
-`copyRowsOf(owner, dataSource, userId)` to add the prepared records to a database the test already uses. Only that
+a copy: `open()` instead of `openMigratedDatabase()`, `newFile()` for a suite that starts the bot over its own file and
+opens it again on a restart (a `DatabaseFile`, #294), `copyRowsOf(owner, dataSource, userId)` to add the prepared records to a database the test already uses. Only that
 one-off setup gets 60 s; do not raise the timeout of tests.
 
 A voice suite has one more cause (#295): `ProcessVoiceInputUseCase` starts `ffmpeg`, and with the real one installed

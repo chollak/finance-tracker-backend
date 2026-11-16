@@ -11,35 +11,65 @@ export interface TestDatabase {
   close(): Promise<void>;
 }
 
-/** Opens `file` of the temp directory `dir` the way the app starts: every pending migration applied. */
-async function openMigrated(dir: string, file: string): Promise<DataSource> {
-  const dataSource = createAppDataSource(file);
-  await dataSource.initialize();
-  await runMigrationsWithBackup(dataSource, file, path.join(dir, 'backups'));
-  return dataSource;
+/**
+ * A SQLite file a test opens as often as the bot restarts (#294): each `open()` is a new connection made the way the app
+ * starts, and a restart is closing the old one and opening again. What was in memory is gone, what is in the file stays.
+ */
+export interface DatabaseFile {
+  /** The directory the file is in; the app's copy before a migration goes to its `backups/`. */
+  readonly dir: string;
+  readonly file: string;
+  /** A new connection to the file, as the app opens one: every pending migration applied, after a backup. */
+  open(): Promise<DataSource>;
+  /** Closes every connection `open()` gave that is still open; the file stays. */
+  closeAll(): Promise<void>;
+  /** Closes them and removes the directory. */
+  remove(): Promise<void>;
 }
 
-/** openMigrated, and closing removes the directory. */
-async function openInDirectory(dir: string, file: string): Promise<TestDatabase> {
-  const dataSource = await openMigrated(dir, file);
+/** The database file `file`; `remove()` deletes the directory it is in. */
+export function databaseFileAt(file: string): DatabaseFile {
+  const dir = path.dirname(file);
+  const connections: DataSource[] = [];
+  const closeAll = async () => {
+    for (const dataSource of connections.splice(0)) if (dataSource.isInitialized) await dataSource.destroy();
+  };
   return {
-    dataSource,
-    async close() {
-      if (dataSource.isInitialized) await dataSource.destroy();
+    dir,
+    file,
+    async open() {
+      const dataSource = createAppDataSource(file);
+      connections.push(dataSource);
+      await dataSource.initialize();
+      await runMigrationsWithBackup(dataSource, file, path.join(dir, 'backups'));
+      return dataSource;
+    },
+    closeAll,
+    async remove() {
+      await closeAll();
       fs.rmSync(dir, { recursive: true, force: true });
     },
   };
 }
 
-function newDatabaseFile(prefix: string): { dir: string; file: string } {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-  return { dir, file: path.join(dir, 'db.sqlite') };
+/** The path of `name` in a new temp directory. */
+function newDatabasePath(prefix: string, name = 'db.sqlite'): string {
+  return path.join(fs.mkdtempSync(path.join(os.tmpdir(), prefix)), name);
+}
+
+/** A new, empty SQLite file `name` in a temp directory of its own: the first `open()` migrates it. */
+export function newDatabaseFile(name = 'db.sqlite'): DatabaseFile {
+  return databaseFileAt(newDatabasePath('ft-db-', name));
+}
+
+/** One connection to the file; closing it removes the file. */
+async function openOnce(database: DatabaseFile): Promise<TestDatabase> {
+  return { dataSource: await database.open(), close: () => database.remove() };
 }
 
 /** A fresh SQLite file in a temp directory with every migration applied. */
 export async function openMigratedDatabase(): Promise<TestDatabase> {
-  const { dir, file } = newDatabaseFile('ft-db-');
-  return openInDirectory(dir, file);
+  return openOnce(newDatabaseFile());
 }
 
 /**
@@ -55,8 +85,8 @@ const OWNER_COLUMNS = ['user_id', 'userId'];
 export interface PreparedDatabase {
   /** A copy of the prepared file in a fresh temp directory, opened the way openMigratedDatabase opens one. */
   open(): Promise<TestDatabase>;
-  /** Copies the prepared file to `target`, for a suite that opens its database itself, like the bot's start. */
-  copyTo(target: string): void;
+  /** A copy of the prepared file in a fresh temp directory, to open as often as the bot restarts (#294). */
+  newFile(): DatabaseFile;
   /**
    * Adds every row `owner` has in the prepared file to `dataSource`, as rows of `userId`: what the records `prepare`
    * wrote through the use case, without writing them again. Ids stay the prepared ones.
@@ -76,8 +106,10 @@ export function prepareDatabaseOnce(prepare: (file: string) => Promise<void> = a
   const prepared = { dir: '', file: '' };
 
   beforeAll(async () => {
-    Object.assign(prepared, newDatabaseFile('ft-prepared-'));
-    await (await openMigrated(prepared.dir, prepared.file)).destroy();
+    const migrated = databaseFileAt(newDatabasePath('ft-prepared-'));
+    Object.assign(prepared, { dir: migrated.dir, file: migrated.file });
+    await migrated.open();
+    await migrated.closeAll();
     await prepare(prepared.file);
   }, PREPARE_TIMEOUT_MS);
 
@@ -85,15 +117,15 @@ export function prepareDatabaseOnce(prepare: (file: string) => Promise<void> = a
     if (prepared.dir) fs.rmSync(prepared.dir, { recursive: true, force: true });
   });
 
+  const newFile = (): DatabaseFile => {
+    const file = newDatabasePath('ft-db-');
+    fs.copyFileSync(prepared.file, file);
+    return databaseFileAt(file);
+  };
+
   return {
-    async open() {
-      const { dir, file } = newDatabaseFile('ft-db-');
-      fs.copyFileSync(prepared.file, file);
-      return openInDirectory(dir, file);
-    },
-    copyTo(target) {
-      fs.copyFileSync(prepared.file, target);
-    },
+    open: () => openOnce(newFile()),
+    newFile,
     async copyRowsOf(owner, dataSource, userId) {
       await dataSource.query(`ATTACH DATABASE ? AS prepared`, [prepared.file]);
       try {
