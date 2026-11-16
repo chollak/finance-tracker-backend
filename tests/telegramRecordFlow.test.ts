@@ -875,7 +875,7 @@ describe('bot record messages (FT-122)', () => {
 
       const answers = await press(message, 'Изменить');
 
-      expect(answers).toEqual([undefined]);
+      expect(answers).toStrictEqual([undefined]);
       expect(answers).not.toContain(ERROR);
       expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('gone from the chat'), expect.anything());
       expect((await running.botMessageModule.getLog().find(String(TELEGRAM_ID), message))!.mode).toBe('edit');
@@ -1400,7 +1400,7 @@ describe('bot record messages (FT-122)', () => {
         expect(text(message)).toContain(`<b>Расход ${MINUS}25${NB}000${NB}сум</b>`);
         expect(text(message)).toContain(`Сумма изменена: было 25${NB}000${NB}000.`);
         expect(labels(message)).toEqual([['Изменить', 'Отменить']]);
-        expect(answers).toEqual([undefined]);
+        expect(answers).toStrictEqual([undefined]);
       });
 
       it('«Не записывать» left from before «Да, верная» does not delete the written record', async () => {
