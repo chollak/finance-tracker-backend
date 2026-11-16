@@ -1,25 +1,5 @@
 // Shared hooks barrel export
-export {
-  useMediaQuery,
-  useIsMobile,
-  useIsTablet,
-  useIsDesktop,
-  useBreakpoint,
-} from './useMediaQuery';
-
-export {
-  useTelegram,
-  useTelegramMainButton,
-  useTelegramHaptic,
-  useTelegramCloudStorage,
-  useTelegramTheme,
-  useTelegramPopup,
-} from './useTelegram';
-
-export {
-  useDebounce,
-  useDebouncedCallback,
-} from './useDebounce';
+export { useDebounce } from './useDebounce';
 
 export { useTheme } from './useTheme';
 

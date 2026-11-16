@@ -2,52 +2,10 @@ import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-qu
 import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
 import type { Transaction } from '@/shared/types';
-import { transactionToViewModel } from '../lib/toViewModel';
 import { transactionKeys } from './keys';
-import { transactionDataSource } from '@/shared/lib/db';
-import type { LocalTransaction } from '@/shared/lib/db/schema';
 import { useUserStore } from '@/entities/user';
 import type { FrequentRecord, HistoryPage, HistoryQuery, PeriodTotals } from '../model/types';
 import { parseHistorySearch } from '../lib/historySearch';
-
-/**
- * Convert LocalTransaction to Transaction format
- */
-function localToTransaction(local: LocalTransaction): Transaction {
-  return {
-    id: local.id,
-    date: local.date,
-    category: local.category,
-    categoryId: local.categoryId,
-    categoryColor: local.categoryColor,
-    description: local.description,
-    amount: local.amount,
-    type: local.type,
-    semanticType: local.semanticType,
-    needsReview: local.needsReview,
-    userId: local.userId,
-    merchant: local.merchant,
-    createdAt: new Date(local.localCreatedAt).toISOString(),
-    isArchived: local.isArchived,
-  };
-}
-
-/**
- * Hook to fetch all transactions for a user (from the server)
- */
-export function useTransactions(userId: string | null) {
-  return useQuery({
-    queryKey: transactionKeys.list(userId || ''),
-    queryFn: async () => {
-      const localTransactions = await transactionDataSource.getAll();
-
-      // Convert to Transaction format, then to ViewModels
-      const transactions = localTransactions.map(localToTransaction);
-      return transactions.map(transactionToViewModel);
-    },
-    enabled: !!userId,
-  });
-}
 
 /**
  * One record as the record sheet shows and changes it (FT-115): `GET /api/transactions/:id` for a signed-in

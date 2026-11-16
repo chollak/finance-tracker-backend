@@ -215,7 +215,7 @@ Result-pattern use cases:
 Raw-return / service-style use cases:
 
 - `GetTransactionsUseCase.execute()` returns raw list
-- `GetUserTransactionsUseCase.execute()` returns raw list
+- `GetUserTransactionsUseCase.execute()` returns raw list (removed in #289)
 - subscription use cases return raw objects/booleans/nulls
 - voice processing use cases return raw processed result and throw on some errors
 - dashboard/analytics services return raw objects (both removed: #205, #273)

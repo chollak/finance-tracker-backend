@@ -83,7 +83,7 @@ describe('record fields are checked alike (#229)', () => {
     const app = express();
     app.use(express.json());
     app.use('/api/transactions', createTransactionRouter(
-      records.create, unused, unused,
+      records.create, unused,
       new GetTransactionByIdUseCase(records.repository),
       unused,
       new UpdateTransactionUseCase(records.repository, records.catalog, records.book),
