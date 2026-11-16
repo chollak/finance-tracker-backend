@@ -3,9 +3,9 @@
  * Local Telegram Mini App launcher / menu-button helper.
  *
  * Common usage:
- *   npm run dev:miniapp -- --chat-id=131184740
- *   npm run miniapp:menu -- status --chat-id=131184740
- *   npm run miniapp:menu -- set --url=https://example.trycloudflare.com --chat-id=131184740
+ *   npm run dev:miniapp -- --chat-id=<telegram_chat_id>
+ *   npm run miniapp:menu -- status --chat-id=<telegram_chat_id>
+ *   npm run miniapp:menu -- set --url=https://example.trycloudflare.com --chat-id=<telegram_chat_id>
  *
  * The script never prints TG_BOT_API_KEY. It updates ignored local env files only.
  */

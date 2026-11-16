@@ -37,10 +37,10 @@ presentation` внутри каждого модуля `src/modules/`; прав�
 `bot_messages`, обработанные сообщения чата — в `handled_messages`, чтобы повтор от Telegram ничего не менял дважды
 (FT-172). Фото, файлы и стикеры — «Пока понимаю текст и голосовые» (#279). Пускает только `ALLOWED_TELEGRAM_IDS`
 (FT-153; пустой список вне production — всех); сообщения одного чата — по одному, в порядке Telegram
-(`middleware/chatQueue.ts`, #317). В процессе бота,
-пока он опрашивает Telegram, работают планировщики `NotificationModule`: итоги дня (FT-124) и напоминания о целях,
-подписках и ревизии (FT-133), отправленное — в `notifications_log`. Ссылки в Mini App — только при HTTPS-адресе
-`WEB_APP_URL` (#278) и без Telegram id в адресе (#281). Только русский.
+(`middleware/chatQueue.ts`, #317). В процессе бота, пока он опрашивает Telegram, работают планировщики
+`NotificationModule`: итоги дня (FT-124) и напоминания о целях, подписках и ревизии (FT-133), отправленное — в
+`notifications_log`. Ссылки в Mini App — только при HTTPS-адресе `WEB_APP_URL` (#278) и без Telegram id в адресе
+(#281). Только русский.
 
 **Данные.** TypeORM + SQLite (`data/database.sqlite`); схема меняется только миграциями
 (`src/shared/infrastructure/database/migrations/`), они применяются при старте после копии базы в `data/backups/`;

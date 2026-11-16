@@ -135,11 +135,12 @@ No scheduler or product automation should be implemented as part of this decisio
 **Update (FT-124):** the first scheduler — the bot's daily summary — runs in the bot's process, as its task asks:
 `startTelegramBot()` starts `DailySummaryNotifier` only when the bot polls (no token or `ENABLE_TELEGRAM_POLLING=false`
 — no scheduler; `WEBHOOK_MODE`, which only switched the bot off, is read by nothing since #281). It starts once
-Telegram has answered for the bot (Telegraf's `onLaunch`), looks at the clock a minute later and stops whenever polling fails — a `409` conflict with another instance (it
-starts again when the retry connects) or a permanent failure. Telegram allows one poller per bot, so a process that
-lost the polling to another one does not send; and every notice is claimed in `notifications_log` (unique user +
-kind + period) before it is sent, so even two processes over one database send it once. When `APP_MODE` arrives, the notifier moves with the bot (`bot` or
-`worker`), not into `api`.
+Telegram has answered for the bot (Telegraf's `onLaunch`), looks at the clock a minute later and stops whenever
+polling fails — a `409` conflict with another instance (it starts again when the retry connects) or a permanent
+failure. Telegram allows one poller per bot, so a process that lost the polling to another one does not send; and
+every notice is claimed in `notifications_log` (unique user + kind + period) before it is sent, so even two processes
+over one database send it once. When `APP_MODE` arrives, the notifier moves with the bot (`bot` or `worker`), not into
+`api`.
 
 **Update (FT-133):** the goal, subscription and audit reminders (`RemindersNotifier`) are the second scheduler of the
 same kind: started and stopped with the daily summary, in the bot's process, on the same one-minute `Ticker`, and every
@@ -164,9 +165,10 @@ silent. The rule:
 
 - **When the bot is `failed`.** Polling failed for good: Telegram refused the token (`401`, `404`), a `409` «another
   process polls this token» is still there after `TELEGRAM_POLLING_MAX_RETRIES` launches (default 5, backoff from
-  `TELEGRAM_POLLING_RETRY_BASE_MS` 5 s doubling to 40 s, about 75 s in all; until then the state is `retrying`), or any other Telegram error. A bot that could not even be set
-  up is `failed` too. Network errors, `429` and `5xx` inside the polling loop are retried by Telegraf itself and never
-  get here; a network error on the first `getMe` of a launch is not, so it fails the launch.
+  `TELEGRAM_POLLING_RETRY_BASE_MS` 5 s doubling to 40 s, about 75 s in all; until then the state is `retrying`), or
+  any other Telegram error. A bot that could not even be set up is `failed` too. Network errors, `429` and `5xx`
+  inside the polling loop are retried by Telegraf itself and never get here; a network error on the first `getMe` of
+  a launch is not, so it fails the launch.
 - **Production** (`NODE_ENV=production`): `createBotFailureHandler` (`src/delivery/runtime/botFailurePolicy.ts`) logs
   the cause and runs the shared graceful shutdown with exit code `1`; systemd starts the process again.
 - **Anywhere else** the app goes on without the bot, as before: development without the bot keeps working.

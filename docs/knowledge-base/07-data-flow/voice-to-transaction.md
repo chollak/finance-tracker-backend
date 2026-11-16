@@ -39,7 +39,7 @@ flowchart TD
     F0 -->|нет| F1{Чат ждёт сумму?<br/>«Сумму», «Сколько?», крупная}
     F1 -->|только сумма| F2[Меняет сумму или записывает<br/>названное без суммы]
     F1 -->|нет или другое| G[Enhanced Prompt<br/>+ Learning Patterns]
-    G --> H[OpenAI GPT-4 API]
+    G --> H[OpenAI Chat API<br/>gpt-4.1-mini]
     H --> I[Parsed Transactions<br/>+ withoutAmount]
     I --> M[CreateTransactionUseCase]
     M --> O[TransactionRepository.save]
@@ -232,7 +232,7 @@ WSL отстают после сна), бот пишет в лог с `warn`, а
 
 ---
 
-### 6. OpenAI GPT-4 Transaction Parsing
+### 6. OpenAI Transaction Parsing (`gpt-4.1-mini`)
 **Service:** `OpenAITranscriptionService.analyzeTransactions()`
 
 **API Call:**

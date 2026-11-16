@@ -648,7 +648,7 @@ Current:                      Recommended:
 ### Phase 1 Details (2026-01-16)
 
 **New files created:**
-- `webapp/src/features/quick-add/` - Quick Add feature
+- `webapp/src/features/quick-add/` - Quick Add feature (удалена в FT-113: ручной ввод — `webapp/src/features/manual-entry/`)
   - `ui/QuickAddSheet.tsx` - Bottom sheet modal
   - `ui/QuickAddForm.tsx` - Amount-first form with recent categories
   - `model/schema.ts` - Simplified Zod schema with auto-descriptions
@@ -657,7 +657,7 @@ Current:                      Recommended:
 **Files modified:**
 - `webapp/src/pages/home/ui/HomePage.tsx` - FAB now opens QuickAddSheet
 - `webapp/src/pages/transactions/ui/TransactionsPage.tsx` - FAB now opens QuickAddSheet
-- `webapp/src/shared/ui/sheet.tsx` - New component (shadcn)
+- `webapp/src/shared/ui/sheet.tsx` - New component (shadcn; удалён в #290 — `Sheet` «Пастели» в `webapp/src/shared/ui/pastel/`)
 
 **Features implemented:**
 - Bottom sheet modal for mobile-friendly quick entry

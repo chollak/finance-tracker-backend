@@ -99,7 +99,7 @@ const repository = RepositoryFactory.createTransactionRepository();
 
 **Где используется:**
 - `RepositoryFactory` - [`src/shared/infrastructure/database/repositoryFactory.ts`](../../../src/shared/infrastructure/database/repositoryFactory.ts)
-- `ErrorFactory` - [`src/shared/domain/errors/ErrorFactory.ts`](../../../src/shared/domain/errors/ErrorFactory.ts)
+- `ErrorFactory` - [`src/shared/domain/errors/AppError.ts`](../../../src/shared/domain/errors/AppError.ts) (вместе с классами ошибок)
 
 ---
 

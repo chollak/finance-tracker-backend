@@ -1,9 +1,10 @@
 name: Verify
 
-# Каждый PR проверяется тем же, что `npm run verify` локально: сборка backend и webapp,
-# ESLint webapp, Jest, Vitest, шрифты, токены, архитектура. Заменил автоматическое ревью
-# claude-code-review.yml (2026-10-21): ревью делают агенты и Hermes, а тесты на PR
-# не запускал никто. claude.yml (@claude в комментарии) убран 2026-11-03 (FT-050).
+# Каждый PR проверяется тем же, что `npm run verify` локально (шаги — в package.json): сборка
+# backend, типы тестов (typecheck:tests) и скриптов (typecheck:scripts), ESLint webapp, Jest,
+# Vitest, сборка webapp, шрифты, токены, архитектура. Заменил автоматическое ревью
+# claude-code-review.yml (2026-10-21): ревью делали агенты и Hermes, теперь — под-чат проверки,
+# а тесты на PR не запускал никто. claude.yml (@claude в комментарии) убран 2026-11-03 (FT-050).
 
 on:
   pull_request:
