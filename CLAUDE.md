@@ -625,7 +625,7 @@ See: [Adding Features Guide](docs/knowledge-base/08-development/adding-features.
 - **Frontend**: React app in `webapp/` builds to `public/webapp/` for Express serving
 - **iOS**: SwiftUI app Kapelka in `ios/` (FT-161, [`ios/README.md`](ios/README.md)): phrases by voice or keyboard and Apple Pay payments go through an offline queue to `POST /api/quick-capture` and `/payment` (FT-177…FT-179); the tab «Записи» reads the records, deletes them with «Вернуть» and changes their category (FT-218…FT-221); a journal of command runs in the settings (#241). The Shortcut token is in Keychain; signing in the ignored `ios/Config/Signing.local.xcconfig`
 - **Tests**: Jest tests in `tests/` folder with `.test.ts` suffix
-- **Static Assets**: Express serves the webapp from `public/webapp/` on the root (any other path gets its `index.html`) and the API at `/api` (`createHttpApp`); the old `/webapp` path is gone (#272)
+- **Static Assets**: Express serves the webapp from `public/webapp/` on the root (any other path gets its `index.html`) and the API at `/api` (`createHttpApp`); the old `/webapp` path is gone (#272). Files Vite names by their content (`/assets/*-<hash>.*`) are `public, max-age=31536000, immutable`; `index.html`, the manifest, the service worker and the icons stay `public, max-age=0`, so an update reaches the phone on the next open (#380)
 
 ## Integration Points
 

@@ -68,6 +68,13 @@ API (`buildServer` из [`expressServer.ts`](../../../src/delivery/web/express/e
 `public/webapp` на корне, любой другой путь — её `index.html`. Без `X-Powered-By`; редиректа `/webapp/*` больше нет — он
 переносил остаток пути в `Location`, и `/webapp//evil.example` уводил браузер на чужой сайт (#272).
 
+Кэш файлов webapp (#380): то, что Vite кладёт в `assets/` с хэшем в имени (`index-BLbtmfHV.js`), —
+`Cache-Control: public, max-age=31536000, immutable`: новая версия — новое имя, старое можно держать навсегда. Всё
+остальное — `public, max-age=0` по умолчанию express.static: `index.html`, `manifest.webmanifest`, `sw.js`,
+`registerSW.js`, `workbox-*.js`, иконки, файл в `assets/` без хэша. После обновления телефон спрашивает `index.html` (ETag),
+получает новый и по нему — только изменившиеся файлы. Чанк, которого после обновления нет, отдаётся как `index.html` с
+`max-age=0`: заголовок ставится только настоящему файлу.
+
 Server слушает на порту из `process.env.PORT` (default: 3000).
 
 ---

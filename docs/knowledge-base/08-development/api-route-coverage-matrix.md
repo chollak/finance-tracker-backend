@@ -74,6 +74,13 @@ From `tests/httpHardening.test.ts` (#272), on `createHttpApp` over the real `bui
 - the log of a broken body and of a stranger's request: path and code, no body, no query
 - CORS only for the origin of `WEB_APP_URL`, with credentials and `PATCH`, never `*`
 
+From `tests/webAppCacheHeaders.test.ts` (#380), on `createHttpApp` over a folder shaped like `public/webapp`:
+
+- `/assets/*-<hash>.*` (js, css, woff2; GET and HEAD) — `public, max-age=31536000, immutable`
+- `/`, `/index.html`, a client route, `manifest.webmanifest`, `sw.js`, `registerSW.js`, `workbox-*.js`, icons, a file
+  in `assets/` without a hash, a hashed name that is not in the build — `public, max-age=0`
+- `/api/*` keeps `no-store`, `/api/assets/…` included
+
 From `tests/legacyUserIdRoutes.test.ts` (FT-162), for every legacy route with `:userId` (transactions,
 subscription status; the dashboard ones until #205 removed them, the budget ones until #264, the debt ones until #265), on a real SQLite `users` table:
 
