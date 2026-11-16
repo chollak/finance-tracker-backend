@@ -12,7 +12,13 @@ const logger = createLogger(LogCategory.HTTP);
  */
 export function handleControllerError(error: unknown, res: Response): void {
   if (error instanceof AppError && error.statusCode < 500) {
-    logger.warn('Request refused', { status: error.statusCode, code: error.code, message: error.message });
+    // The reason in the text: Winston glues a `message` field to it with no separator. The context (`field`…) under
+    // `errorContext`, as the error line writes it
+    logger.warn(`Request refused: ${error.message}`, {
+      status: error.statusCode,
+      code: error.code,
+      ...(error.context && { errorContext: error.context }),
+    });
   } else {
     logger.error('Controller error', error instanceof Error ? error : new Error(String(error)));
   }

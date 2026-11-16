@@ -63,6 +63,18 @@ describe('controllerHelpers', () => {
       expect(line).toContain(error.code);
     });
 
+    // Review of PR #369: Winston glued a `message` field to the text with no separator («Request refused from must be…»)
+    // and the error's context, which the error line kept as `errorContext`, was lost
+    it('says why in words and keeps the error\'s context, as the error line did', async () => {
+      handleControllerError(new ValidationError('from must be a date YYYY-MM-DD', 'from'), createMockResponse());
+
+      const [line] = await logs.lines();
+      expect(line).toContain('Request refused: from must be a date YYYY-MM-DD');
+      expect(line).toContain('"errorContext":{"field":"from"}');
+      expect(line).toContain('"status":400');
+      expect(line).toContain('"code":"VALIDATION_ERROR"');
+    });
+
     it('a 500 and an unexpected exception are errors', async () => {
       handleControllerError(new StorageError('Failed to read history'), createMockResponse());
       handleControllerError(new Error('boom'), createMockResponse());
