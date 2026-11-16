@@ -3,7 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { useUserStore } from '@/entities/user';
 import { useSettings } from '@/entities/settings';
 import { useIsOffline } from '@/shared/lib/offline';
-import { Loading } from '@/shared/ui/loading';
+import { LoadingScreen } from '@/shared/ui/pastel';
 import { firstLaunchDecision } from './firstLaunchDecision';
 import { AppLoading } from './AppLoading';
 
@@ -37,7 +37,7 @@ export function FirstLaunchGate() {
   if (decision === 'wait') return <AppLoading pathname={pathname} />;
   if (decision === 'first-launch') {
     return (
-      <Suspense fallback={<Loading fullScreen />}>
+      <Suspense fallback={<LoadingScreen />}>
         <FirstLaunchPage />
       </Suspense>
     );

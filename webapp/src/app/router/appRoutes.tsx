@@ -1,6 +1,6 @@
 import { isRouteErrorResponse, useRouteError, type RouteObject } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
-import { Loading } from '@/shared/ui/loading';
+import { LoadingScreen } from '@/shared/ui/pastel';
 import { HomeSkeleton } from '@/widgets/home-skeleton';
 // Not lazy, so the router's error page below never needs a piece of code to load: a page whose code did not load is
 // one of its causes (#240). That failure is not a 404 — an unknown address is the `*` route at the end (#222)
@@ -37,8 +37,9 @@ const TransferPage = lazy(() => import('@/pages').then(m => ({ default: m.Transf
 // The spending audit of the month before (FT-132), from Home, «Ещё» and analytics
 const AuditPage = lazy(() => import('@/pages').then(m => ({ default: m.AuditPage })));
 
-// Wrapper component with Suspense; Home's code loads behind Home's skeleton (FT-112)
-function PageLoader({ children, fallback = <Loading fullScreen /> }: { children: React.ReactNode; fallback?: React.ReactNode }) {
+// Wrapper component with Suspense; Home's code loads behind Home's skeleton (FT-112), another screen's behind the
+// theme's background and the Kapelka sign (#290)
+function PageLoader({ children, fallback = <LoadingScreen /> }: { children: React.ReactNode; fallback?: React.ReactNode }) {
   return <Suspense fallback={fallback}>{children}</Suspense>;
 }
 

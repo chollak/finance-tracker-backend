@@ -33,4 +33,11 @@ describe('AppShell', () => {
   it('keeps the bottom system zone clear below every screen', () => {
     expect(renderShell('/transactions')).toMatch(/<main[^>]*class="[^"]*pb-\[env\(safe-area-inset-bottom\)\]/);
   });
+
+  it('paints the theme’s Pastel background, not a shadcn name (#290)', () => {
+    const shell = renderShell('/transactions').match(/<main[^>]*class="([^"]*)"/)?.[1].split(/\s+/) ?? [];
+
+    expect(shell).toContain('bg-bg');
+    expect(shell).not.toContain('bg-background');
+  });
 });

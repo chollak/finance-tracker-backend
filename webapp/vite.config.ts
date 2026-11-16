@@ -91,10 +91,6 @@ export default defineConfig({
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           // TanStack Query
           'query-vendor': ['@tanstack/react-query'],
-          // Form libraries
-          'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
-          // UI components
-          'ui-vendor': ['lucide-react', 'date-fns'],
         },
       },
     },

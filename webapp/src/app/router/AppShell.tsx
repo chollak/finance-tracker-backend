@@ -13,7 +13,7 @@ export function AppShell() {
   useTelegramBackButton();
 
   return (
-    <main className="min-h-dvh bg-background pb-[env(safe-area-inset-bottom)]">
+    <main className="min-h-dvh bg-bg pb-[env(safe-area-inset-bottom)]">
       <ScrollRestoration />
       <Outlet />
     </main>

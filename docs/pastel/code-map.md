@@ -70,8 +70,8 @@ webapp, проверка архитектуры и шрифтов.
 
 ## Webapp — `webapp/src/`
 
-React 19, Vite, Tailwind 4 (`@theme inline` в `app/styles/globals.css`), shadcn/Radix, React Query, zustand,
-Dexie, react-router 7, sonner (recharts убран в FT-121, motion — в #289). Feature-Sliced Design: `app`, `pages` (12), `widgets` (11),
+React 19, Vite, Tailwind 4 (`@theme inline` в `app/styles/globals.css`), компоненты «Пастели» в `shared/ui/pastel/` (шторка — Radix Dialog), React Query, zustand,
+Dexie, react-router 7 (recharts убран в FT-121, motion — в #289, слой shadcn, sonner и React Hook Form + Zod — в #290). Feature-Sliced Design: `app`, `pages` (12), `widgets` (11),
 `features` (12), `entities` (7), `shared`. Около 258 файлов, 20 файлов тестов Vitest (только чистые функции).
 
 **Маршруты.** `/` Главная, `/transactions` История (FT-116: поиск и фильтры), `/add[?type=income]` ручной ввод (FT-113; `/transactions/add`

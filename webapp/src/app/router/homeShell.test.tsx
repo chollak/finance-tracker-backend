@@ -3,8 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { HomePage, MorePage } from '@/pages';
-import { PageHeader } from '@/shared/ui';
+import { AccountsPage, HomePage, MorePage, TransactionsPage } from '@/pages';
 import { BackButton } from '@/shared/ui/pastel';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { useUserStore } from '@/entities/user';
@@ -178,23 +177,36 @@ describe('no bottom bar', () => {
 });
 
 describe('«Назад» on nested screens', () => {
-  it('outside Telegram a nested screen draws its own «Назад»', () => {
-    expect(render(<MorePage />, ROUTES.MORE)).toMatch(BACK_BUTTON);
-    expect(render(<PageHeader title="История" />, ROUTES.TRANSACTIONS)).toMatch(BACK_BUTTON);
-    // A screen that draws the round «Назад» itself, like the transfer (the form header went with the debts, #265)
+  /** The nested screens Home and «Ещё» open, drawn as they are (#290: not a header component on its own). */
+  const NESTED: Array<[string, string, () => ReactElement]> = [
+    ['История', ROUTES.TRANSACTIONS, () => <TransactionsPage />],
+    ['Ещё', ROUTES.MORE, () => <MorePage />],
+    ['Счета', ROUTES.ACCOUNTS, () => <AccountsPage />],
+  ];
+
+  it.each(NESTED)('outside Telegram «%s» draws its own «Назад»', (_name, path, screen) => {
+    expect(render(screen(), path)).toMatch(BACK_BUTTON);
+  });
+
+  it('a screen that draws the round «Назад» itself, like the transfer, has it too', () => {
     expect(render(<BackButton />, ROUTES.TRANSFER())).toMatch(BACK_BUTTON);
   });
 
-  it('a plain browser with the Telegram SDK loaded is still outside Telegram', () => {
+  it.each(NESTED)('a plain browser with the Telegram SDK loaded is still outside Telegram: «%s» has «Назад»', (_name, path, screen) => {
     vi.stubGlobal('window', { Telegram: { WebApp: { ...telegramWebApp(), initData: '' } } });
 
-    expect(render(<PageHeader title="История" />, ROUTES.TRANSACTIONS)).toMatch(BACK_BUTTON);
+    expect(render(screen(), path)).toMatch(BACK_BUTTON);
   });
 
-  it('inside Telegram the screen leaves «Назад» to Telegram’s BackButton', () => {
+  it.each(NESTED)('inside Telegram «%s» leaves «Назад» to Telegram’s BackButton', (_name, path, screen) => {
     vi.stubGlobal('window', { Telegram: { WebApp: telegramWebApp() } });
 
-    expect(render(<PageHeader title="История" />, ROUTES.TRANSACTIONS)).not.toMatch(BACK_BUTTON);
+    expect(render(screen(), path)).not.toMatch(BACK_BUTTON);
+  });
+
+  it('inside Telegram the transfer’s own round «Назад» is not drawn either', () => {
+    vi.stubGlobal('window', { Telegram: { WebApp: telegramWebApp() } });
+
     expect(render(<BackButton />, ROUTES.TRANSFER())).not.toMatch(BACK_BUTTON);
   });
 });
