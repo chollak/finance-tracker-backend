@@ -191,12 +191,12 @@ simple phrases («такси 18к», «обед 45 000, кофе 25к») and «�
 
 ## 4. iPhone
 
-These work for the server's owner only, through a token bound to one Telegram account (`SHORTCUT_CAPTURE_TOKEN`,
-`SHORTCUT_CAPTURE_OWNER`).
-
-- **Action Button and Shortcuts.** A phrase goes to the bot in Telegram, or straight to the server. See
-  [docs/IOS_SHORTCUT_ACTION_BUTTON.md](docs/IOS_SHORTCUT_ACTION_BUTTON.md).
-- **The Kapelka app for iPhone** ([ios/README.md](ios/README.md)):
+- **Action Button and Shortcuts** ([docs/IOS_SHORTCUT_ACTION_BUTTON.md](docs/IOS_SHORTCUT_ACTION_BUTTON.md)):
+  - Through Telegram: a Shortcut opens the chat with the bot so you can dictate or type the phrase. It needs no token
+    and works for anyone with access.
+  - Straight to the server: a Shortcut sends the phrase in one press. It is only for the server's owner: it uses a
+    token bound to one Telegram account (`SHORTCUT_CAPTURE_TOKEN`, `SHORTCUT_CAPTURE_OWNER`).
+- **The Kapelka app for iPhone** ([ios/README.md](ios/README.md)) is only for the owner too, with the same token:
   - a phrase or your voice is saved on the phone first, and goes to the server when it can be reached;
   - Apple Pay payments come in through the Wallet automation «Транзакция»;
   - in «Записи» you can delete a record (with «Вернуть») or change its category. Amount, account and date are changed
