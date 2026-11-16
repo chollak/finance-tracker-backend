@@ -2724,8 +2724,8 @@ Hermes ran:
 
 ```bash
 node --check scripts/dev-miniapp.js
-npm run miniapp:menu -- status --chat-id=131184740
-node scripts/dev-miniapp.js run --url=https://mice-adds-growing-surfing.trycloudflare.com --chat-id=131184740 --skip-build --no-serve
+npm run miniapp:menu -- status --chat-id=<telegram_id>
+node scripts/dev-miniapp.js run --url=https://mice-adds-growing-surfing.trycloudflare.com --chat-id=<telegram_id> --skip-build --no-serve
 npm run build
 ```
 
@@ -2733,7 +2733,7 @@ Results:
 
 - Script syntax check passed.
 - Status command showed `TG_BOT_API_KEY=present` without printing the secret and verified the current Telegram menu URL.
-- Existing-tunnel run updated `.env`, updated Telegram menu button to `https://mice-adds-growing-surfing.trycloudflare.com/?userId=131184740`, and public app probe returned HTTP 200.
+- Existing-tunnel run updated `.env`, updated Telegram menu button to `https://mice-adds-growing-surfing.trycloudflare.com/?userId=<telegram_id>`, and public app probe returned HTTP 200.
 - Backend TypeScript build passed.
 
 ### Full verification
@@ -2793,7 +2793,7 @@ Screenshot artifacts:
 Design audit command:
 
 ```bash
-BASE_URL=https://markets-upc-usb-inquiry.trycloudflare.com AUTH_MODE=telegram TELEGRAM_USER_ID=131184740 VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 OUT_DIR=/tmp/ft031a-daily-audit-after ROUTES=/,/transactions,/transactions/add npm run design:audit
+BASE_URL=https://markets-upc-usb-inquiry.trycloudflare.com AUTH_MODE=telegram TELEGRAM_USER_ID=<telegram_id> VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 OUT_DIR=/tmp/ft031a-daily-audit-after ROUTES=/,/transactions,/transactions/add npm run design:audit
 ```
 
 Result: passed with `issueCount: 0`.
@@ -2927,7 +2927,7 @@ After:
 Focused authenticated audit:
 
 ```bash
-BASE_URL=https://hoped-physics-partnerships-shares.trycloudflare.com AUTH_MODE=telegram TELEGRAM_USER_ID=131184740 VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 OUT_DIR=/tmp/ft031c-after ROUTES=/,/transactions,/transactions/add npm run design:audit
+BASE_URL=https://hoped-physics-partnerships-shares.trycloudflare.com AUTH_MODE=telegram TELEGRAM_USER_ID=<telegram_id> VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 OUT_DIR=/tmp/ft031c-after ROUTES=/,/transactions,/transactions/add npm run design:audit
 ```
 
 Result: `issueCount: 0`.
@@ -3744,7 +3744,7 @@ Mini App tunnel/menu check:
 - `root:200`
 - `health:200`
 - `menu.type=web_app`
-- URL: `https://employers-nasa-wondering-pointing.trycloudflare.com/?userId=131184740`
+- URL: `https://employers-nasa-wondering-pointing.trycloudflare.com/?userId=<telegram_id>`
 
 ### Remaining non-code gate
 
@@ -4287,11 +4287,11 @@ Use the newly allowed Telegram external actions to verify the local-only Mini Ap
 
 ### External verification
 
-- `npm run dev:miniapp -- --chat-id=131184740` built webapp/backend, started a Cloudflare quick tunnel, updated `.env` `WEB_APP_URL`, updated Telegram persistent menu button, served the app, and returned public probe HTTP 200.
+- `npm run dev:miniapp -- --chat-id=<telegram_id>` built webapp/backend, started a Cloudflare quick tunnel, updated `.env` `WEB_APP_URL`, updated Telegram persistent menu button, served the app, and returned public probe HTTP 200.
 - The run reproduced the original 409 polling conflict. After the fix, logs showed retry attempts with increasing pauses: attempt 1 → 5s, attempt 2 → 10s, attempt 3 → 20s, then attempt 4 running.
 - `GET http://127.0.0.1:3000/api/health` returned HTTP 200 with `telegramBot.state=running` and `attempts=4`.
-- `npm run miniapp:menu -- status --chat-id=131184740` showed `.env` and Telegram menu aligned on the same Cloudflare tunnel URL.
-- `BASE_URL=<tunnel> AUTH_MODE=telegram TELEGRAM_USER_ID=131184740 ROUTES=/,/transactions,/budgets,/analytics npm run design:audit` passed with `issueCount: 0`, no console errors, no bad responses, and no auth failures.
+- `npm run miniapp:menu -- status --chat-id=<telegram_id>` showed `.env` and Telegram menu aligned on the same Cloudflare tunnel URL.
+- `BASE_URL=<tunnel> AUTH_MODE=telegram TELEGRAM_USER_ID=<telegram_id> ROUTES=/,/transactions,/budgets,/analytics npm run design:audit` passed with `issueCount: 0`, no console errors, no bad responses, and no auth failures.
 
 ### Automated verification
 
