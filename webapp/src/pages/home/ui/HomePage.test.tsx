@@ -172,7 +172,9 @@ describe('balance card', () => {
     const html = home({ accounts: ACCOUNTS, totals: totals(500_000_000, 625_000_000) });
 
     // «на» is tied to the amount by a non-breaking space, so a wrapped line does not end with it
-    expect(text(html)).toContain(`В ${monthNameIn(MONTH)} расходы больше дохода на${NBSP} 1${NBSP}250${NBSP}000${NBSP}сум`);
+    expect(text(html)).toContain(`Расходы больше дохода на${NBSP} 1${NBSP}250${NBSP}000${NBSP}сум`);
+    // the month is on the tiles below; without it the line stays one at 390px (#412)
+    expect(text(html)).not.toContain(`В ${monthNameIn(MONTH)} расходы`);
     expect(text(html)).not.toContain('%');
     expect(html).toContain('width:100%');
   });
@@ -190,7 +192,7 @@ describe('balance card', () => {
       />
     );
 
-    expect(text(html)).toContain(`расходы больше дохода на${NBSP} 98,81${NBSP}USD`);
+    expect(text(html)).toContain(`Расходы больше дохода на${NBSP} 98,81${NBSP}USD`);
   });
 
   it('lists the accounts in their own currencies and links to «Все счета и курс доллара» when open', () => {
