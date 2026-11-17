@@ -305,10 +305,6 @@ if (description.length < 3) confidence -= 0.05;
 - TypeORM insert через `repository.save()`
 - Auto-increment ID
 
-**Supabase:**
-- PostgreSQL insert через Supabase client
-- UUID generation
-
 **Stored Fields:**
 ```typescript
 {

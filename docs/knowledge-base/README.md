@@ -148,7 +148,6 @@ Backend-дашборда (/api/dashboard, DashboardService) нет с #205, бю
 
 ### Существующая документация
 - [PROJECT_DOCUMENTATION.md](../../PROJECT_DOCUMENTATION.md) - исторический снимок технической документации
-- [SUPABASE_MIGRATION.md](../../SUPABASE_MIGRATION.md) - история: миграция на Supabase, не активный путь
 - [CLAUDE.md](../../CLAUDE.md) - Команды разработки для Claude Code
 - [USER_GUIDE.md](../../USER_GUIDE.md) - что умеют бот, Mini App и iPhone — для пользователя
 
