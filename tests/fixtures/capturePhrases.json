@@ -1,0 +1,744 @@
+{
+  "today": "2026-11-18",
+  "recordedWith": "gpt-4.1-mini",
+  "phrases": [
+    {
+      "id": "coffee-plain",
+      "phrase": "кофе 25000",
+      "covers": "одна трата: слово и сумма",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":2500000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "taxi-k",
+      "phrase": "такси 18к",
+      "covers": "сумма с «к»",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":1800000,"currency":"UZS","date":"2026-11-18","category":"Транспорт","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "coffee-point-thousands",
+      "phrase": "кофе 25.000",
+      "covers": "точка как разделитель тысяч",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":2500000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "lunch-bare-45",
+      "phrase": "обед 45",
+      "covers": "голое «45» — это 45 000 сум",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":4500000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "taxi-cash",
+      "phrase": "такси 18000 нал",
+      "covers": "«нал» выбирает счёт наличных",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":1800000,"currency":"UZS","date":"2026-11-18","category":"Транспорт","account":"Наличные","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "groceries-card",
+      "phrase": "продукты 85 000 картой",
+      "covers": "«картой» и сумма с пробелом",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":8500000,"currency":"UZS","date":"2026-11-18","category":"Продукты","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "internet-thousand-word",
+      "phrase": "интернет 150 тыс",
+      "covers": "сумма с «тыс»",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":15000000,"currency":"UZS","date":"2026-11-18","category":"Связь","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "yesterday-taxi",
+      "phrase": "вчера такси 18000",
+      "covers": "«вчера»",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":1800000,"currency":"UZS","date":"2026-11-17","category":"Транспорт","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "salary",
+      "phrase": "зарплата 12 000 000",
+      "covers": "зарплата",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"income","semanticType":"income","amountMinor":1200000000,"currency":"UZS","date":"2026-11-18","category":"Зарплата","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "advance-day-before",
+      "phrase": "аванс 3 млн позавчера",
+      "covers": "«позавчера» и «млн»",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"income","semanticType":"income","amountMinor":300000000,"currency":"UZS","date":"2026-11-16","category":"Зарплата","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "cashback-small",
+      "phrase": "кэшбэк 870",
+      "covers": "мелкий доход не умножается на тысячу",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"income","semanticType":"income","amountMinor":87000,"currency":"UZS","date":"2026-11-18","category":"Кэшбэк","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "own-transfer",
+      "phrase": "перевел 500000 на Humo",
+      "covers": "перевод между своими счетами",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"own_transfer","amountMinor":50000000,"currency":"UZS","date":"2026-11-18","category":"Другое","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "cash-withdrawal",
+      "phrase": "снял 300000 с карты",
+      "covers": "снятие наличных",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"cash_withdrawal","amountMinor":30000000,"currency":"UZS","date":"2026-11-18","category":"Другое","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "saving-deposit",
+      "phrase": "положил на вклад 2 млн",
+      "covers": "перевод в накопления",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"saving_deposit","amountMinor":200000000,"currency":"UZS","date":"2026-11-18","category":"Другое","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "coffee-extra-zeros",
+      "phrase": "кофе 25000000",
+      "covers": "опечатка с лишними нулями",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":2500000000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":true}
+        ],
+        "withoutAmount": []
+      },
+      "knownIssue": {
+        "issue": 305,
+        "note": "Крупная сумма в повседневной категории пишется без «Нужно проверить» везде, кроме бота.",
+        "now": {
+          "records": [
+            {"type":"expense","semanticType":"expense","amountMinor":2500000000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false}
+          ],
+          "withoutAmount": []
+        }
+      }
+    },
+    {
+      "id": "headphones-usd",
+      "phrase": "наушники 55$",
+      "covers": "доллары",
+      "ai": { "items": [
+        {"intent":"transaction","amount":55,"currency":"USD","account":null,"category":"Покупки","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":"неизвестно","confidence":0.9,"description":"наушники"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":5500,"currency":"USD","date":"2026-11-18","category":"Покупки","account":"Карта","needsReview":true}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "two-items",
+      "phrase": "кофе 25000 и такси 18000",
+      "covers": "две траты в одной фразе",
+      "ai": { "items": [
+        {"intent":"transaction","amount":25000,"currency":"UZS","account":null,"category":"Кафе","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":null,"confidence":1,"description":"кофе"},
+        {"intent":"transaction","amount":18000,"currency":"UZS","account":null,"category":"Транспорт","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":null,"confidence":1,"description":"такси"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":2500000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false},
+          {"type":"expense","semanticType":"expense","amountMinor":1800000,"currency":"UZS","date":"2026-11-18","category":"Транспорт","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "three-items",
+      "phrase": "продукты 120к, такси 18к, обед 45",
+      "covers": "три траты в одной фразе",
+      "ai": { "items": [
+        {"intent":"transaction","amount":120000,"currency":"UZS","account":null,"category":"Продукты","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":null,"confidence":0.9,"description":"продукты"},
+        {"intent":"transaction","amount":18000,"currency":"UZS","account":null,"category":"Транспорт","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":null,"confidence":0.9,"description":"такси"},
+        {"intent":"transaction","amount":45000,"currency":"UZS","account":null,"category":"Кафе","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":null,"confidence":0.9,"description":"обед"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":12000000,"currency":"UZS","date":"2026-11-18","category":"Продукты","account":"Карта","needsReview":false},
+          {"type":"expense","semanticType":"expense","amountMinor":1800000,"currency":"UZS","date":"2026-11-18","category":"Транспорт","account":"Карта","needsReview":false},
+          {"type":"expense","semanticType":"expense","amountMinor":4500000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "item-without-amount",
+      "phrase": "кофе 25к, такси",
+      "covers": "позиция без суммы рядом с тратой",
+      "ai": { "items": [
+        {"intent":"transaction","amount":25000,"currency":"UZS","account":null,"category":"Кафе","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":"","confidence":1,"description":"кофе"},
+        {"intent":"transaction","amount":null,"currency":"UZS","account":null,"category":"Транспорт","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":"","confidence":1,"description":"такси"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":2500000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": [
+          {"description":"такси","category":"Транспорт","type":"expense"}
+        ]
+      }
+    },
+    {
+      "id": "only-without-amount",
+      "phrase": "заправил машину",
+      "covers": "трата без суммы",
+      "ai": { "items": [
+        {"intent":"transaction","amount":null,"currency":"UZS","account":null,"category":"Транспорт","type":"expense","semanticType":"expense","needsReview":true,"date":"2026-11-18","merchant":null,"confidence":0.7,"description":"заправил машину"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [],
+        "withoutAmount": [
+          {"description":"заправил машину","category":"Транспорт","type":"expense"}
+        ]
+      }
+    },
+    {
+      "id": "returned-to-me",
+      "phrase": "мне вернули 100000",
+      "covers": "«мне вернули»",
+      "ai": { "items": [
+        {"intent":"transaction","amount":100000,"currency":"UZS","account":null,"category":"Возврат","type":"income","semanticType":"reimbursement","needsReview":false,"date":"2026-11-18","merchant":"","confidence":1,"description":"возврат денег"}
+      ] },
+      "aiSource": "edited",
+      "expected": {
+        "records": [
+          {"type":"income","semanticType":"reimbursement","amountMinor":10000000,"currency":"UZS","date":"2026-11-18","category":"Возврат","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "store-refund",
+      "phrase": "возврат за куртку 350000",
+      "covers": "возврат из магазина",
+      "ai": { "items": [
+        {"intent":"transaction","amount":350000,"currency":"UZS","account":null,"category":"Возврат","type":"income","semanticType":"reimbursement","needsReview":false,"date":"2026-11-18","merchant":"неизвестно","confidence":0.9,"description":"возврат за куртку"}
+      ] },
+      "aiSource": "edited",
+      "expected": {
+        "records": [
+          {"type":"income","semanticType":"reimbursement","amountMinor":35000000,"currency":"UZS","date":"2026-11-18","category":"Возврат","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "i-returned-debt",
+      "phrase": "я вернул Азизу 200000",
+      "covers": "я отдаю долг",
+      "ai": { "items": [
+        {"intent":"transaction","amount":200000,"currency":"UZS","account":null,"category":"Другое","type":"expense","semanticType":"debt","needsReview":false,"date":"2026-11-18","merchant":"Азиз","confidence":0.8,"description":"возврат Азизу"}
+      ] },
+      "aiSource": "edited",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"debt","amountMinor":20000000,"currency":"UZS","date":"2026-11-18","category":"Другое","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "lent-to-friend",
+      "phrase": "одолжил Азизу 300000",
+      "covers": "долг пишется обычной тратой в «Другое»",
+      "ai": { "items": [
+        {"intent":"transaction","amount":300000,"currency":"UZS","account":null,"category":"Другое","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":"Азиз","confidence":1,"description":"одолжил"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":30000000,"currency":"UZS","date":"2026-11-18","category":"Другое","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "friday-dinner",
+      "phrase": "в пятницу ужин в ресторане 280000",
+      "covers": "день недели",
+      "ai": { "items": [
+        {"intent":"transaction","amount":280000,"currency":"UZS","account":null,"category":"Кафе","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-13","merchant":"ресторан","confidence":1,"description":"ужин"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":28000000,"currency":"UZS","date":"2026-11-13","category":"Кафе","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "monday-fuel",
+      "phrase": "в понедельник заправка 200 тыс",
+      "covers": "день недели и «тыс»",
+      "ai": { "items": [
+        {"intent":"transaction","amount":200000,"currency":"UZS","account":null,"category":"Транспорт","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-16","merchant":"АЗС","confidence":0.9,"description":"заправка"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":20000000,"currency":"UZS","date":"2026-11-16","category":"Транспорт","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "utilities-25th",
+      "phrase": "коммуналка 25го 320000",
+      "covers": "«25го»: число месяца и сумма рядом",
+      "ai": { "items": [
+        {"intent":"transaction","amount":320000,"currency":"UZS","account":null,"category":"Дом","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-25","merchant":"","confidence":1,"description":"коммуналка"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":32000000,"currency":"UZS","date":"2026-10-25","category":"Дом","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      },
+      "knownIssue": {
+        "issue": 300,
+        "note": "Промпт отправляет «25го» в текущий или следующий месяц, дата ответа не проверяется: запись в будущем.",
+        "now": {
+          "records": [
+            {"type":"expense","semanticType":"expense","amountMinor":32000000,"currency":"UZS","date":"2026-11-25","category":"Дом","account":"Карта","needsReview":false}
+          ],
+          "withoutAmount": []
+        }
+      }
+    },
+    {
+      "id": "phone-million-comma",
+      "phrase": "купил телефон за 1,5 млн",
+      "covers": "«1,5 млн»",
+      "ai": { "items": [
+        {"intent":"transaction","amount":1500000,"currency":"UZS","account":null,"category":"Покупки","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":"телефон","confidence":0.9,"description":"телефон"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":150000000,"currency":"UZS","date":"2026-11-18","category":"Покупки","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "voice-number-words",
+      "phrase": "потратил двадцать пять тысяч на кофе",
+      "covers": "голосовая расшифровка: числа словами",
+      "ai": { "items": [
+        {"intent":"transaction","amount":25000,"currency":"UZS","account":null,"category":"Кафе","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":null,"confidence":0.9,"description":"кофе"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":2500000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "voice-two-items-words",
+      "phrase": "такси восемнадцать тысяч и обед сорок пять тысяч",
+      "covers": "голосовая расшифровка: две траты словами",
+      "ai": { "items": [
+        {"intent":"transaction","amount":18000,"currency":"UZS","account":null,"category":"Транспорт","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":"такси","confidence":1,"description":"такси"},
+        {"intent":"transaction","amount":45000,"currency":"UZS","account":null,"category":"Кафе","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":"обед","confidence":1,"description":"обед"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":1800000,"currency":"UZS","date":"2026-11-18","category":"Транспорт","account":"Карта","needsReview":false},
+          {"type":"expense","semanticType":"expense","amountMinor":4500000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "voice-long-sentence",
+      "phrase": "Сегодня утром заплатил за интернет сто пятьдесят тысяч сум.",
+      "covers": "голосовая расшифровка: предложение с точкой",
+      "ai": { "items": [
+        {"intent":"transaction","amount":150000,"currency":"UZS","account":null,"category":"Связь","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":"интернет","confidence":0.9,"description":"интернет"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":15000000,"currency":"UZS","date":"2026-11-18","category":"Связь","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "typo-groceries",
+      "phrase": "прадукты 85000",
+      "covers": "опечатка в слове",
+      "ai": { "items": [
+        {"intent":"transaction","amount":85000,"currency":"UZS","account":null,"category":"Продукты","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":"","confidence":1,"description":"прадукты"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":8500000,"currency":"UZS","date":"2026-11-18","category":"Продукты","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "typo-taxi",
+      "phrase": "таски 20000",
+      "covers": "опечатка в слове",
+      "ai": { "items": [
+        {"intent":"transaction","amount":20000,"currency":"UZS","account":null,"category":"Транспорт","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":"такси","confidence":0.9,"description":"такси"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":2000000,"currency":"UZS","date":"2026-11-18","category":"Транспорт","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "uzbek-bazaar",
+      "phrase": "бозордан гушт олдим 150 минг",
+      "covers": "узбекские слова кириллицей",
+      "ai": { "items": [
+        {"intent":"transaction","amount":150000,"currency":"UZS","account":null,"category":"Продукты","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":"бозор","confidence":0.9,"description":"гушт"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":15000000,"currency":"UZS","date":"2026-11-18","category":"Продукты","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "uzbek-latin-taxi",
+      "phrase": "taksi 15 ming",
+      "covers": "узбекская латиница и «ming»",
+      "ai": { "items": [
+        {"intent":"transaction","amount":15000,"currency":"UZS","account":null,"category":"Транспорт","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":"taksi","confidence":1,"description":"taksi"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":1500000,"currency":"UZS","date":"2026-11-18","category":"Транспорт","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "uzbek-mixed-lunch",
+      "phrase": "тушлик 60000 чойхонада",
+      "covers": "узбекские слова в русской фразе",
+      "ai": { "items": [
+        {"intent":"transaction","amount":60000,"currency":"UZS","account":null,"category":"Кафе","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":"чойхона","confidence":0.9,"description":"тушлик"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":6000000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "subscription-usd-cents",
+      "phrase": "подписка на музыку 9.99$",
+      "covers": "доллары с центами",
+      "ai": { "items": [
+        {"intent":"transaction","amount":9.99,"currency":"USD","account":null,"category":"Связь","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":"музыка","confidence":1,"description":"подписка"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":999,"currency":"USD","date":"2026-11-18","category":"Связь","account":"Карта","needsReview":true}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "cash-and-usd-items",
+      "phrase": "кофе 25к налом и подписка 9.99$",
+      "covers": "две траты: наличные и доллары",
+      "ai": { "items": [
+        {"intent":"transaction","amount":25000,"currency":"UZS","account":"cash","category":"Кафе","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":null,"confidence":1,"description":"кофе"},
+        {"intent":"transaction","amount":9.99,"currency":"USD","account":null,"category":"Связь","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":null,"confidence":1,"description":"подписка"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":2500000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Наличные","needsReview":false},
+          {"type":"expense","semanticType":"expense","amountMinor":999,"currency":"USD","date":"2026-11-18","category":"Связь","account":"Карта","needsReview":true}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "card-and-cash-items",
+      "phrase": "обед 60к картой, чаевые 10к налом",
+      "covers": "две траты с разными счетами",
+      "ai": { "items": [
+        {"intent":"transaction","amount":60000,"currency":"UZS","account":"card","category":"Кафе","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":"","confidence":1,"description":"обед"},
+        {"intent":"transaction","amount":10000,"currency":"UZS","account":"cash","category":"Кафе","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":"","confidence":1,"description":"чаевые"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":6000000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false},
+          {"type":"expense","semanticType":"expense","amountMinor":1000000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Наличные","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "team-lunch",
+      "phrase": "обед с командой 320000",
+      "covers": "слово внутри фразы называет категорию: без ИИ",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":32000000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "transfer-to-mother",
+      "phrase": "перевел маме 500000",
+      "covers": "перевод другому человеку",
+      "ai": { "items": [
+        {"intent":"transaction","amount":500000,"currency":"UZS","account":null,"category":"Другое","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":"мама","confidence":0.9,"description":"перевод маме"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":50000000,"currency":"UZS","date":"2026-11-18","category":"Другое","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "birthday-gift-income",
+      "phrase": "подарили 500000 на день рождения",
+      "covers": "доход: подарок",
+      "ai": { "items": [
+        {"intent":"transaction","amount":500000,"currency":"UZS","account":null,"category":"Подарки","type":"income","semanticType":"income","needsReview":false,"date":"2026-11-18","merchant":"","confidence":1,"description":"подарок на день рождения"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"income","semanticType":"income","amountMinor":50000000,"currency":"UZS","date":"2026-11-18","category":"Подарки","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "freelance-usd-words",
+      "phrase": "получил за проект 300 долларов",
+      "covers": "доход в долларах словом",
+      "ai": { "items": [
+        {"intent":"transaction","amount":300,"currency":"USD","account":null,"category":"Фриланс","type":"income","semanticType":"income","needsReview":false,"date":"2026-11-18","merchant":"","confidence":1,"description":"доход за проект"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"income","semanticType":"income","amountMinor":30000,"currency":"USD","date":"2026-11-18","category":"Фриланс","account":"Карта","needsReview":true}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "saved-aside",
+      "phrase": "отложил 1 млн в накопления",
+      "covers": "накопления глаголом",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"saving_deposit","amountMinor":100000000,"currency":"UZS","date":"2026-11-18","category":"Другое","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "pharmacy-yesterday-cash",
+      "phrase": "вчера в аптеке 43 500 наличными",
+      "covers": "«вчера», наличные и сумма с пробелом",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":4350000,"currency":"UZS","date":"2026-11-17","category":"Здоровье","account":"Наличные","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "coffee-and-croissant-45",
+      "phrase": "взял кофе и круассан 45",
+      "covers": "голое «45» во фразе для ИИ",
+      "ai": { "items": [
+        {"intent":"transaction","amount":45,"currency":"UZS","account":null,"category":"Кафе","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":null,"confidence":0.9,"description":"кофе и круассан"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":4500000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "paid-for-everyone",
+      "phrase": "заплатил за всех в кафе 400000",
+      "covers": "оплата за компанию",
+      "ai": { "items": [
+        {"intent":"transaction","amount":400000,"currency":"UZS","account":null,"category":"Кафе","type":"expense","semanticType":"group_payment","needsReview":false,"date":"2026-11-18","merchant":"кафе","confidence":0.9,"description":"оплата за всех в кафе"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"group_payment","amountMinor":40000000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "rent",
+      "phrase": "аренда квартиры 4 500 000",
+      "covers": "крупная обычная трата",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":450000000,"currency":"UZS","date":"2026-11-18","category":"Дом","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "colleagues-lunch-comma",
+      "phrase": "пообедали с коллегами 150,000",
+      "covers": "запятая как разделитель тысяч",
+      "ai": { "items": [
+        {"intent":"transaction","amount":150000,"currency":"UZS","account":null,"category":"Кафе","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":null,"confidence":0.9,"description":"обед с коллегами"}
+      ] },
+      "aiSource": "recorded",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":15000000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "ai-amount-as-string",
+      "phrase": "заплатил за ужин 150,000",
+      "covers": "ответ ИИ с суммой строкой",
+      "ai": { "items": [
+        {"intent":"transaction","amount":"150,000","currency":"UZS","account":null,"category":"Кафе","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":null,"confidence":0.9,"description":"ужин"}
+      ] },
+      "aiSource": "constructed",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":15000000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      },
+      "knownIssue": {
+        "issue": 300,
+        "note": "Сумма строкой читается через parseFloat до запятой: 150 сум вместо 150 000.",
+        "now": {
+          "records": [
+            {"type":"expense","semanticType":"expense","amountMinor":15000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false}
+          ],
+          "withoutAmount": []
+        }
+      }
+    }
+  ]
+}
