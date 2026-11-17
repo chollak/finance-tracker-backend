@@ -271,7 +271,13 @@ cancelled the record before «Такси»; «такси» and «18к» made «1
   still goes out. Polling's next `getUpdates` confirms the batch, so a restart does not bring a hung update back — as
   with Telegraf's 90 s before. A chat's next update that waited out the ten minutes behind it is let go by Telegraf at
   the same mark (its own limit counts from when polling handed it over): it still runs, after the hung one is let go,
-  in order. Any other error in `bot.catch` is answered «Произошла ошибка. Попробуйте снова.» as before.
+  in order. Any other error in `bot.catch` is answered «Произошла ошибка. Попробуйте снова.» as before — a timeout a
+  handler threw itself included: only Telegraf's own, with `UPDATE_LIMIT_MS` in its message, is met with silence.
+- **A failure after the ten minutes (#386).** Telegraf has answered for the update by then, and its p-timeout drops
+  whatever the handler throws later: no `bot.catch`, no line. The queue's middleware keeps a clock of its own for
+  every update — with a chat or not, from the moment it comes in, as Telegraf's limit counts — and logs `error`
+  `A Telegram update failed after the limit; polling had gone on without it, so nobody was told` with the update
+  (`updateId`, `updateType`) and the error, as `bot.catch` logs one. Nobody is told «Попробуйте снова» here either.
 - **The stop is as before (FT-167).** Polling still waits for the whole batch before it confirms its offset, so the
   shutdown waits for the queued updates of the batch too, within the same `BOT_STOP_GRACE_MS`; what is left after it
   is sent again by Telegram. The queue's timers keep nothing running.

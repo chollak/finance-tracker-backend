@@ -565,6 +565,13 @@ answer goes out if it ends. If it never ends, it stays in memory until the next 
 again: the next `getUpdates` confirmed the batch. Look at the lines just before it for what it waited for (OpenAI, the
 voice download, a Bot API call).
 
+### `A Telegram update failed after the limit; polling had gone on without it, so nobody was told`
+
+An update that was let go at ten minutes (the lines above) ended later with an error (#386). Telegraf no longer waited
+for it, so `bot.catch` did not see the error and the person got no «Произошла ошибка»; this `error` line is its only
+trace: the update (`updateId`, `updateType` — the same as in the `not done after the limit` lines) and the error with
+its stack. Whether the record was written before the failure is in the lines of that update before this one.
+
 ### Who was turned away by `ALLOWED_TELEGRAM_IDS`
 
 With a list set, the bot ignores everyone else and the API answers them `403 ACCESS_NOT_ALLOWED` (FT-153). The log
