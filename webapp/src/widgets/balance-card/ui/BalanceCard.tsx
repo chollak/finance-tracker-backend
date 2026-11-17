@@ -69,10 +69,11 @@ export function BalanceCardView({
       className={cn('flex flex-col gap-1.5 rounded-hero bg-primary p-5 text-on-primary', className)}
     >
       {model ? (
-        // One heading, so the amount is read with the account it belongs to: «Карта Visa 1 250 000 сум»
+        // One heading, so the amount is read with the account it belongs to: «Карта Visa 1 250 000 сум».
+        // The rows have fixed heights (20, 48, 44px) that the skeleton of Home repeats (HomeSkeleton, Skeleton.md)
         <h1 className="flex min-w-0 flex-col gap-1.5">
-          <span className="truncate text-[14px] font-semibold text-on-primary-muted">{model.title}</span>
-          <span className="flex min-w-0 items-baseline gap-2">
+          <span className="h-5 truncate text-[14px] font-semibold leading-5 text-on-primary-muted">{model.title}</span>
+          <span className="flex h-12 min-w-0 items-baseline gap-2">
             <span className={cn(balanceAmountClass(model.amount), 'whitespace-nowrap')}>{model.amount}</span>
             <span className="text-[18px] font-semibold text-on-primary-muted">{model.unit}</span>
           </span>
@@ -100,7 +101,7 @@ export function BalanceCardView({
           // The list is in the page only while open, so it is named only then
           aria-controls={expanded ? listId : undefined}
           className={cn(
-            '-mx-2 -mb-1.5 flex min-h-touch items-center justify-between gap-3 rounded-pill px-2 text-left text-[14px] font-semibold',
+            '-mx-2 -mb-1.5 flex h-touch items-center justify-between gap-3 rounded-pill px-2 text-left text-[14px] font-semibold',
             FOCUS
           )}
         >

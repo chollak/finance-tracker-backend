@@ -13,6 +13,7 @@ import type { Transaction } from '@/shared/types';
 import { BalanceCardView } from '@/widgets/balance-card';
 import { SummaryTilesView } from '@/widgets/summary-tiles';
 import { FIRST_RECORD_HINT, RecentRecordsView } from '@/widgets/recent-transactions';
+import { HomeSkeletonView } from '@/widgets/home-skeleton';
 import { HomePage } from './HomePage';
 
 /**
@@ -175,6 +176,35 @@ describe('balance card', () => {
     expect(text(html)).toContain(`Доллары 420,00${NBSP}USD`);
     expect(anchors(html).find((tag) => tag.includes(`href="${ROUTES.ACCOUNTS}"`))).toBeDefined();
     expect(text(html)).toContain('Все счета и курс доллара');
+  });
+});
+
+describe('the skeleton of Home (Skeleton.md: nothing moves when the data comes)', () => {
+  // The rows that make the height of the card with several accounts, top to bottom, by their size classes
+  const ROWS = [
+    ['gap-1.5', 'p-5'], // the card
+    ['h-5'], // the account's name
+    ['h-12'], // its balance
+    ['h-touch', '-mb-1.5'], // the line of the total
+    ['mt-2.5', 'gap-2'], // the bar and the line under it
+    ['h-2'],
+  ];
+  /** Whether the markup has, in this order, an element with each row's classes. */
+  function hasRows(html: string): boolean {
+    const classes = [...html.matchAll(/class="([^"]*)"/g)].map((match) => match[1].split(' '));
+    let next = 0;
+    for (const list of classes) {
+      if (next < ROWS.length && ROWS[next].every((name) => list.includes(name))) next += 1;
+    }
+    return next === ROWS.length;
+  }
+
+  it('draws the balance card with the rows of the real one, as tall each', () => {
+    const card = home({ accounts: ACCOUNTS, totals: totals(1_629_500_000, 768_440_000) });
+    const skeleton = renderToStaticMarkup(<HomeSkeletonView slow={false} onRetry={() => {}} onOffline={() => {}} />);
+
+    expect(hasRows(card.slice(0, card.indexOf('</section>')))).toBe(true);
+    expect(hasRows(skeleton.slice(skeleton.indexOf('data-skeleton="balance"')))).toBe(true);
   });
 });
 
