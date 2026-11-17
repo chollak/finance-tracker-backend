@@ -389,7 +389,7 @@ npm run verify           # Full pre-commit gate (see below)
 2. `npm run typecheck:tests` — types of the tests and `src` with one `tsc` (`tsconfig.test.json`): Jest only translates
    the files and checks no types (#293)
 3. `npm run typecheck:scripts` — types of the TypeScript scripts in `scripts/` (`tsconfig.scripts.json`, #297): ts-node
-   checks a script only when it runs; the Supabase scripts are left out until #324
+   checks a script only when it runs
 4. `npm run lint:webapp` — ESLint over `webapp/` (`webapp/eslint.config.js`); a warning fails it too
    (`--max-warnings 0`, #296)
 5. `npm run test:ci` — Jest tests serially (`jest --runInBand`)

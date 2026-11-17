@@ -66,7 +66,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm test` - Run Jest tests (located in `tests/` folder)
 - `npm run test:ci` - Run Jest tests serially for CI and the review sub-chat
 - `npm run typecheck:tests` - Types of `tests/` and `src/` with one `tsc` (`tsconfig.test.json`, #293): Jest does not check them
-- `npm run typecheck:scripts` - Types of the TypeScript scripts in `scripts/` (`tsconfig.scripts.json`, #297); the Supabase scripts are left out until #324
+- `npm run typecheck:scripts` - Types of the TypeScript scripts in `scripts/` (`tsconfig.scripts.json`, #297)
 - `npm run analyze` - Run dependency-cruiser (`check:deps`): layer rules and circular imports
 - `npm run lint:webapp` - ESLint over `webapp/` (`webapp/eslint.config.js`); a warning fails it as an error does (`--max-warnings 0`, #296)
 - `npm run verify` - Full pre-commit/pre-push gate: backend build, test types, script types, webapp ESLint, serial Jest tests, webapp Vitest tests, webapp build, `check:fonts` and `check:tokens`, architecture checks
@@ -100,7 +100,7 @@ Required environment variables in `.env` file:
 - `BACKUP_DIR` - not read by the app: the folder `scripts/backup-db.sh` copies the database to on the live instance, `/mnt/c/KapelkaBackup` synced by Google Drive (FT-157, `docs/knowledge-base/08-development/live-instance.md` «Бэкап»)
 
 **Historical, not active:**
-- **Supabase Project ID:** `cttsquvkvkwtxsfrgsrs` — project paused; the app no longer talks to Supabase. Do not modify it without explicit permission
+- **Supabase Project ID:** `cttsquvkvkwtxsfrgsrs` — project paused; the app has not talked to Supabase since FT-090, and the leftovers in the repository (the `@supabase/supabase-js` dependency, the `supabase:*` scripts, the root `migrations/` SQL, `SUPABASE_MIGRATION.md`) were removed in #324 — they are in git history. Do not modify the project itself without explicit permission
 - **Test User telegramId:** `597843119` (Konan)
 - **Production Domain:** `https://sapaev.uz` (owned by Shukur but not an active deployment target as of 2026-08-13)
 

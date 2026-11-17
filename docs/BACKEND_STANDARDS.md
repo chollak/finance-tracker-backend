@@ -157,11 +157,6 @@ async create(data: CreateBudgetInput): Promise<Budget> {
     throw new Error(`Failed to create budget: ${(error as Error).message}`);
   }
 }
-
-// Для Supabase - проверяй error codes
-if (error?.code === 'PGRST116') {
-  return null;  // Not found - это не ошибка
-}
 ```
 
 ---

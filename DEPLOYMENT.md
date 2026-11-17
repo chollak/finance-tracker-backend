@@ -16,7 +16,7 @@ Finance Tracker can run directly with Node.js or through Docker Compose. The app
 - Telegram bot polling/webhook integration
 - React/Vite webapp from `public/webapp/`
 
-Current supported databases are SQLite and Supabase.
+The only supported database is SQLite (the Supabase path was removed in FT-090, its scripts in #324).
 
 ## Required Environment
 
@@ -26,17 +26,10 @@ Create `.env` from `.env.example` and set:
 OPENAI_API_KEY=...
 TG_BOT_API_KEY=...
 WEB_APP_URL=https://your-domain.example
-DATABASE_TYPE=sqlite # or supabase
+DATABASE_TYPE=sqlite # optional; the only supported value
 ```
 
 For deployment, keep real values in untracked `.env`; do not commit `.env`, `.env.local`, or `.env.development`. Docker Compose reads `.env`.
-
-For Supabase:
-
-```bash
-SUPABASE_URL=...
-SUPABASE_ANON_KEY=...
-```
 
 ## Deploy with Docker Compose
 
@@ -75,13 +68,6 @@ SQLite is created automatically by TypeORM when `DATABASE_TYPE=sqlite` and synch
 
 ```bash
 docker compose --profile db-init run --rm db-init
-```
-
-For Supabase setup/testing:
-
-```bash
-npm run supabase:setup
-npm run supabase:test
 ```
 
 ## Verification
