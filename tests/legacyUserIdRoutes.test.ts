@@ -14,8 +14,8 @@ import { SqliteUserRepository } from '../src/modules/user/infrastructure/persist
 
 /**
  * FT-162: the legacy routes that still carry a userId — `:userId` in the path (subscription status; the dashboard is
- * gone since #205, budgets since #264, debts since #265, all of a user's records since #289) or `userId` in the body (subscription actions,
- * `POST /api/transactions`) — act only for the signed-in user, and refusing someone else's id touches nothing. Before, user resolution ran before the ownership
+ * gone since #205, budgets since #264, debts since #265, all of a user's records since #289) or `userId` in the body
+ * (`POST /api/transactions`; the subscription actions went in #320) — act only for the signed-in user, and refusing someone else's id touches nothing. Before, user resolution ran before the ownership
  * check and created a `users` row for any Telegram id it was given, and a userId that was not a string gave 500.
  *
  * Every request signs in through the local dev header as ME, over 127.0.0.1 (the shared test server).
@@ -31,7 +31,7 @@ const GUEST_ZZZ = 'guest_zzz';
 /** A UUID v4 no `users` row has: the admin grant gave it a subscription before #230. */
 const NOBODY_UUID = 'a1b2c3d4-e5f6-4a1b-8c2d-1234567890ab';
 
-/** Subscriptions: none until a trial starts; remembers whose active one was looked for and whose trial started. */
+/** Subscriptions: none are stored; remembers whose active one was looked for and what the admin grant created. */
 class NoSubscriptions implements SubscriptionRepository {
   readonly created: CreateSubscriptionDTO[] = [];
   readonly activeAskedFor: string[] = [];
@@ -81,7 +81,7 @@ afterAll(async () => {
   await db.close();
 });
 
-// Strict limits (10 or 5 per 15 minutes) guard the subscription actions; every case starts with empty counters
+// The admin grant is limited to 5 requests per 15 minutes; every case starts with empty counters
 beforeEach(resetSharedRateLimiters);
 
 // A row a refused request made would hide the next route's: each case starts with at most the own user
@@ -184,74 +184,14 @@ describe('a legacy route with :userId in the path (FT-162)', () => {
   });
 });
 
-describe('the subscription actions take the user from authentication (FT-162)', () => {
-  const ACTIONS = [
-    ['POST /api/subscription/check-limit', '/api/subscription/check-limit', { limitType: 'transactions' }],
-    ['POST /api/subscription/start-trial', '/api/subscription/start-trial', {}],
-    ['POST /api/subscription/cancel', '/api/subscription/cancel', { reason: 'test' }],
-  ] as const;
-
-  it('check-limit answers for the signed-in user without a userId in the body', async () => {
-    const res = await call('POST', '/api/subscription/check-limit', { limitType: 'transactions' });
-
-    expect(res.status).toBe(200);
-    expect(res.body.data).toMatchObject({ allowed: true });
-    expect(await telegramIds()).toEqual([MINE]);
-    expect(subscriptions.activeAskedFor.at(-1)).toBe(await myUuid());
-  });
-
-  it('start-trial starts the trial of the signed-in user without a userId in the body', async () => {
-    const res = await call('POST', '/api/subscription/start-trial', {});
-
-    expect(res.status).toBe(200);
-    expect(subscriptions.created.at(-1)?.userId).toBe(await myUuid());
-  });
-
-  it('cancel acts for the signed-in user without a userId in the body', async () => {
-    const res = await call('POST', '/api/subscription/cancel', { reason: 'test' });
-
-    // Before FT-162 the user came from the body: without one, 400 «userId is required»
-    expect(res.status).toBe(200);
-    expect(res.body.data).toMatchObject({ success: false, message: 'Активная подписка не найдена' });
-    expect(subscriptions.activeAskedFor.at(-1)).toBe(await myUuid());
-  });
-
-  // The own Telegram id in the body or path is accepted, but the use case gets the user's UUID from authentication —
-  // never the id the request carried
-  it.each(ACTIONS)('%s: the own userId in the body reaches the use case as the own UUID', async (_name, url, body) => {
-    const res = await call('POST', url, { ...body, userId: MINE });
-
-    expect(res.status).toBe(200);
-    const asked = url.endsWith('start-trial') ? subscriptions.created.at(-1)?.userId : subscriptions.activeAskedFor.at(-1);
-    expect(asked).toBe(await myUuid());
-  });
-
+// The actions that took `userId` in the body — check-limit, start-trial, cancel — are gone (#320):
+// tests/removedSubscriptionRoutes.test.ts
+describe('the subscription status and the admin grant take their users by the rules (FT-162)', () => {
   it('GET /api/subscription/:userId with the own id reads the own UUID', async () => {
     const res = await call('GET', `/api/subscription/${MINE}`);
 
     expect(res.status).toBe(200);
     expect(subscriptions.activeAskedFor.at(-1)).toBe(await myUuid());
-  });
-
-  it.each(ACTIONS)('%s: a body or query naming someone else is 403 and adds no user', async (_name, url, body) => {
-    const before = await telegramIds();
-
-    for (const res of [await call('POST', url, { ...body, userId: SOMEONE }), await call('POST', `${url}?userId=${SOMEONE}`, body)]) {
-      expect({ status: res.status, code: res.body?.code }).toEqual({ status: 403, code: 'ACCESS_DENIED' });
-    }
-    expect(await telegramIds()).toEqual(before);
-  });
-
-  it.each(ACTIONS)('%s: a userId that is not one non-blank string is 400', async (_name, url, body) => {
-    const before = await telegramIds();
-
-    for (const userId of [ME, [MINE], '', '  ', null]) {
-      const res = await call('POST', url, { ...body, userId });
-      expect({ userId, status: res.status, code: res.body?.code }).toEqual({ userId, status: 400, code: 'INVALID_USER_ID' });
-    }
-    const twice = await call('POST', `${url}?userId=${MINE}&userId=${MINE}`, body);
-    expect({ status: twice.status, code: twice.body?.code }).toEqual({ status: 400, code: 'INVALID_USER_ID' });
-    expect(await telegramIds()).toEqual(before);
   });
 
   /** Runs the requests as an admin: ADMIN_TELEGRAM_IDS is read on every request. */

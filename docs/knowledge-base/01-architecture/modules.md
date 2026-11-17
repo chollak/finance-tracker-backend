@@ -131,18 +131,21 @@ Freemium модель с Telegram Stars: лимиты для free tier, безл
 
 ### Subscription Sources
 - `payment` - оплата через Telegram Stars (100 Stars/месяц)
-- `trial` - 14-дневный пробный период
+- `trial` - 14-дневный пробный период; с #320 новый trial ничем не запускается, прежние строки читаются
 - `gift` - подарок от админа (на определенный период)
 - `lifetime` - пожизненный доступ
 
 ### Use Cases
 - `CreateSubscriptionUseCase` - создание подписки после оплаты
 - `GetSubscriptionUseCase` - получение статуса подписки с лимитами
-- `CheckLimitUseCase` - проверка лимита перед действием
+- `CheckLimitUseCase` - проверка лимита перед действием; зовёт бот (`subscriptionMiddleware`), HTTP-маршрута нет (#320)
 - `IncrementUsageUseCase` - увеличение счетчика после действия
-- `GrantPremiumUseCase` - выдача premium админом; id, которого нет в `users`, — `NotFoundError` (404), подписка не создаётся (#230)
-- `StartTrialUseCase` - запуск trial для нового пользователя
-- `CancelSubscriptionUseCase` - отмена подписки
+- `GrantPremiumUseCase` - выдача premium админом; id, которого нет в `users`, — `NotFoundError` (404), подписка не создаётся (#230); `grantedBy` — Telegram id вошедшего админа, а не текст из тела запроса (#320)
+- `CancelSubscriptionUseCase` - отмена подписки; зовёт бот (`/cancel_subscription`), HTTP-маршрута нет (#320)
+
+`StartTrialUseCase` убран в #320: его вызывал только маршрут `POST /api/subscription/start-trial`, у которого не было потребителей.
+
+HTTP (#320): `GET /api/subscription/:userId` — статус вошедшего пользователя; `POST /api/subscription/grant` — выдача админом. `POST /check-limit`, `/cancel`, `/start-trial` убраны — `404`.
 
 ### Services
 - `SubscriptionService` - проверка premium статуса, обработка истекших подписок

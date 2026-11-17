@@ -1,7 +1,7 @@
 import { SubscriptionModule } from '../src/modules/subscription/subscriptionModule';
 import { CreateSubscriptionUseCase } from '../src/modules/subscription/application/createSubscription';
 import { GetSubscriptionUseCase } from '../src/modules/subscription/application/getSubscription';
-import { GrantPremiumUseCase, StartTrialUseCase } from '../src/modules/subscription/application/grantPremium';
+import { GrantPremiumUseCase } from '../src/modules/subscription/application/grantPremium';
 import { CheckLimitUseCase } from '../src/modules/subscription/application/checkLimit';
 import { IncrementUsageUseCase, DecrementUsageUseCase } from '../src/modules/subscription/application/incrementUsage';
 import { CancelSubscriptionUseCase } from '../src/modules/subscription/application/cancelSubscription';
@@ -246,41 +246,11 @@ describe('Subscription module', () => {
     jest.useRealTimers();
   });
 
-  describe('StartTrialUseCase', () => {
-    it('starts a trial for a brand-new user with a 14-day window', async () => {
-      const useCase = new StartTrialUseCase(subscriptionRepo);
-
-      const result = await useCase.execute({ userId: 'user-1' });
-
-      expect(result).not.toBeNull();
-      expect(result!.tier).toBe('premium');
-      expect(result!.source).toBe('trial');
-      expect(result!.status).toBe('active');
-      expect(result!.trialEndsAt).toEqual(new Date('2026-08-02T12:00:00.000Z'));
-      expect(result!.endDate).toEqual(result!.trialEndsAt);
-    });
-
-    it('refuses a second trial once the user has any subscription history', async () => {
-      const useCase = new StartTrialUseCase(subscriptionRepo);
-      await useCase.execute({ userId: 'user-1' });
-
-      const second = await useCase.execute({ userId: 'user-1' });
-
-      expect(second).toBeNull();
-      const all = await subscriptionRepo.findByUserId('user-1');
-      expect(all?.source).toBe('trial');
-    });
-
-    it('refuses a trial for a user whose only subscription is expired/cancelled', async () => {
-      const createUseCase = new CreateSubscriptionUseCase(subscriptionRepo);
-      await createUseCase.execute({ userId: 'user-1', tier: 'premium', source: 'payment' });
-
-      const useCase = new StartTrialUseCase(subscriptionRepo);
-      const result = await useCase.execute({ userId: 'user-1' });
-
-      expect(result).toBeNull();
-    });
-  });
+  /**
+   * A trial as the rows hold it: 14 days of premium at 0 Stars. Nothing starts one since #320 (its only way in was
+   * `POST /api/subscription/start-trial`, which no one called); reading a trial and paying over one still work.
+   */
+  const startTrial = (userId: string) => subscriptionRepo.create({ userId, tier: 'premium', source: 'trial', priceStars: 0 });
 
   describe('CheckLimitUseCase', () => {
     it('allows everything while free-tier limits are switched off, and keeps counting usage', async () => {
@@ -530,13 +500,12 @@ describe('Subscription module', () => {
 
   describe('CreateSubscriptionUseCase', () => {
     it('marks an active trial as expired when the user pays', async () => {
-      const trial = new StartTrialUseCase(subscriptionRepo);
-      const trialSub = await trial.execute({ userId: 'user-1' });
+      const trialSub = await startTrial('user-1');
 
       const createUseCase = new CreateSubscriptionUseCase(subscriptionRepo);
       await createUseCase.execute({ userId: 'user-1', tier: 'premium', source: 'payment' });
 
-      const previous = await subscriptionRepo.findById(trialSub!.id);
+      const previous = await subscriptionRepo.findById(trialSub.id);
       expect(previous?.status).toBe('expired');
     });
 
@@ -579,8 +548,7 @@ describe('Subscription module', () => {
     });
 
     it('reports trial state with a deterministic days-left countdown', async () => {
-      const trial = new StartTrialUseCase(subscriptionRepo);
-      await trial.execute({ userId: 'user-1' });
+      await startTrial('user-1');
       // Advance 4 days into the 14-day trial.
       jest.setSystemTime(new Date('2026-07-23T12:00:00.000Z'));
 
@@ -596,8 +564,7 @@ describe('Subscription module', () => {
     });
 
     it('reports zero days left once the trial end date has passed', async () => {
-      const trial = new StartTrialUseCase(subscriptionRepo);
-      await trial.execute({ userId: 'user-1' });
+      await startTrial('user-1');
       jest.setSystemTime(new Date('2026-08-05T12:00:00.000Z'));
 
       const useCase = new GetSubscriptionUseCase(subscriptionRepo, usageLimitRepo);

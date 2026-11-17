@@ -11,6 +11,7 @@ import { NotFoundError } from '../../../shared/domain/errors/AppError';
 
 export interface GrantPremiumInput {
   userId: string;
+  /** Telegram id of the admin who signed in (#320) */
   grantedBy: string;
   grantNote?: string;
   isLifetime: boolean;
@@ -48,36 +49,5 @@ export class GrantPremiumUseCase {
       grantNote,
     });
     return ResultHelper.success(subscription);
-  }
-}
-
-/**
- * StartTrial Use Case
- * Starts a trial subscription for a new user
- */
-export interface StartTrialInput {
-  userId: string;
-}
-
-export class StartTrialUseCase {
-  constructor(private subscriptionRepository: SubscriptionRepository) {}
-
-  async execute(input: StartTrialInput): Promise<Subscription | null> {
-    const { userId } = input;
-
-    // Check if user already has any subscription history
-    const existingSubscription = await this.subscriptionRepository.findByUserId(userId);
-    if (existingSubscription) {
-      // User already had a subscription (trial or paid), don't give another trial
-      return null;
-    }
-
-    // Create trial subscription
-    return this.subscriptionRepository.create({
-      userId,
-      tier: 'premium',
-      source: 'trial',
-      priceStars: 0,
-    });
   }
 }
