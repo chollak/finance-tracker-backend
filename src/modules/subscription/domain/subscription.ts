@@ -31,7 +31,7 @@ export interface Subscription {
   autoRenew: boolean;
 
   // Admin metadata
-  grantedBy: string | null; // Admin userId who granted premium
+  grantedBy: string | null; // Telegram id of the admin who granted premium; rows before #320 hold the text the request named
   grantNote: string | null; // Note for gift/lifetime (e.g., "Beta tester")
 
   // Timestamps
