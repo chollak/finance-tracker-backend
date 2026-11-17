@@ -73,7 +73,7 @@ describe('Home without a connection', () => {
     expect(html).toMatch(new RegExp(`<div[^>]*role="status"[^>]*>.*${BAR}`));
     // Under the header, over the balance card
     expect(html.indexOf(BAR)).toBeGreaterThan(html.indexOf('kapelka'));
-    expect(html.indexOf(BAR)).toBeLessThan(html.indexOf('Всего на счетах'));
+    expect(html.indexOf(BAR)).toBeLessThan(html.indexOf('aria-label="Баланс"'));
   });
 
   it('opens at once instead of waiting for reads that cannot come', () => {

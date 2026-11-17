@@ -13,6 +13,7 @@ import type { Transaction } from '@/shared/types';
 import { BalanceCardView } from '@/widgets/balance-card';
 import { SummaryTilesView } from '@/widgets/summary-tiles';
 import { FIRST_RECORD_HINT, RecentRecordsView } from '@/widgets/recent-transactions';
+import { HomeSkeletonView } from '@/widgets/home-skeleton';
 import { HomePage } from './HomePage';
 
 /**
@@ -86,6 +87,8 @@ interface View {
   expanded?: boolean;
   /** Which reads failed. */
   failed?: Array<'accounts' | 'totals' | 'records'>;
+  /** The `defaultAccountId` setting; «Карта» unless given. */
+  defaultAccountId?: string | null;
 }
 
 function markup(element: ReactElement): string {
@@ -98,13 +101,14 @@ function markup(element: ReactElement): string {
 }
 
 /** The three sections of Home as the boards stack them, from the given data. */
-function home({ accounts, totals: monthTotals, records, expanded = false, failed = [] }: View): string {
+function home({ accounts, totals: monthTotals, records, expanded = false, failed = [], defaultAccountId = 'card' }: View): string {
   const query = <T,>(data: T | undefined, name: 'accounts' | 'totals' | 'records') => ({ data, isError: failed.includes(name) });
   return markup(
     <>
       <BalanceCardView
         accounts={query(accounts, 'accounts')}
         totals={query(monthTotals, 'totals')}
+        defaultAccountId={defaultAccountId}
         month={MONTH}
         expanded={expanded}
         onToggle={() => {}}
@@ -123,15 +127,32 @@ const anchors = (html: string) => [...html.matchAll(/<a [^>]*>/g)].map((match) =
 describe('balance card', () => {
   const board = () => home({ accounts: ACCOUNTS, totals: totals(1_629_500_000, 768_440_000), records: RECORDS });
 
-  it('heads Home with the total of GET /api/accounts in сум', () => {
+  it('heads Home with the default account: its name and balance in one heading', () => {
     const html = board();
 
-    expect(html).toMatch(/<h1[^>]*>Всего на счетах<\/h1>/);
-    expect(text(html)).toContain(`9${NBSP}743${NBSP}000 сум`);
+    expect(text(html.match(/<h1[^>]*>.*?<\/h1>/)?.[0] ?? '').trim()).toBe(`Карта 3${NBSP}180${NBSP}000 сум`);
   });
 
-  it('opens the accounts from «3 счёта», closed at first', () => {
-    expect(board()).toMatch(/<button[^>]*aria-expanded="false"[^>]*>.*?3 счёта/);
+  it('shows the first visible account in сум when none is chosen', () => {
+    const html = home({ accounts: ACCOUNTS, totals: totals(0, 0), defaultAccountId: null });
+
+    expect(text(html.match(/<h1[^>]*>.*?<\/h1>/)?.[0] ?? '').trim()).toBe(`Наличные 1${NBSP}250${NBSP}000 сум`);
+  });
+
+  it('opens the accounts from «Всего на 3 счетах» with the total, closed at first', () => {
+    const button = board().match(/<button[^>]*aria-expanded="false"[^>]*>.*?<\/button>/)?.[0] ?? '';
+
+    expect(button).toContain(`aria-label="Всего на 3 счетах: 9${NBSP}743${NBSP}000${NBSP}сум"`);
+    expect(text(button)).toContain(`Всего на 3 счетах 9${NBSP}743${NBSP}000`);
+  });
+
+  it('shows only the account when it is the one visible: no line of the total', () => {
+    const one: AccountsOverview = { ...ACCOUNTS, accounts: [ACCOUNTS.accounts[1]], totalMinor: 318_000_000 };
+    const html = home({ accounts: one, totals: totals(0, 0) });
+
+    expect(text(html)).toContain(`Карта 3${NBSP}180${NBSP}000 сум`);
+    expect(text(html)).not.toContain('Всего');
+    expect(html).not.toMatch(/aria-expanded/);
   });
 
   it('names the list it opens only while the list is there', () => {
@@ -155,6 +176,35 @@ describe('balance card', () => {
     expect(text(html)).toContain(`Доллары 420,00${NBSP}USD`);
     expect(anchors(html).find((tag) => tag.includes(`href="${ROUTES.ACCOUNTS}"`))).toBeDefined();
     expect(text(html)).toContain('Все счета и курс доллара');
+  });
+});
+
+describe('the skeleton of Home (Skeleton.md: nothing moves when the data comes)', () => {
+  // The rows that make the height of the card with several accounts, top to bottom, by their size classes
+  const ROWS = [
+    ['gap-1.5', 'p-5'], // the card
+    ['h-5'], // the account's name
+    ['h-12'], // its balance
+    ['h-touch', '-mb-1.5'], // the line of the total
+    ['mt-2.5', 'gap-2'], // the bar and the line under it
+    ['h-2'],
+  ];
+  /** Whether the markup has, in this order, an element with each row's classes. */
+  function hasRows(html: string): boolean {
+    const classes = [...html.matchAll(/class="([^"]*)"/g)].map((match) => match[1].split(' '));
+    let next = 0;
+    for (const list of classes) {
+      if (next < ROWS.length && ROWS[next].every((name) => list.includes(name))) next += 1;
+    }
+    return next === ROWS.length;
+  }
+
+  it('draws the balance card with the rows of the real one, as tall each', () => {
+    const card = home({ accounts: ACCOUNTS, totals: totals(1_629_500_000, 768_440_000) });
+    const skeleton = renderToStaticMarkup(<HomeSkeletonView slow={false} onRetry={() => {}} onOffline={() => {}} />);
+
+    expect(hasRows(card.slice(0, card.indexOf('</section>')))).toBe(true);
+    expect(hasRows(skeleton.slice(skeleton.indexOf('data-skeleton="balance"')))).toBe(true);
   });
 });
 
@@ -191,7 +241,8 @@ describe('when a read fails', () => {
   it('the card says the month did not count instead of dropping the line; the tiles show «—»', () => {
     const html = home({ accounts: ACCOUNTS, records: RECORDS, failed: ['totals'] });
 
-    expect(text(html)).toContain(`9${NBSP}743${NBSP}000 сум`);
+    expect(text(html)).toContain(`Карта 3${NBSP}180${NBSP}000 сум`);
+    expect(text(html)).toContain(`Всего на 3 счетах 9${NBSP}743${NBSP}000`);
     expect(text(html)).toContain('Не удалось посчитать итоги месяца.');
     expect(text(html)).toContain(`Доход за ${monthNameLower(MONTH)} —`);
     expect(html.match(RETRY)).toHaveLength(1);
@@ -254,7 +305,7 @@ describe('recent records', () => {
 describe('Home', () => {
   it('stacks the balance card, the month tiles and the recent records, with the composer at the bottom (FT-114)', () => {
     const html = text(markup(<HomePage />));
-    const order = ['Всего на счетах', `Доход за ${monthNameLower(MONTH)}`, 'Последние операции', 'Новая запись текстом'];
+    const order = ['Баланс', `Доход за ${monthNameLower(MONTH)}`, 'Последние операции', 'Новая запись текстом'];
 
     expect(order.map((part) => html.indexOf(part)).every((index, i, all) => index >= 0 && (i === 0 || index > all[i - 1]))).toBe(true);
   });
@@ -284,7 +335,8 @@ describe('Home after the first launch', () => {
   it('shows the opening balances, zero tiles and what the line under the balance will say', () => {
     const html = fresh();
 
-    expect(html).toContain(`9${NBSP}743${NBSP}000 сум`);
+    expect(html).toContain(`Карта 3${NBSP}180${NBSP}000 сум`);
+    expect(html).toContain(`Всего на 3 счетах 9${NBSP}743${NBSP}000`);
     expect(html).toContain(`Доход за ${monthNameLower(MONTH)} 0`);
     expect(html).toContain(`Расход за ${monthNameLower(MONTH)} 0`);
     expect(html).toContain('Здесь появится, какую часть дохода вы потратили за месяц.');

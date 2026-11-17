@@ -39,8 +39,9 @@ export interface HomeSkeletonViewProps {
  * dark one), the two month tiles, the heading and the card of records, the composer at the bottom. The shapes
  * pulse (`SkeletonBlock`, still under prefers-reduced-motion); there is no spinner.
  *
- * Every shape is as tall as what replaces it: the balance card's rows (a 44px header row, the 48px amount,
- * the bar and the line under it), the 80px tiles, the 44px row of the records' heading and the day line over
+ * Every shape is as tall as what replaces it: the balance card's rows as it is with several accounts (#367: the
+ * 20px name of the account, the 48px amount, the 44px line of the total, the bar and the line under it — with
+ * one visible account the card has no line of the total and is that much shorter), the 80px tiles, the 44px row of the records' heading and the day line over
  * the list. At the bottom, under the note, the composer as Home has it (FT-114): three chips, the 56px field
  * on `card` and the round button; the slow state puts its message and «Попробовать снова» there instead. In the
  * header «Сум / USD» (FT-137) and «Ещё» wait as a 124px pill and a circle, as the board draws them.
@@ -71,12 +72,17 @@ export function HomeSkeletonView({ slow, onRetry, onOffline }: HomeSkeletonViewP
           </header>
 
           <div aria-hidden="true" className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5 rounded-hero bg-primary px-5 pb-5 pt-3">
-              <span className="flex min-h-touch items-center">
-                <SkeletonBlock className="h-3.5 w-[120px] bg-hero-track" />
+            {/* The card with several accounts (#367, BalanceCard.md): the account's name, its balance, the line of the total */}
+            <div data-skeleton="balance" className="flex flex-col gap-1.5 rounded-hero bg-primary p-5">
+              <span className="flex h-5 items-center">
+                <SkeletonBlock className="h-3.5 w-[96px] bg-hero-track" />
               </span>
               <span className="flex h-12 items-center">
                 <SkeletonBlock radius="tile" className="h-11 w-[220px] max-w-full bg-hero-track" />
+              </span>
+              <span className="-mb-1.5 flex h-touch items-center justify-between gap-3">
+                <SkeletonBlock className="h-3.5 w-[132px] bg-hero-track" />
+                <SkeletonBlock className="h-3.5 w-[96px] bg-hero-track" />
               </span>
               <span className="mt-2.5 flex flex-col gap-2">
                 <SkeletonBlock className="h-2 w-full bg-hero-track" />

@@ -5,6 +5,7 @@ import { ROUTES } from '@/shared/lib/constants/routes';
 import { monthBounds, parseLocalDate, toLocalDate } from '@/shared/lib/dates';
 import { SkeletonBlock } from '@/shared/ui/pastel';
 import { useAccounts, type AccountsOverview } from '@/entities/account';
+import { useSettings } from '@/entities/settings';
 import { usePeriodTotals, type PeriodTotals } from '@/entities/transaction';
 import { IN_UZS, useDisplayCurrency, type DisplayMoney } from '@/features/display-currency';
 import { balanceAmountClass, balanceCardModel, spendShare } from '../lib/balanceCard';
@@ -27,7 +28,9 @@ interface Query<T> {
 export interface BalanceCardViewProps {
   accounts: Query<AccountsOverview>;
   totals: Query<PeriodTotals>;
-  /** The currency of the total («Сум / USD», FT-137); сум by default. */
+  /** The `defaultAccountId` setting (#367); without one — the first visible account in сум. */
+  defaultAccountId?: string | null;
+  /** The currency of the amounts («Сум / USD», FT-137); сум by default. */
   display?: DisplayMoney;
   /** 1–12: the month of the line under the balance. */
   month: number;
@@ -44,6 +47,7 @@ export interface BalanceCardViewProps {
 export function BalanceCardView({
   accounts,
   totals,
+  defaultAccountId = null,
   display = IN_UZS,
   month,
   expanded,
@@ -53,7 +57,7 @@ export function BalanceCardView({
   className,
 }: BalanceCardViewProps) {
   const listId = useId();
-  const model = accounts.data ? balanceCardModel(accounts.data, display) : null;
+  const model = accounts.data ? balanceCardModel(accounts.data, defaultAccountId, display) : null;
   const share = totals.data ? spendShare(totals.data, month) : null;
   // A problem says what happened and what to do (design-system): each failed part says what is missing
   // where it would stand, and one «Попробовать снова» reads them again. FT-112 adds the slow state.
@@ -62,40 +66,51 @@ export function BalanceCardView({
   return (
     <section
       aria-label="Баланс"
-      className={cn('flex flex-col gap-1.5 rounded-hero bg-primary px-5 pb-5 pt-3 text-on-primary', className)}
+      className={cn('flex flex-col gap-1.5 rounded-hero bg-primary p-5 text-on-primary', className)}
     >
-      <div className="flex min-h-touch items-center justify-between gap-2">
-        <h1 className="text-[14px] font-semibold text-on-primary-muted">Всего на счетах</h1>
-        {model && (
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-expanded={expanded}
-            // The list is in the page only while open, so it is named only then
-            aria-controls={expanded ? listId : undefined}
-            className={cn(
-              '-mr-2 flex h-touch items-center gap-1 rounded-pill px-2 text-[14px] font-semibold text-on-primary-muted',
-              FOCUS
-            )}
-          >
-            <span>{model.countLabel}</span>
-            <Chevron className={cn('transition-transform duration-150', expanded && 'rotate-180')} />
-          </button>
-        )}
-      </div>
-
       {model ? (
-        <div className="flex min-w-0 items-baseline gap-2">
-          <span className={cn(balanceAmountClass(model.total), 'whitespace-nowrap')}>{model.total}</span>
-          <span className="text-[18px] font-semibold text-on-primary-muted">{model.unit}</span>
-        </div>
-      ) : accounts.isError ? (
-        <p className="py-2 text-[15px] font-semibold text-on-primary-muted">Не удалось загрузить остатки.</p>
+        // One heading, so the amount is read with the account it belongs to: «Карта Visa 1 250 000 сум».
+        // The rows have fixed heights (20, 48, 44px) that the skeleton of Home repeats (HomeSkeleton, Skeleton.md)
+        <h1 className="flex min-w-0 flex-col gap-1.5">
+          <span className="h-5 truncate text-[14px] font-semibold leading-5 text-on-primary-muted">{model.title}</span>
+          <span className="flex h-12 min-w-0 items-baseline gap-2">
+            <span className={cn(balanceAmountClass(model.amount), 'whitespace-nowrap')}>{model.amount}</span>
+            <span className="text-[18px] font-semibold text-on-primary-muted">{model.unit}</span>
+          </span>
+        </h1>
       ) : (
         <>
-          <SkeletonBlock className="my-1 h-11 w-52 bg-hero-track" />
-          <span className="sr-only">Считаем остатки…</span>
+          <h1 className="text-[14px] font-semibold text-on-primary-muted">Баланс</h1>
+          {accounts.isError ? (
+            <p className="py-2 text-[15px] font-semibold text-on-primary-muted">Не удалось загрузить остатки.</p>
+          ) : (
+            <>
+              <SkeletonBlock className="my-1 h-11 w-52 bg-hero-track" />
+              <span className="sr-only">Считаем остатки…</span>
+            </>
+          )}
         </>
+      )}
+
+      {model?.total && (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={model.total.spoken}
+          aria-expanded={expanded}
+          // The list is in the page only while open, so it is named only then
+          aria-controls={expanded ? listId : undefined}
+          className={cn(
+            '-mx-2 -mb-1.5 flex h-touch items-center justify-between gap-3 rounded-pill px-2 text-left text-[14px] font-semibold',
+            FOCUS
+          )}
+        >
+          <span className="text-on-primary-muted">{model.total.label}</span>
+          <span className="flex shrink-0 items-center gap-1">
+            <span className="whitespace-nowrap font-bold tabular-nums">{model.total.value}</span>
+            <Chevron className={cn('text-on-primary-muted transition-transform duration-150', expanded && 'rotate-180')} />
+          </span>
+        </button>
       )}
 
       {/* Shown open or closed: the total above leaves the dollars out, so it must say so (money-model, rule 1) */}
@@ -161,16 +176,18 @@ export function BalanceCardView({
 }
 
 /**
- * Balance card of Home (FT-111, boards «Главная», «Главная после первого запуска»; BalanceCard.md): the
- * total of the accounts exactly as GET /api/accounts gives it, «3 счёта» opening the accounts inside the
- * card with «Все счета и курс доллара», and one line — what share of this month's income is spent, from the
- * same totals service as the month tiles. In the dark theme the card turns light by the tokens alone. The
- * total is in the currency of «Сум / USD» in the header (FT-137).
+ * Balance card of Home (FT-111, #367; BalanceCard.md): large — the default account (`defaultAccountId` of
+ * the settings, else the account the server writes a record to) under its name; under it «Всего на N счетах»
+ * with the total of the accounts exactly as GET /api/accounts gives it, opening the accounts inside the card
+ * with «Все счета и курс доллара»; and one line — what share of this month's income is spent, from the same
+ * totals service as the month tiles. In the dark theme the card turns light by the tokens alone. The amounts
+ * are in the currency of «Сум / USD» in the header (FT-137).
  */
 export function BalanceCard({ className }: { className?: string }) {
   const [expanded, setExpanded] = useState(false);
   const today = toLocalDate(new Date());
   const accounts = useAccounts();
+  const settings = useSettings();
   const totals = usePeriodTotals(monthBounds(today));
   const { shown, rateMinor } = useDisplayCurrency();
 
@@ -178,6 +195,8 @@ export function BalanceCard({ className }: { className?: string }) {
     <BalanceCardView
       accounts={accounts}
       totals={totals}
+      // The settings are read before Home (the first-launch gate), so the card does not show one account and then another
+      defaultAccountId={settings.data?.defaultAccountId ?? null}
       display={{ currency: shown, rateMinor }}
       month={parseLocalDate(today).month}
       expanded={expanded}

@@ -80,7 +80,7 @@ function render(queryClient: QueryClient): string {
 
 const SKELETON = 'Загружаю ваши счета и записи';
 const isSkeleton = (html: string) => html.includes(SKELETON);
-const isHome = (html: string) => html.includes('Всего на счетах') && html.includes('Последние операции');
+const isHome = (html: string) => html.includes('aria-label="Баланс"') && html.includes('Последние операции');
 
 let signOut = () => {};
 afterEach(() => signOut());
