@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { AuditCandidate, CandidateChange, GoalChoice } from '@/entities/audit';
 import { cn } from '@/shared/lib/utils';
 import type { PastelColor } from '@/shared/lib/pastel/categoryColors';
-import { CategoryDot, Segmented, SkeletonBlock } from '@/shared/ui/pastel';
+import { CategoryDot, ReadFailed as SharedReadFailed, Segmented, SkeletonBlock } from '@/shared/ui/pastel';
 import type { AuditResultView, CandidateCardView, GoalRowView } from '../model/auditScreen';
 
 export const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink';
@@ -252,18 +252,5 @@ export function LoadingAudit() {
 
 /** A read that failed says so and reads again. */
 export function ReadFailed({ onRetry, retrying }: { onRetry: () => void; retrying: boolean }) {
-  return (
-    <div className="flex flex-col items-start gap-1 rounded-card bg-card px-5 pb-2 pt-5">
-      <p className="text-[14px] font-medium leading-[1.45] text-ink-muted">Не удалось загрузить ревизию.</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        disabled={retrying}
-        aria-busy={retrying}
-        className={cn('-ml-3 h-touch rounded-pill px-3 text-[14px] font-extrabold text-ink disabled:text-ink-muted', FOCUS)}
-      >
-        Попробовать снова
-      </button>
-    </div>
-  );
+  return <SharedReadFailed text="Не удалось загрузить ревизию." onRetry={onRetry} retrying={retrying} />;
 }

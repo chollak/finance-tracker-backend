@@ -212,20 +212,4 @@ export function SheetSecondaryButton({
   );
 }
 
-/** A read failed: says so and reads again (a problem says what to do). */
-export function ReadFailed({ text, onRetry, retrying }: { text: string; onRetry: () => void; retrying: boolean }) {
-  return (
-    <div className="flex flex-col items-start gap-1 rounded-card bg-card px-5 pb-2 pt-5">
-      <p className="text-[14px] font-medium leading-[1.45] text-ink-muted">{text}</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        disabled={retrying}
-        aria-busy={retrying}
-        className={cn('-ml-3 h-touch rounded-pill px-3 text-[14px] font-extrabold text-ink disabled:text-ink-muted', FOCUS)}
-      >
-        Попробовать снова
-      </button>
-    </div>
-  );
-}
+export { ReadFailed } from '@/shared/ui/pastel';

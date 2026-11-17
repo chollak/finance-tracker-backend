@@ -16,11 +16,8 @@ import {
 import { openRecordCategory, openRecordSheet, RecordSheet, useRecordFlash, useRecordLink } from '@/features/record-sheet';
 import { ACCOUNT_PARAM, RECORD_PARAM } from '@/shared/lib/constants/routes';
 import { toLocalDate } from '@/shared/lib/dates';
-import { cn } from '@/shared/lib/utils';
-import { BackButton, Button, EmptyState, NextPage, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
+import { BackButton, Button, EmptyState, NextPage, ReadFailed, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
 import { historyFilterKey, summaryWithKept, withKeptRecord } from '../model/keptRecord';
-
-const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink';
 
 /** Rows still being read: a day label and a card of grey rows (Skeleton.md), no spinner. */
 function LoadingRows({ rows = 3 }: { rows?: number }) {
@@ -39,24 +36,6 @@ function LoadingRows({ rows = 3 }: { rows?: number }) {
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-/** A read failed: says so and reads again (a problem says what to do). */
-function ReadFailed({ text, onRetry, retrying }: { text: string; onRetry: () => void; retrying: boolean }) {
-  return (
-    <div className="flex flex-col items-start gap-1 rounded-card bg-card px-5 pb-2 pt-5">
-      <p className="text-[14px] font-medium leading-[1.45] text-ink-muted">{text}</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        disabled={retrying}
-        aria-busy={retrying}
-        className={cn('-ml-3 h-touch rounded-pill px-3 text-[14px] font-extrabold text-ink disabled:text-ink-muted', FOCUS)}
-      >
-        Попробовать снова
-      </button>
     </div>
   );
 }

@@ -19,3 +19,4 @@ export { Wordmark } from './wordmark';
 export { BackButton } from './back-button';
 export { NextPage } from './next-page';
 export { OfflineBar, NoNetworkIcon } from './offline-bar';
+export { ReadFailed, READ_OFFLINE_TEXT } from './read-failed';

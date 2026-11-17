@@ -6,7 +6,7 @@ import { useIsOnline } from '@/shared/hooks';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { toLocalDate } from '@/shared/lib/dates';
 import { cn } from '@/shared/lib/utils';
-import { BackButton, Button, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
+import { BackButton, Button, ReadFailed, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
 import { accountsListModel, type AccountsListModel } from '../model/accountsList';
 import { knownRates, rateRowModel, type RateRowModel } from '../model/rateRow';
 import { HiddenAccountsSheet, NewAccountSheet, RateSheet } from './ListSheets';
@@ -185,20 +185,7 @@ export function AccountsPage() {
       </>
     );
   } else if (accounts.isError) {
-    content = (
-      <div className="flex flex-col items-start gap-1 rounded-card bg-card px-5 pb-2 pt-5">
-        <p className="text-[14px] font-medium leading-[1.45] text-ink-muted">Не удалось загрузить счета.</p>
-        <button
-          type="button"
-          onClick={() => void accounts.refetch()}
-          disabled={accounts.isFetching}
-          aria-busy={accounts.isFetching}
-          className={cn('-ml-3 h-touch rounded-pill px-3 text-[14px] font-extrabold text-ink disabled:text-ink-muted', FOCUS)}
-        >
-          Попробовать снова
-        </button>
-      </div>
-    );
+    content = <ReadFailed text="Не удалось загрузить счета." onRetry={() => void accounts.refetch()} retrying={accounts.isFetching} />;
   } else {
     content = (
       <>

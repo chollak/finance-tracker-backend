@@ -29,4 +29,5 @@ export {
   cancelInOutbox,
   removeFromOutbox,
 } from './outbox';
+export { createOfflineQueryClient } from './offlineQueryClient';
 export { persistReads, restoreSavedReads, forgetSavedReads, workOffline, type SavedReadPolicy } from './savedReads';
