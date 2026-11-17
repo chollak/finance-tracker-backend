@@ -43,6 +43,13 @@ export interface LargeAmountQuestion {
   replyClosed?: boolean;
 }
 
+/** /undo that closed a question with nothing written (#318). */
+export interface UndoClosedQuestion {
+  by: string;
+  reply: string;
+  replied?: boolean;
+}
+
 export interface RecordMessageState {
   /** The record being changed, by its place in the message (several records: the one picked). */
   selected: number;
@@ -72,6 +79,12 @@ export interface RecordMessageState {
   large?: LargeAmountQuestion;
   /** Records of a large amount the person chose not to write: they stay deleted and out of the message. */
   declined?: string[];
+  /**
+   * /undo closed the message's question instead of cancelling records (#318): the chat message that did it, by
+   * its client id, what it answered, and whether the answer went out. Sent again after a restart, that /undo
+   * does nothing more — the records «Не записывать» of a large amount wrote are not its to cancel.
+   */
+  undoClosed?: UndoClosedQuestion;
   /** Where «‹ Назад» of the category picker leads: back to the confirmation after «Другая» (FT-123). */
   back?: 'confirm';
 }
