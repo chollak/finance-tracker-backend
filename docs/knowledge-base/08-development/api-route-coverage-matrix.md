@@ -39,7 +39,7 @@ Prefer unit/use-case tests for pure business logic and route tests for HTTP/midd
 | Debt | removed in #265 (decision 2026-11-04): out of the interface since Д2, nothing called them; the `debts` and `debt_payments` tables stay, and a record once written by a debt is read, changed and deleted like any other (`tests/debtLinkedRecords.test.ts`) | `tests/deadDebtRoutes.test.ts`: the eleven routes are `404` | — | — |
 | Transaction | history, totals, frequent, CRUD, restore (the global admin `GET /analytics` removed in FT-174; the archive and the old `/analytics/*/:userId` in #273 — analytics is `/api/analytics`, FT-120; `GET /user/:userId` in #289) | resource by-id ownership/404/update validation covered; every by-id route `401` without sign-in, someone else's record `403`, unknown `404` (#271, `tests/transactionRoutes.test.ts`); every `:userId` route and `POST /` user-from-auth covered (FT-162); `tests/deadTransactionRoutes.test.ts`: the eleven removed routes are `404`; a record archived before #273 stays out of every read (`tests/archivedRecords.test.ts`); broader CRUD gaps remain | high | Add more focused coverage before any transaction controller split/refactor. |
 | Budget | removed in #264 with `BudgetModule` (decision 2026-11-04): out of the interface since Д2, nothing called it; the `budgets` table stays | `tests/deadBudgetRoutes.test.ts`: the eight routes are `404` | — | — |
-| Subscription | status, check-limit, grant, cancel, start-trial | use-case level; routes: user from auth, someone else's id `403`, non-string `400` (FT-162) | medium-high | Add route tests around guest status/check-limit and invalid limitType. |
+| Subscription | status, grant (`check-limit`, `cancel`, `start-trial` removed in #320: no client called them; the bot uses the use cases) | use-case level; status: user from auth, someone else's id `403`, non-string `400` (FT-162, `tests/legacyUserIdRoutes.test.ts`); grant: body and target checks, `grantedBy` from the signed-in admin (`tests/grantBody.test.ts`); `tests/removedSubscriptionRoutes.test.ts`: the three removed routes are `404` | low | — |
 | User | removed in #274: `GET /api/users/:telegramId`, `POST /api/users`, `PUT /api/users/:id` had no client, and `PUT` wrote the time zone unchecked; a user is made on the first request, settings change through `PATCH /api/settings` | `tests/deadUserRoutes.test.ts`: the routes are `404` and change no `users` row; `PATCH /api/settings` refuses `timezone` (`400`) and still saves a setting | — | — |
 | Dashboard | removed in #205 with `DashboardService`, `AlertService` and `requirePremium`: nothing called it | `tests/deadDashboardRoutes.test.ts`: the seven routes are `404` | — | — |
 | OpenAI usage | removed with `OpenAIUsageModule` (FT-174): `requireAdmin` without `requireAuth` always answered `401`, nothing called it | `tests/deadAdminRoutes.test.ts`: the routes are `404` | — | — |
@@ -150,7 +150,7 @@ Candidate tests:
 
 Candidate tests:
 
-- `POST /api/subscription/check-limit` invalid `limitType` → 400 validation
+- `POST /api/subscription/check-limit` invalid `limitType` → 400 validation — the route is gone (#320)
 - guest subscription status returns free-tier response
 - missing `userId` / `limitType` → 400 validation
 

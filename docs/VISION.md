@@ -73,7 +73,7 @@
 | Долги (DebtModule, кто кому должен) | Удалены вне пути записи (#265), остаток — #266 |
 | Premium подписка + лимиты (SubscriptionModule) | ✅ Ready |
 | Оплата Telegram Stars | ✅ Ready |
-| 14-дневный Free Trial | ✅ Ready |
+| 14-дневный Free Trial | Запускать нечем с #320: маршрут `start-trial` никто не вызывал и убран вместе с `StartTrialUseCase`; строки `trial` читаются как раньше |
 
 ---
 
@@ -94,7 +94,7 @@ Free Trial) как TODO-блокеры запуска. Это устарело: 
 | 1 | DebtModule | ✅ Done, удалён вне пути записи в #265 | `src/modules/debt/` (остаток до #266) |
 | 2 | SubscriptionModule (Free/Premium + лимиты) | ✅ Done | `src/modules/subscription/` |
 | 3 | Payment Integration (Telegram Stars) | ✅ Done | `src/modules/subscription/infrastructure/TelegramPaymentService.ts`, `src/delivery/messaging/telegram/handlers/paymentHandlers.ts` |
-| 4 | Free Trial (14 дней) | ✅ Done | `StartTrialUseCase` в `src/modules/subscription/application/grantPremium.ts` |
+| 4 | Free Trial (14 дней) | Был готов; с #320 запускать нечем — `StartTrialUseCase` вызывал только маршрут `POST /api/subscription/start-trial` без потребителей, оба убраны | чтение trial — `GetSubscriptionUseCase`, срок — `TRIAL_DURATION_DAYS` |
 
 **Известный незакрытый пробел:** `SubscriptionService.processExpiredSubscriptions()`
 (`src/modules/subscription/application/subscriptionService.ts`) реализован и рассчитан на вызов

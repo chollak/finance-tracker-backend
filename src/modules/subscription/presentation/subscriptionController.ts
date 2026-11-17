@@ -11,8 +11,8 @@ import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { currentUserId } from '../../../delivery/web/express/middleware/currentUserMiddleware';
 
 /**
- * The user's own subscription routes act for the signed-in user (`currentUserId`, FT-162); a userId in the body is
- * never read. Only the admin grant names whom it is for.
+ * The status is read for the signed-in user (`currentUserId`, FT-162). Only the admin grant names whom it is for, and
+ * the one who granted is the admin who signed in (#320).
  */
 export class SubscriptionController {
   constructor(private subscriptionModule: SubscriptionModule) {}
@@ -35,49 +35,13 @@ export class SubscriptionController {
   }
 
   /**
-   * POST /api/subscription/check-limit
-   * Check if the signed-in user can perform an action
-   */
-  async checkLimit(req: Request, res: Response): Promise<void> {
-    try {
-      const { limitType } = req.body;
-      const userId = currentUserId(req);
-
-      if (!limitType) {
-        return handleControllerError(ErrorFactory.validation('limitType is required'), res);
-      }
-
-      const validLimitTypes = ['transactions', 'voice_inputs'];
-      if (!validLimitTypes.includes(limitType)) {
-        return handleControllerError(
-          ErrorFactory.validation(
-            `Invalid limitType: "${limitType}". Valid values are: ${validLimitTypes.join(', ')}`
-          ),
-          res
-        );
-      }
-
-      const result = await this.subscriptionModule
-        .getCheckLimitUseCase()
-        .execute({ userId, limitType });
-
-      handleControllerSuccess(result, res);
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  }
-
-  /**
    * POST /api/subscription/grant, after requireAdmin and before the target is resolved — resolving creates the user on
-   * first contact, so a refused grant adds nothing, no subscription and no user (#256): `grantedBy` is required, and
-   * `durationDays`, when given, is a whole number of days within GRANT_DURATION_DAYS, for a lifetime grant too.
-   * Otherwise 400 VALIDATION_ERROR. Without `durationDays` the gift lasts 30 days, as before.
+   * first contact, so a refused grant adds nothing, no subscription and no user (#256): `durationDays`, when given, is
+   * a whole number of days within GRANT_DURATION_DAYS, for a lifetime grant too. Otherwise 400 VALIDATION_ERROR.
+   * Without `durationDays` the gift lasts 30 days, as before. `grantedBy` of the body is not looked at (#320).
    */
   checkGrantBody(req: Request, res: Response, next: NextFunction): void {
-    const { grantedBy, durationDays } = req.body ?? {};
-    if (!grantedBy) {
-      return handleControllerError(ErrorFactory.validation('grantedBy is required', 'grantedBy'), res);
-    }
+    const { durationDays } = req.body ?? {};
     if (durationDays !== undefined && durationDays !== null && !isGrantDuration(durationDays)) {
       return handleControllerError(
         ErrorFactory.validation(
@@ -92,12 +56,17 @@ export class SubscriptionController {
 
   /**
    * POST /api/subscription/grant
-   * Grant premium to a user (admin only)
+   * Grant premium to a user (admin only). `grantedBy` is the Telegram id of the admin who signed in — the one
+   * `requireAdmin` let through; a `grantedBy` in the body is not read, so the record cannot name someone else (#320)
    */
   async grantPremium(req: Request, res: Response): Promise<void> {
     try {
-      // grantedBy and durationDays are checked by checkGrantBody before this (#256)
-      const { grantedBy, grantNote, isLifetime, durationDays } = req.body;
+      // durationDays is checked by checkGrantBody before this (#256)
+      const { grantNote, isLifetime, durationDays } = req.body;
+      const admin = req.telegramUser;
+      if (!admin) {
+        return handleControllerError(ErrorFactory.authorization('Admin access required'), res);
+      }
       // The user the admin names in the body, resolved to UUID by middleware
       const userId = req.resolvedUser?.id;
 
@@ -110,7 +79,7 @@ export class SubscriptionController {
         .getGrantPremiumUseCase()
         .execute({
           userId,
-          grantedBy,
+          grantedBy: String(admin.id),
           grantNote,
           isLifetime: isLifetime || false,
           durationDays,
@@ -118,51 +87,6 @@ export class SubscriptionController {
       if (!result.success) return handleControllerError(result.error, res);
 
       handleControllerSuccess({ subscription: result.data }, res);
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  }
-
-  /**
-   * POST /api/subscription/cancel
-   * Cancel the signed-in user's subscription
-   */
-  async cancelSubscription(req: Request, res: Response): Promise<void> {
-    try {
-      const { reason } = req.body;
-      const userId = currentUserId(req);
-
-      const result = await this.subscriptionModule
-        .getCancelSubscriptionUseCase()
-        .execute({ userId, reason });
-
-      handleControllerSuccess(result, res);
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  }
-
-  /**
-   * POST /api/subscription/start-trial
-   * Start trial for the signed-in user
-   */
-  async startTrial(req: Request, res: Response): Promise<void> {
-    try {
-      const userId = currentUserId(req);
-
-      const subscription = await this.subscriptionModule
-        .getStartTrialUseCase()
-        .execute({ userId });
-
-      if (!subscription) {
-        handleControllerSuccess(
-          { available: false, message: 'User already has subscription history, trial not available' },
-          res
-        );
-        return;
-      }
-
-      handleControllerSuccess({ available: true, subscription }, res);
     } catch (error) {
       handleControllerError(error, res);
     }

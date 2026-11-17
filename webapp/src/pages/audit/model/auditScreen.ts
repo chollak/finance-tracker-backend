@@ -42,7 +42,7 @@ export interface TooEarlyView {
 
 /** «Ревизия · мало данных»: the audit needs a whole month of records (FT-130: begun on one of its first 3 days). */
 export function tooEarlyView(audit: Audit): TooEarlyView {
-  const text = 'Нужен целый месяц записей: тогда ИИ найдёт траты, которые повторяются или растут, и спросит, нужны ли они.';
+  const text = 'Нужен целый месяц записей: тогда найдём траты, которые повторяются или растут, и спросим, нужны ли они.';
   const { firstRecordDate, firstAuditOn, today } = audit;
   if (!firstRecordDate || !firstAuditOn) return { title: 'Первая ревизия — после месяца записей', text, progress: 'Записей пока нет' };
 
@@ -57,7 +57,7 @@ export function tooEarlyView(audit: Audit): TooEarlyView {
   return { title, text, progress: `Записей пока — за ${days(recorded)}, а нужен целый ${monthNameLower(monthNumber(wholeMonth))}` };
 }
 
-/** The card on top of the list: what the AI found, how much it took, and «Разобрано 2 из 6». */
+/** The card on top of the list: what the rules found, how much it took, and «Разобрано 2 из 6». */
 export function auditIntro(audit: Audit): { text: string; progress: string; share: number } {
   const { count, marked, carriedCount, totalMinor } = audit.summary;
   const found = count - carriedCount;
@@ -65,7 +65,7 @@ export function auditIntro(audit: Audit): { text: string; progress: string; shar
   const parts: string[] = [];
   if (found > 0) {
     const spendings = pluralRu(found, 'трату, которая может быть лишней', 'траты, которые могут быть лишними', 'трат, которые могут быть лишними');
-    parts.push(`ИИ нашёл ${found} ${spendings}, — ${money(totalMinor)} за ${monthNameLower(monthNumber(audit.month))}.`);
+    parts.push(`Нашли ${found} ${spendings}, — ${money(totalMinor)} за ${monthNameLower(monthNumber(audit.month))}.`);
   }
   if (carriedCount > 0 && carriedMonth) {
     const audited = monthNameOf(monthNumber(carriedMonth));

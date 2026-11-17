@@ -185,6 +185,10 @@ function stateOf(raw: unknown): RecordMessageState {
     const declined = parsed.declined.filter((id): id is string => typeof id === 'string');
     if (declined.length > 0) state.declined = declined;
   }
+  const { undoClosed } = parsed;
+  if (undoClosed && typeof undoClosed.by === 'string' && typeof undoClosed.reply === 'string') {
+    state.undoClosed = { by: undoClosed.by, reply: undoClosed.reply, ...(undoClosed.replied === true ? { replied: true } : {}) };
+  }
   if (parsed.back === 'confirm') state.back = 'confirm';
   return state;
 }

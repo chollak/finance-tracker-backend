@@ -10,12 +10,15 @@ import { SubscriptionController } from '../../../../modules/subscription/present
 import { createUserResolutionMiddleware } from '../middleware/userResolutionMiddleware';
 import { createResolveCurrentUserMiddleware } from '../middleware/currentUserMiddleware';
 import { requireAuth, requireAdmin, verifyOwnership } from '../middleware/authMiddleware';
-import { standardRateLimiter, adminRateLimiter, strictRateLimiter } from '../middleware/rateLimitMiddleware';
+import { standardRateLimiter, adminRateLimiter } from '../middleware/rateLimitMiddleware';
 
 /**
- * The user's own routes take the user from authentication (FT-162): a userId the path, query or body still carries
- * must be the signed-in user's Telegram id as a string, checked before anything is resolved — someone else's id is 403
- * and creates no user row. Only the admin grant names whom it is for, in the body.
+ * Two routes (#320): the user's own status and the admin grant. `POST /check-limit`, `/cancel` and `/start-trial` had
+ * no caller and are gone — the bot checks limits and cancels through the use cases, not over HTTP.
+ *
+ * The status takes the user from authentication (FT-162): the userId of the path must be the signed-in user's Telegram
+ * id as a string, checked before anything is resolved — someone else's id is 403 and creates no user row. Only the
+ * admin grant names whom it is for, in the body; who granted is the admin who signed in.
  */
 export function createSubscriptionRoutes(
   subscriptionModule: SubscriptionModule,
@@ -37,18 +40,9 @@ export function createSubscriptionRoutes(
     (req, res) => controller.getSubscriptionStatus(req, res)
   );
 
-  // POST /api/subscription/check-limit - Check if user can perform action
-  router.post(
-    '/check-limit',
-    standardRateLimiter,
-    requireAuth,
-    verifyOwnership,
-    resolveCurrentUser,
-    (req, res) => controller.checkLimit(req, res)
-  );
-
   // POST /api/subscription/grant - Grant premium to user (ADMIN ONLY)
-  // Protected: requires authentication + admin role; a bad durationDays is refused before the target user is created
+  // Protected: requires authentication + admin role; a bad durationDays is refused before the target user is created;
+  // `grantedBy` is the signed-in admin's Telegram id, the body's is not read (#320)
   router.post(
     '/grant',
     adminRateLimiter,
@@ -57,26 +51,6 @@ export function createSubscriptionRoutes(
     (req, res, next) => controller.checkGrantBody(req, res, next),
     resolveGrantTarget,
     (req, res) => controller.grantPremium(req, res)
-  );
-
-  // POST /api/subscription/cancel - Cancel subscription
-  router.post(
-    '/cancel',
-    strictRateLimiter,
-    requireAuth,
-    verifyOwnership,
-    resolveCurrentUser,
-    (req, res) => controller.cancelSubscription(req, res)
-  );
-
-  // POST /api/subscription/start-trial - Start trial for new user
-  router.post(
-    '/start-trial',
-    strictRateLimiter,
-    requireAuth,
-    verifyOwnership,
-    resolveCurrentUser,
-    (req, res) => controller.startTrial(req, res)
   );
 
   return router;

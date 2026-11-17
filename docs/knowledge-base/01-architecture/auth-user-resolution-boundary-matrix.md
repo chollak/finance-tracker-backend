@@ -221,6 +221,9 @@ user from the body. Budgets and debts are out of the UI (Д2), but their routes 
 | `GET /api/subscription/:userId`, `POST /check-limit`, `/cancel`, `/start-trial`: the user from the path or the body (`req.resolvedUser?.id \|\| req.body.userId`); without a body userId the actions were `400 userId is required` | `requireAuth, verifyOwnership, createResolveCurrentUserMiddleware`: the signed-in user (`currentUserId`); a body or path userId is only checked, never read as the user |
 | `POST /api/transactions`: `writeAsSignedInUser` put the signed-in id into the body, user resolution read it from there | `requireAuth, verifyOwnership, createResolveCurrentUserMiddleware`: the record's owner is `currentUserId`. The Mini App outbox still sends its own `userId` as a string — accepted. The route needs a `UserModule`, as the other milestone-10 routes |
 
+Since #320 `POST /check-limit`, `/cancel` and `/start-trial` are gone (`404`): no client called them; of the own
+subscription routes only the status is left.
+
 Unchanged: the admin grant (`POST /api/subscription/grant`) names whom it is for in the body and creates that user on
 first contact — it is the admin's choice; the guest branches in the same controllers are dead code until FT-136
 (removed in #206).
@@ -424,8 +427,9 @@ FT-017D decision: do not globally change this helper to fail-closed yet.
 | Budgets — removed in #264 | `/api/budgets/users/:userId/...`, `/api/budgets/:budgetId...` | — (`404`) | — | — | — |
 | Debts — removed in #265 | `/api/debts/user/:userId...`, `/api/debts/:debtId...`, `/api/debts/payments/:paymentId` | — (`404`) | — | — | — |
 | Dashboard — removed in #205 | `/api/dashboard/:userId...` | — (`404`) | — | — | — |
-| Subscription (own) | `GET /api/subscription/:userId`, `POST /check-limit`, `/cancel`, `/start-trial` | `requireAuth` | signed-in user (`createResolveCurrentUserMiddleware`, FT-162) | `verifyOwnership` on any path/body/query userId, before resolution | strict |
-| Subscription grant | `POST /api/subscription/grant` | `requireAuth` + `requireAdmin` | body userId (the admin's target; a non-string or an id that is no UUID and no Telegram id is `400 INVALID_USER_ID`, #224; a Telegram id with leading zeros is the same user, a UUID no user has is `404 NOT_FOUND`, #230; no `grantedBy`, or a `durationDays` other than a whole number from 1 to 3650, is `400 VALIDATION_ERROR` after `requireAdmin` and before the target is resolved — no user, no subscription, #256) | admin only | strict/admin |
+| Subscription (own) | `GET /api/subscription/:userId` | `requireAuth` | signed-in user (`createResolveCurrentUserMiddleware`, FT-162) | `verifyOwnership` on any path/body/query userId, before resolution | standard |
+| Subscription actions — removed in #320 | `POST /api/subscription/check-limit`, `/cancel`, `/start-trial` | — (`404`) | — | — | — |
+| Subscription grant | `POST /api/subscription/grant` | `requireAuth` + `requireAdmin` | body userId (the admin's target; a non-string or an id that is no UUID and no Telegram id is `400 INVALID_USER_ID`, #224; a Telegram id with leading zeros is the same user, a UUID no user has is `404 NOT_FOUND`, #230; a `durationDays` other than a whole number from 1 to 3650 is `400 VALIDATION_ERROR` after `requireAdmin` and before the target is resolved — no user, no subscription, #256; `grantedBy` is the signed-in admin's Telegram id, the body's is not read, #320) | admin only | strict/admin |
 
 The column «Guest allowed» went with the guests (#206). A request without sign-in reaches only these routes:
 

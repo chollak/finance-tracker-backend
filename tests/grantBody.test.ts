@@ -14,8 +14,8 @@ import { SqliteUserRepository } from '../src/modules/user/infrastructure/persist
  * before the target is resolved — resolving creates the user on first contact, so a refused grant adds no subscription
  * and no user. `durationDays` is a whole number of days from 1 to 3650: before, any value went into the date (`0` became
  * 30 days, `-5` a subscription expired at birth, `"abc"` an invalid date), now anything else is `400 VALIDATION_ERROR`;
- * without it the gift is 30 days, as before. A grant without `grantedBy` was 400 already, but after its target was
- * created. Someone who is not the admin learns nothing of the body: 401 or 403 first. Real SQLite, real routes.
+ * without it the gift is 30 days, as before. Who granted is the signed-in admin's Telegram id (#320): `grantedBy` of
+ * the body is not read — before, it was a required text anyone could fill with any name. Someone who is not the admin learns nothing of the body: 401 or 403 first. Real SQLite, real routes.
  */
 
 const ADMIN = 131256000;
@@ -98,15 +98,20 @@ describe('the body of the admin grant (#256)', () => {
     await expectNothingAdded();
   });
 
+  // #320: who granted is the admin who signed in, not a text of the body — the body's `grantedBy` is not read
   it.each([
     ['without grantedBy', { grantedBy: undefined }],
     ['with grantedBy empty', { grantedBy: '' }],
     ['with grantedBy null', { grantedBy: null }],
-  ])('refuses a grant %s with 400 VALIDATION_ERROR, adding no subscription and no user', async (_name, body) => {
+    ['with someone else named in grantedBy', { grantedBy: String(NOT_ADMIN) }],
+    ['with grantedBy that is not a string', { grantedBy: { id: NOT_ADMIN } }],
+  ])('a grant %s is recorded as granted by the signed-in admin', async (_name, body) => {
     const response = await grant(body);
 
-    expect({ status: response.status, code: response.body?.error?.code }).toEqual({ status: 400, code: 'VALIDATION_ERROR' });
-    await expectNothingAdded();
+    expect(response.status).toBe(200);
+    expect(response.body.data.subscription.grantedBy).toBe(String(ADMIN));
+    const rows = await db.dataSource.query(`SELECT granted_by FROM subscriptions`);
+    expect(rows).toEqual([{ granted_by: String(ADMIN) }]);
   });
 
   it('answers someone who is not the admin 403, and no one signed in 401, before looking at the body', async () => {
