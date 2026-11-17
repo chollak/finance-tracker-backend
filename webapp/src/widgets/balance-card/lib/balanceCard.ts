@@ -112,16 +112,36 @@ export function balanceAmountClass(amount: string): string {
 
 export type SpendShare =
   | { kind: 'share'; lead: string; percent: string; tail: string; barPercent: number }
+  | { kind: 'over'; lead: string; amount: string; barPercent: number }
   | { kind: 'hint'; text: string };
 
 /**
- * The one line under the balance (design-system «Выводы вместо голых цифр»): «В октябре потрачено 47%
- * дохода», with a bar filled as much (full past 100%). Without income this month there is no share to
- * name, so the line says what will appear here — as on the board after the first launch.
+ * By how much the month's expenses are over its income, in the shown currency. In dollars — the difference
+ * of the two sums as the month tiles show them (each at the rate), so the line and the tiles agree to the cent.
  */
-export function spendShare(totals: PeriodTotals, month: number): SpendShare {
+function overspendMinor(totals: PeriodTotals, currency: Currency, rateMinor: number | null): number {
+  if (currency === 'USD') return uzsToUsdMinor(totals.expenseMinor, rateMinor!) - uzsToUsdMinor(totals.incomeMinor, rateMinor!);
+  return totals.expenseMinor - totals.incomeMinor;
+}
+
+/**
+ * The one line under the balance (design-system «Выводы вместо голых цифр»), with a bar:
+ * - expenses up to the income — «В октябре потрачено 47% дохода», the bar filled as much;
+ * - expenses over the income (#368) — «В октябре расходы больше дохода на 1 250 000 сум», the bar full: a
+ *   share of 299% or 1000% says nothing. The sums are compared, not the rounded share, and the amount is in
+ *   the currency of «Сум / USD», as the month tiles. A difference too small to show («0 сум», «0,00 USD»)
+ *   stays a share, 100%;
+ * - no income this month — there is no share to name, so the line says what will appear here, as on the
+ *   board after the first launch.
+ */
+export function spendShare(totals: PeriodTotals, month: number, display: DisplayMoney = IN_UZS): SpendShare {
   if (totals.incomeMinor <= 0) {
     return { kind: 'hint', text: 'Здесь появится, какую часть дохода вы потратили за месяц.' };
+  }
+  const currency = shownCurrency(display);
+  const over = formatMinor(overspendMinor(totals, currency, display.rateMinor), currency);
+  if (totals.expenseMinor > totals.incomeMinor && over !== formatMinor(0, currency)) {
+    return { kind: 'over', lead: `В ${monthNameIn(month)} расходы больше дохода на`, amount: over, barPercent: 100 };
   }
   const percent = Math.round((totals.expenseMinor * 100) / totals.incomeMinor);
   return {
