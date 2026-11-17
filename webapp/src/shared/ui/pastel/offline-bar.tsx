@@ -18,16 +18,17 @@ export function NoNetworkIcon({ className }: { className?: string }) {
 /**
  * How Home says there is no connection (docs/pastel/components/OfflineBar.md, board «Главная без связи»): a `card`
  * line under the header, at least 48px, with the «нет сети» icon and one sentence. Nothing else is explained here — voice
- * and receipts say it on their own screens. `role="status"`, so a screen reader announces it when it appears.
+ * and receipts say it on their own screens. A read that failed without a connection has the line too, with its own
+ * sentence (`ReadFailed`, #322). `role="status"`, so a screen reader announces it when it appears.
  */
-export function OfflineBar({ className }: { className?: string }) {
+export function OfflineBar({ className, text = 'Нет связи — записи сохранятся и отправятся сами' }: { className?: string; text?: string }) {
   return (
     <div
       role="status"
       className={cn('flex min-h-key items-center gap-2.5 rounded-card bg-card px-4 py-2.5 text-ink', className)}
     >
       <NoNetworkIcon />
-      <span className="text-[14px] font-bold leading-[1.4]">Нет связи — записи сохранятся и отправятся сами</span>
+      <span className="text-[14px] font-bold leading-[1.4]">{text}</span>
     </div>
   );
 }

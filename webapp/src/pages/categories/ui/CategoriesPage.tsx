@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMonthAnalytics } from '@/entities/analytics';
 import { useCategories, type CategoryType } from '@/entities/category';
 import { cn } from '@/shared/lib/utils';
-import { BackButton, CategoryDot, Segmented, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
+import { BackButton, CategoryDot, ReadFailed, Segmented, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
 import { categoryRows, LIST_NOTE, monthCounts, TYPE_OPTIONS, type CategoryRowView } from '../model/categoriesScreen';
 import { EditCategorySheet, HiddenCategoriesSheet, NewCategorySheet } from './CategorySheets';
 
@@ -123,20 +123,7 @@ export function CategoriesPage() {
       </>
     );
   } else if (categories.isError) {
-    content = (
-      <div className="flex flex-col items-start gap-1 rounded-card bg-card px-5 pb-2 pt-5">
-        <p className="text-[14px] font-medium leading-[1.45] text-ink-muted">Не удалось загрузить категории.</p>
-        <button
-          type="button"
-          onClick={() => void categories.refetch()}
-          disabled={categories.isFetching}
-          aria-busy={categories.isFetching}
-          className="-ml-3 h-touch rounded-pill px-3 text-[14px] font-extrabold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:text-ink-muted"
-        >
-          Попробовать снова
-        </button>
-      </div>
-    );
+    content = <ReadFailed text="Не удалось загрузить категории." onRetry={() => void categories.refetch()} retrying={categories.isFetching} />;
   } else {
     content = (
       <>

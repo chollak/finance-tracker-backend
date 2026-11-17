@@ -15,23 +15,11 @@ export default defineConfig({
       // The app's only manifest (FT-257), in its own module: the tests read the object, not this file (#217)
       manifest: pwaManifest,
       workbox: {
-        // Cache strategies
+        // Cache strategies. No rule for `/api/` (#322): the worker passes every API request to the network and never
+        // answers one itself — a slow server is waited for, not replaced by an old copy. Without connection the app
+        // opens on the reads it keeps per user (FT-129, `shared/lib/offline`). The cache an earlier version filled is
+        // deleted by the app at every start and at «Выйти» or a lost session (`dropLegacyApiCache`)
         runtimeCaching: [
-          {
-            // API calls - Network First with fallback. Not the login and the session (FT-128): an answer about who is
-            // signed in must never come from a cache. Nor the health check: the offline mode asks it whether the server
-            // is there at all (FT-129)
-            urlPattern: /^https?:\/\/[^/]+\/api\/(?!auth\/|health).*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24, // 24 hours
-              },
-              networkTimeoutSeconds: 10,
-            },
-          },
           {
             // Static assets - Cache First
             urlPattern: /\.(js|css|png|jpg|jpeg|svg|woff2?)$/i,

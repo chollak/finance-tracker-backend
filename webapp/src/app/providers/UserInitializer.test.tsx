@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useUserStore } from '@/entities/user';
 import { apiClient, onMiniAppRefused, onSessionLost } from '@/shared/api';
+import { memoryOfflineStorage, offlineStorage, setOfflineStorage } from '@/shared/lib/offline';
 import { UserInitializer } from './UserInitializer';
 
 /**
@@ -30,6 +31,7 @@ beforeEach(() => {
   vi.mocked(onSessionLost).mockReset();
   vi.mocked(onMiniAppRefused).mockReset();
   useUserStore.setState({ userId: null, userName: null, username: null, userType: null, telegramId: null, signedOut: false, miniAppRefused: false });
+  setOfflineStorage(memoryOfflineStorage());
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -40,6 +42,13 @@ afterEach(() => {
   container.remove();
   vi.unstubAllGlobals();
 });
+
+/** A read kept on the device for the offline mode (FT-129): what «forgetting the kept answers» takes away */
+async function keepRead() {
+  await offlineStorage().putRead({ hash: 'a', userId: '597843119', queryKey: ['accounts', 'list', '597843119'], data: {}, updatedAt: 1 });
+}
+
+const keptReads = () => offlineStorage().listReads('597843119');
 
 async function start() {
   const client = new QueryClient();
@@ -73,15 +82,27 @@ describe('in a browser', () => {
     expect(useUserStore.getState()).toMatchObject({ userId: null, userType: null, signedOut: true });
   });
 
-  it('a session that ended between visits also drops the API answers the service worker kept for it', async () => {
+  it('a session that ended between visits also drops the answers kept on the device for it', async () => {
     useUserStore.setState({ userId: '597843119', userType: 'telegram', telegramId: '597843119', userName: 'Шукур' });
     vi.mocked(apiClient.get).mockRejectedValue({ statusCode: 401 });
-    const forget = vi.fn(async () => true);
-    vi.stubGlobal('caches', { delete: forget });
+    await keepRead();
 
     await start();
 
-    expect(forget).toHaveBeenCalledWith('api-cache');
+    expect(await keptReads()).toHaveLength(0);
+  });
+
+  // #322: the service worker keeps no API answers any more; what an earlier version kept is deleted at every start
+  it('the API cache an earlier service worker left goes at start; the reads kept for the offline mode stay', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ success: true, data: { user: USER } } as never);
+    const remove = vi.fn(async () => true);
+    vi.stubGlobal('caches', { delete: remove });
+    await keepRead();
+
+    await start();
+
+    expect(remove).toHaveBeenCalledWith('api-cache');
+    expect(await keptReads()).toHaveLength(1);
   });
 
   it('a session that ended since the last visit takes the remembered user away', async () => {
@@ -101,19 +122,18 @@ describe('in a browser', () => {
     expect(useUserStore.getState()).toMatchObject({ userId: '597843119', signedOut: false });
   });
 
-  it('when the server stops taking the session later, the login screen shows and the cached API answers go', async () => {
+  it('when the server stops taking the session later, the login screen shows and the kept answers go', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ success: true, data: { user: USER } } as never);
-    const forget = vi.fn(async () => true);
-    vi.stubGlobal('caches', { delete: forget });
+    await keepRead();
     await start();
-    expect(forget).not.toHaveBeenCalled();
+    expect(await keptReads()).toHaveLength(1);
 
     const lost = vi.mocked(onSessionLost).mock.calls.at(-1)?.[0];
     expect(lost).toEqual(expect.any(Function));
     await act(async () => lost?.());
 
     expect(useUserStore.getState()).toMatchObject({ userId: null, signedOut: true, miniAppRefused: false });
-    expect(forget).toHaveBeenCalledWith('api-cache');
+    expect(await keptReads()).toHaveLength(0);
   });
 });
 
@@ -144,16 +164,19 @@ describe('inside Telegram', () => {
         expand: vi.fn(),
       },
     });
-    const forget = vi.fn(async () => true);
-    vi.stubGlobal('caches', { delete: forget });
+    const remove = vi.fn(async () => true);
+    vi.stubGlobal('caches', { delete: remove });
+    await keepRead();
     await start();
+    // #322: the old service worker's API cache goes at start inside Telegram too
+    expect(remove).toHaveBeenCalledWith('api-cache');
 
     const refused = vi.mocked(onMiniAppRefused).mock.calls.at(-1)?.[0];
     expect(refused).toEqual(expect.any(Function));
     await act(async () => refused?.());
 
     expect(useUserStore.getState()).toMatchObject({ userId: '597843119', signedOut: false, miniAppRefused: true });
-    expect(forget).not.toHaveBeenCalled();
+    expect(await keptReads()).toHaveLength(1);
   });
 
   it('a fresh start knows nothing of an earlier refusal: it is not kept on the device', () => {

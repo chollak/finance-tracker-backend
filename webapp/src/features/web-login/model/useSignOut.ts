@@ -10,7 +10,7 @@ import { LOGIN_NOTICES } from './webLogin';
 /**
  * «Выйти» in «Ещё» by a direct link (FT-128, board «„Ещё“ в браузере»): the session ends in this browser only — the
  * records stay, and so do other browsers and Telegram. What the app had read is dropped — the query cache and the
- * service worker's API answers — and the login screen shows; the next sign-in opens Home. If the server was not reached
+ * answers kept on the device — and the login screen shows; the next sign-in opens Home. If the server was not reached
  * the user stays signed in and is told.
  */
 export function useSignOut(): { signOut: () => void; pending: boolean } {

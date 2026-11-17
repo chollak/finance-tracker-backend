@@ -643,7 +643,7 @@ describe('«Ещё» by a direct link', () => {
 
   it('«Выйти» ends the session in this browser only and leaves for the login screen', async () => {
     vi.mocked(apiClient.delete).mockResolvedValue({ success: true, data: { signedOut: true } } as never);
-    // The service worker's API answers: routes such as /api/accounts don't name the user
+    // The API cache an earlier service worker left (#322) goes with the answers kept on the device
     const forget = vi.fn(async () => {
       expect(useUserStore.getState().userId).toBe(USER_ID);
       return true;
