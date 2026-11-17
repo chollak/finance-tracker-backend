@@ -50,7 +50,7 @@ export function HomePage() {
 
   return (
     <PageShell className="pt-2 pb-[calc(10rem+env(safe-area-inset-bottom))] md:pt-2">
-      {/* The balance card's «Всего на счетах» is the screen's heading */}
+      {/* The balance card's account and its balance are the screen's heading */}
       <HomeHeader className="mb-4" />
 
       <div className="flex flex-col gap-4">

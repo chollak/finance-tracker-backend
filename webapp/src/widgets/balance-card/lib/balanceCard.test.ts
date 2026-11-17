@@ -5,9 +5,9 @@ import type { PeriodTotals } from '@/entities/transaction';
 import { balanceAmountClass, balanceCardModel, spendShare } from './balanceCard';
 
 /**
- * FT-111, board «Главная» (docs/pastel/components/BalanceCard.md): the total of the accounts exactly as
- * GET /api/accounts gives it, the accounts it is made of, and one line — what share of the month's income
- * is spent.
+ * FT-111, #367, board «Главная» (docs/pastel/components/BalanceCard.md): the default account large, the
+ * total of the accounts exactly as GET /api/accounts gives it in a line under it, the accounts it is made
+ * of, and one line — what share of the month's income is spent.
  */
 
 function account(overrides: Partial<Account>): Account {
@@ -53,37 +53,97 @@ function totals(incomeMinor: number, expenseMinor: number): PeriodTotals {
 }
 
 describe('balance card', () => {
-  it('shows the total of GET /api/accounts as it is, in сум', () => {
-    const model = balanceCardModel(OVERVIEW);
+  it('shows the default account large, under its name', () => {
+    const model = balanceCardModel(OVERVIEW, 'card');
 
-    expect(model.total).toBe(`9${NBSP}743${NBSP}000`);
+    expect(model.title).toBe('Карта');
+    expect(model.amount).toBe(`3${NBSP}180${NBSP}000`);
     expect(model.unit).toBe('сум');
-    expect(balanceCardModel({ ...OVERVIEW, totalMinor: -12_000_000 }).total).toBe(`${MINUS}120${NBSP}000`);
+    expect(balanceCardModel({ ...OVERVIEW, accounts: [account({ id: 'card', balanceMinor: -12_000_000 })] }, 'card').amount).toBe(
+      `${MINUS}120${NBSP}000`
+    );
   });
 
-  it('counts and lists the visible accounts, each in its own currency; hidden ones are not in the total', () => {
-    const model = balanceCardModel(OVERVIEW);
+  it('falls back to the account the server writes a record to: the first visible one in сум', () => {
+    // Not chosen, deleted, hidden, in dollars — the same rule as `defaultRecordAccount`
+    for (const defaultAccountId of [null, 'gone', 'old', 'usd']) {
+      expect(balanceCardModel(OVERVIEW, defaultAccountId)).toMatchObject({ title: 'Наличные', amount: `1${NBSP}250${NBSP}000`, unit: 'сум' });
+    }
+  });
 
-    expect(model.countLabel).toBe('3 счёта');
-    expect(model.accounts).toEqual([
+  it('puts the total of GET /api/accounts as it is in the line «Всего на N счетах»', () => {
+    const model = balanceCardModel(OVERVIEW, 'card');
+
+    expect(model.total).toEqual({
+      label: 'Всего на 3 счетах',
+      value: `9${NBSP}743${NBSP}000`,
+      spoken: `Всего на 3 счетах: 9${NBSP}743${NBSP}000${NBSP}сум`,
+    });
+    expect(balanceCardModel({ ...OVERVIEW, totalMinor: -12_000_000 }, 'card').total?.value).toBe(`${MINUS}120${NBSP}000`);
+  });
+
+  it('declines «на N счетах»', () => {
+    const label = (count: number) =>
+      balanceCardModel({ ...OVERVIEW, accounts: Array.from({ length: count }, (_, index) => account({ id: String(index) })) }, null).total
+        ?.label;
+
+    expect(label(2)).toBe('Всего на 2 счетах');
+    expect(label(5)).toBe('Всего на 5 счетах');
+    expect(label(21)).toBe('Всего на 21 счёте');
+  });
+
+  it('has no line of the total with one visible account: the card shows only it', () => {
+    const one: AccountsOverview = {
+      ...OVERVIEW,
+      accounts: [OVERVIEW.accounts[1], OVERVIEW.accounts[3]],
+      totalMinor: 318_000_000,
+    };
+    const model = balanceCardModel(one, null);
+
+    expect(model).toMatchObject({ title: 'Карта', amount: `3${NBSP}180${NBSP}000`, unit: 'сум', total: null });
+  });
+
+  it('lists the visible accounts, each in its own currency; hidden ones are not counted', () => {
+    expect(balanceCardModel(OVERVIEW, 'card').accounts).toEqual([
       { id: 'cash', name: 'Наличные', value: `1${NBSP}250${NBSP}000${NBSP}сум` },
       { id: 'card', name: 'Карта', value: `3${NBSP}180${NBSP}000${NBSP}сум` },
       { id: 'usd', name: 'Доллары', value: `420,00${NBSP}USD` },
     ]);
-    expect(balanceCardModel({ ...OVERVIEW, accounts: [account({})] }).countLabel).toBe('1 счёт');
+  });
+
+  it('shows the first visible account in its own currency when none is in сум, the total named with its unit', () => {
+    const dollars: AccountsOverview = {
+      ...OVERVIEW,
+      accounts: [
+        account({ id: 'usd', name: 'Доллары', currency: 'USD', balanceMinor: 42_000 }),
+        account({ id: 'usd2', name: 'Вклад', currency: 'USD', balanceMinor: 10_000 }),
+      ],
+      totalMinor: 657_800_000,
+    };
+    const model = balanceCardModel(dollars, null);
+
+    expect(model).toMatchObject({ title: 'Доллары', amount: '420,00', unit: 'USD' });
+    expect(model.total?.value).toBe(`6${NBSP}578${NBSP}000${NBSP}сум`);
+  });
+
+  it('shows the total alone when there is no visible account', () => {
+    const model = balanceCardModel({ ...OVERVIEW, accounts: [OVERVIEW.accounts[3]], totalMinor: 0 }, 'old');
+
+    expect(model).toMatchObject({ title: 'Всего на счетах', amount: '0', unit: 'сум', total: null, accounts: [] });
+  });
+
+  it('says by the total when dollars are left out of it for lack of a rate', () => {
+    const noRate: AccountsOverview = { ...OVERVIEW, totalMinor: 443_000_000, rate: null, missingRate: true };
+
+    expect(balanceCardModel(OVERVIEW, 'card').missingRateNote).toBeNull();
+    expect(balanceCardModel(noRate, 'card').missingRateNote).toBe('Доллары не вошли в итог: курса пока нет');
+    // One visible account: no total is shown, so there is nothing to explain
     expect(
-      balanceCardModel({ ...OVERVIEW, accounts: Array.from({ length: 5 }, (_, index) => account({ id: String(index) })) }).countLabel
-    ).toBe('5 счетов');
+      balanceCardModel({ ...noRate, accounts: [OVERVIEW.accounts[2]], totalMinor: 0 }, null)
+    ).toMatchObject({ title: 'Доллары', amount: '420,00', unit: 'USD', total: null, missingRateNote: null });
   });
 
-  it('says when dollars are left out of the total for lack of a rate', () => {
-    expect(balanceCardModel(OVERVIEW).missingRateNote).toBeNull();
-    expect(balanceCardModel({ ...OVERVIEW, rate: null, missingRate: true }).missingRateNote).toBe(
-      'Доллары не вошли в итог: курса пока нет'
-    );
-  });
-
-  it('makes a long total smaller instead of wrapping it', () => {
+  it('makes a long amount smaller instead of wrapping it', () => {
     expect(balanceAmountClass(`9${NBSP}743${NBSP}000`)).toBe('type-balance');
     expect(balanceAmountClass(`974${NBSP}300${NBSP}000`)).toBe('type-balance');
     expect(balanceAmountClass(`${MINUS}974${NBSP}300${NBSP}000`)).toBe('type-balance-sm');
@@ -94,41 +154,49 @@ describe('balance card', () => {
 describe('in dollars (FT-137, «Сум / USD»)', () => {
   const USD = { currency: 'USD' as const, rateMinor: 1_265_000 };
 
-  it('shows the total in USD at the rate in effect: the board’s 9 743 000 сум at 12 650 is 770,20 USD', () => {
-    const model = balanceCardModel(OVERVIEW, USD);
-
-    expect(model.total).toBe('770,20');
-    expect(model.unit).toBe('USD');
+  it('shows the account at the rate in effect: 3 180 000 сум at 12 650 is 251,38 USD', () => {
+    expect(balanceCardModel(OVERVIEW, 'card', USD)).toMatchObject({ title: 'Карта', amount: '251,38', unit: 'USD' });
   });
 
-  it('keeps every account in its own currency', () => {
-    expect(balanceCardModel(OVERVIEW, USD).accounts).toEqual(balanceCardModel(OVERVIEW).accounts);
+  it('shows the total in USD as before: the board’s 9 743 000 сум at 12 650 is 770,20 USD', () => {
+    expect(balanceCardModel(OVERVIEW, 'card', USD).total).toEqual({
+      label: 'Всего на 3 счетах',
+      value: '770,20',
+      spoken: `Всего на 3 счетах: 770,20${NBSP}USD`,
+    });
+  });
+
+  it('keeps every account of the list in its own currency', () => {
+    expect(balanceCardModel(OVERVIEW, 'card', USD).accounts).toEqual(balanceCardModel(OVERVIEW, 'card').accounts);
   });
 
   it('counts a dollar account as it is, without a round trip through сум', () => {
     // 420,00 USD at 12 850,37 is 5 397 155 сум after rounding; back at the same rate it must stay 420,00
     const dollarsOnly: AccountsOverview = {
-      accounts: [account({ id: 'usd', name: 'Доллары', currency: 'USD', balanceMinor: 42_000 })],
+      accounts: [
+        account({ id: 'usd', name: 'Доллары', currency: 'USD', balanceMinor: 42_000 }),
+        account({ id: 'usd2', name: 'Вклад', currency: 'USD', balanceMinor: 0 }),
+      ],
       totalMinor: 539_715_500,
       rate: { rateMinor: 1_285_037, source: 'cbu', date: '2026-10-14' },
       missingRate: false,
     };
 
-    expect(balanceCardModel(dollarsOnly, { currency: 'USD', rateMinor: 1_285_037 }).total).toBe('420,00');
+    expect(balanceCardModel(dollarsOnly, null, { currency: 'USD', rateMinor: 1_285_037 }).total?.value).toBe('420,00');
   });
 
-  it('leaves the total in сум as GET /api/accounts gives it when сум are shown', () => {
-    const model = balanceCardModel(OVERVIEW, { currency: 'UZS', rateMinor: 1_265_000 });
+  it('leaves the account and the total in сум when сум are shown', () => {
+    const model = balanceCardModel(OVERVIEW, 'card', { currency: 'UZS', rateMinor: 1_265_000 });
 
-    expect(model.total).toBe(`9${NBSP}743${NBSP}000`);
-    expect(model.unit).toBe('сум');
+    expect(model).toMatchObject({ amount: `3${NBSP}180${NBSP}000`, unit: 'сум' });
+    expect(model.total?.value).toBe(`9${NBSP}743${NBSP}000`);
   });
 
   it('stays in сум without a rate', () => {
-    expect(balanceCardModel(OVERVIEW, { currency: 'USD', rateMinor: null })).toMatchObject({
-      total: `9${NBSP}743${NBSP}000`,
-      unit: 'сум',
-    });
+    const model = balanceCardModel(OVERVIEW, 'card', { currency: 'USD', rateMinor: null });
+
+    expect(model).toMatchObject({ amount: `3${NBSP}180${NBSP}000`, unit: 'сум' });
+    expect(model.total?.value).toBe(`9${NBSP}743${NBSP}000`);
   });
 });
 

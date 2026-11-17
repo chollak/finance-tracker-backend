@@ -92,7 +92,7 @@ let container: HTMLDivElement;
 /** Home with its reads answered: the board's accounts and month, no records yet. */
 function seed({ chosen = 'UZS', rates = WITH_RATE, accounts = ACCOUNTS }: { chosen?: 'UZS' | 'USD'; rates?: UsdRates; accounts?: AccountsOverview } = {}) {
   client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
-  client.setQueryData(settingsKeys.detail(USER_ID), settings({ displayCurrency: chosen }));
+  client.setQueryData(settingsKeys.detail(USER_ID), settings({ displayCurrency: chosen, defaultAccountId: 'card' }));
   client.setQueryData(rateKeys.usd(USER_ID), rates);
   client.setQueryData(accountKeys.list(USER_ID), accounts);
   client.setQueryData(transactionKeys.totals(USER_ID, MONTH), TOTALS);
@@ -174,7 +174,8 @@ describe('«Сум / USD» in the header of Home', () => {
     expect(header?.contains(group())).toBe(true);
     expect(segment('Сум').getAttribute('aria-pressed')).toBe('true');
     expect(segment('USD').getAttribute('aria-pressed')).toBe('false');
-    expect(balance()).toContain(`9${NBSP}743${NBSP}000 сум`);
+    expect(balance()).toContain(`Карта 3${NBSP}180${NBSP}000 сум`);
+    expect(balance()).toContain(`Всего на 3 счетах 9${NBSP}743${NBSP}000`);
   });
 
   it('turns the balance card and the month tiles into dollars at the rate in effect', async () => {
@@ -185,11 +186,11 @@ describe('«Сум / USD» in the header of Home', () => {
     await press(segment('USD'));
 
     expect(segment('USD').getAttribute('aria-pressed')).toBe('true');
-    expect(balance()).toContain('770,20 USD');
+    // The default account at the rate, the total under it as before
+    expect(balance()).toContain('Карта 251,38 USD');
+    expect(balance()).toContain('Всего на 3 счетах 770,20');
     expect(tile('Доход')).toContain(`+1${NBSP}288,14`);
     expect(tile('Расход')).toContain(`${MINUS}607,46`);
-    // The accounts inside the card stay in their own currencies
-    expect(balance()).toContain('3 счёта');
   });
 
   it('remembers the choice in the user’s settings', async () => {
@@ -208,7 +209,8 @@ describe('«Сум / USD» in the header of Home', () => {
     await renderHome();
 
     expect(segment('USD').getAttribute('aria-pressed')).toBe('true');
-    expect(balance()).toContain('770,20 USD');
+    expect(balance()).toContain('Карта 251,38 USD');
+    expect(balance()).toContain('Всего на 3 счетах 770,20');
   });
 
   it('goes back to сум with «Сум»', async () => {
@@ -218,7 +220,8 @@ describe('«Сум / USD» in the header of Home', () => {
 
     await press(segment('Сум'));
 
-    expect(balance()).toContain(`9${NBSP}743${NBSP}000 сум`);
+    expect(balance()).toContain(`Карта 3${NBSP}180${NBSP}000 сум`);
+    expect(balance()).toContain(`Всего на 3 счетах 9${NBSP}743${NBSP}000`);
     expect(tile('Доход')).toContain(`+16${NBSP}295${NBSP}000`);
     expect(apiClient.patch).toHaveBeenCalledWith(API_ENDPOINTS.SETTINGS, { displayCurrency: 'UZS' });
   });
@@ -231,7 +234,8 @@ describe('«Сум / USD» in the header of Home', () => {
     await press(segment('USD'));
 
     expect(segment('Сум').getAttribute('aria-pressed')).toBe('true');
-    expect(balance()).toContain(`9${NBSP}743${NBSP}000 сум`);
+    expect(balance()).toContain(`Карта 3${NBSP}180${NBSP}000 сум`);
+    expect(balance()).toContain(`Всего на 3 счетах 9${NBSP}743${NBSP}000`);
     expect(shownToast()).toMatchObject({ kind: 'info', title: 'Не получилось переключить валюту' });
   });
 });
@@ -251,7 +255,8 @@ describe('without a USD rate', () => {
 
     expect(apiClient.patch).not.toHaveBeenCalled();
     expect(segment('Сум').getAttribute('aria-pressed')).toBe('true');
-    expect(balance()).toContain(`4${NBSP}430${NBSP}000 сум`);
+    expect(balance()).toContain(`Карта 3${NBSP}180${NBSP}000 сум`);
+    expect(balance()).toContain(`Всего на 2 счетах 4${NBSP}430${NBSP}000`);
     expect(shownToast()).toMatchObject({ kind: 'info', title: 'Курса доллара пока нет', detail: 'Покажем в долларах, когда появится курс' });
   });
 
@@ -260,7 +265,8 @@ describe('without a USD rate', () => {
     await renderHome();
 
     expect(segment('Сум').getAttribute('aria-pressed')).toBe('true');
-    expect(balance()).toContain(`4${NBSP}430${NBSP}000 сум`);
+    expect(balance()).toContain(`Карта 3${NBSP}180${NBSP}000 сум`);
+    expect(balance()).toContain(`Всего на 2 счетах 4${NBSP}430${NBSP}000`);
     expect(tile('Доход')).toContain(`+16${NBSP}295${NBSP}000`);
     expect(client.getQueryData<UserSettings>(settingsKeys.detail(USER_ID))?.displayCurrency).toBe('USD');
   });
