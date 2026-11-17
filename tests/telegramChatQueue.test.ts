@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { MemorySessionStore } from 'telegraf';
 import type { Update } from 'telegraf/types';
 import { chatQueue, SLOW_UPDATE_MS, UPDATE_LIMIT_MS } from '../src/delivery/messaging/telegram/middleware/chatQueue';
 import { BotContext } from '../src/delivery/messaging/telegram/types';
@@ -14,7 +15,7 @@ import { SqliteUserRepository } from '../src/modules/user/infrastructure/persist
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
 import { captureLogLines, LogCapture } from './helpers/logLines';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
-import { TelegramStand } from './helpers/telegramStand';
+import { networkError, REFUSAL, StandModules, TelegramStand } from './helpers/telegramStand';
 
 /**
  * #317: Telegraf's polling hands a whole batch of getUpdates to the handlers side by side, and a batch is everything
@@ -160,6 +161,78 @@ describe('one update of a chat at a time (#317)', () => {
       expect(handled).toEqual([11, 12, 10]);
       expect(jest.getTimerCount()).toBe(0);
     });
+
+    it('a failure after UPDATE_LIMIT_MS, which Telegraf no longer waits for, leaves an error line: the update and the error, not the text', async () => {
+      const queue = chatQueue();
+      const hung = deferred();
+      const failure = new Error('Telegram refused the confirmation');
+      const phrase = { ...contextOf(1, 10), message: { text: 'такси 18к' } } as unknown as BotContext;
+
+      const update = queue(phrase, async () => { await hung.promise; throw failure; });
+      await flush();
+      jest.advanceTimersByTime(UPDATE_LIMIT_MS);
+      hung.resolve();
+
+      // Its own error still comes out of the queue; Telegraf's p-timeout is what drops it
+      await expect(update).rejects.toBe(failure);
+      const late = (await log.lines()).filter(line => line.includes('failed after the limit'));
+      expect(late).toEqual([expect.stringContaining('error')]);
+      expect(late[0]).toContain('"updateId":10');
+      expect(late[0]).toContain('"updateType":"message"');
+      expect(late[0]).toContain('Telegram refused the confirmation');
+      expect(late[0]).not.toContain('такси');
+      expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('the limit counts from the moment the update came, as Telegraf’s does, not from its turn in the chat', async () => {
+      const queue = chatQueue();
+      const slow = deferred();
+      const failure = new Error('Telegram refused the confirmation');
+
+      const first = queue(contextOf(1, 10), () => slow.promise);
+      const second = queue(contextOf(1, 11), async () => { throw failure; });
+      await flush();
+      // The second one waited for its turn nearly all of its ten minutes, then failed a moment after them
+      jest.advanceTimersByTime(UPDATE_LIMIT_MS - 1);
+      await flush();
+      jest.advanceTimersByTime(1);
+      slow.resolve();
+      await first;
+
+      await expect(second).rejects.toBe(failure);
+      const late = (await log.lines()).filter(line => line.includes('failed after the limit'));
+      expect(late).toEqual([expect.stringContaining('"updateId":11')]);
+    });
+
+    it('a failure within the limit leaves no such line: it reaches bot.catch, which logs it', async () => {
+      const queue = chatQueue();
+      const slow = deferred();
+      const failure = new Error('Telegram refused the confirmation');
+
+      const update = queue(contextOf(1, 10), async () => { await slow.promise; throw failure; });
+      await flush();
+      jest.advanceTimersByTime(UPDATE_LIMIT_MS - 1);
+      slow.resolve();
+
+      await expect(update).rejects.toBe(failure);
+      expect((await log.lines()).filter(line => line.includes('failed after the limit'))).toEqual([]);
+      expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('an update without a chat that fails after the limit leaves the line too', async () => {
+      const queue = chatQueue();
+      const hung = deferred();
+
+      const update = queue(contextOf(undefined, 10), async () => { await hung.promise; throw new Error('late'); });
+      await flush();
+      jest.advanceTimersByTime(UPDATE_LIMIT_MS);
+      hung.resolve();
+
+      await expect(update).rejects.toThrow('late');
+      const late = (await log.lines()).filter(line => line.includes('failed after the limit'));
+      expect(late).toEqual([expect.stringContaining('"updateType":"pre_checkout_query"')]);
+      expect(jest.getTimerCount()).toBe(0);
+    });
   });
 });
 
@@ -168,6 +241,9 @@ describe('the bot on the real Telegraf: one batch of getUpdates (#317)', () => {
   const OTHER_ID = 222000111;
   let db: TestDatabase;
   let stand: TelegramStand;
+  /** The modules the bot of each test starts with. */
+  let modules: StandModules;
+  let userModule: UserModule;
   /** The log of a test that reads it; given back after the test. */
   let logs: LogCapture | undefined;
   const capture = jest.fn();
@@ -207,12 +283,13 @@ describe('the bot on the real Telegraf: one batch of getUpdates (#317)', () => {
     const transactionModule = new TransactionModule(new SqliteTransactionRepository(ds));
     transactionModule.setCategoryResolver(categoryModule.getCatalog());
     transactionModule.setAccountResolver(accountModule.getBook());
-    const userModule = new UserModule(new SqliteUserRepository(ds), new SqliteUserSettingsRepository(ds));
+    userModule = new UserModule(new SqliteUserRepository(ds), new SqliteUserSettingsRepository(ds));
 
     capture.mockReset().mockResolvedValue({ transactions: [], debts: [] });
     stand = new TelegramStand({ id: TELEGRAM_ID, first_name: 'Shukur' });
     stand.install();
-    stand.start({ transactionModule, userModule, quickCaptureModule: { getQuickCaptureService: () => ({ capture }) } });
+    modules = { transactionModule, userModule, quickCaptureModule: { getQuickCaptureService: () => ({ capture }) } };
+    stand.start(modules);
   });
 
   afterEach(async () => {
@@ -285,5 +362,141 @@ describe('the bot on the real Telegraf: one batch of getUpdates (#317)', () => {
     await until(() => sentTo(TELEGRAM_ID).length === 2);
     expect(sentTo(TELEGRAM_ID)[1]).toContain('Не нашёл, что записать');
     expect(sentTo(TELEGRAM_ID).join('\n')).not.toContain('Произошла ошибка');
+  });
+
+  it('a phrase that fails after the 10 minutes leaves an error line in the log: Telegraf dropped the error, bot.catch never saw it', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'clearImmediate', 'queueMicrotask', 'hrtime', 'performance', 'Date'] });
+    const log = captureLogLines();
+    logs = log;
+    const parsed = deferred<{ transactions: never[]; debts: never[] }>();
+    capture.mockImplementationOnce(() => parsed.promise);
+
+    const batch = stand.deliver(stand.textUpdate('такси 18к'), { botCatch: 'allow' });
+    await until(() => capture.mock.calls.length === 1);
+    jest.advanceTimersByTime(UPDATE_LIMIT_MS);
+    await batch;
+    expect(stand.caught).toEqual([expect.objectContaining({ name: 'TimeoutError' })]);
+
+    // The person blocked the bot meanwhile: the answer is refused, and the handler's error has nowhere to go
+    stand.block();
+    parsed.resolve({ transactions: [], debts: [] });
+    const lateLines = async () => (await log.lines()).filter(line => line.includes('failed after the limit'));
+    const deadline = Date.now() + 5_000;
+    while ((await lateLines()).length === 0 && Date.now() < deadline) await flush();
+
+    const late = await lateLines();
+    expect(late).toEqual([expect.stringContaining('error')]);
+    expect(late[0]).toMatch(/"updateId":\d+/);
+    expect(late[0]).toContain('403');
+    expect(late[0]).not.toContain('такси');
+    // Nothing more reached bot.catch; the bot's own notices were refused like the answer, Telegram took nothing
+    expect(stand.caught).toHaveLength(1);
+    expect(stand.sent()).toEqual([]);
+  });
+
+  describe('bot.catch: who is told «Произошла ошибка» (#386)', () => {
+    const TRY_AGAIN = 'Произошла ошибка. Попробуйте снова.';
+    /** What Telegram took from the bot, the refused sends aside. */
+    const delivered = () => stand.sent().map(message => message.text);
+
+    /** /help whose answer and the notice after it both fail with `error`: it comes out of the handler. */
+    async function helpFailingWith(error: Error): Promise<void> {
+      stand.refuse('sendMessage', error, { times: 2 });
+      await stand.write('/help', { botCatch: 'allow' });
+      expect(stand.caught).toEqual([error]);
+    }
+
+    it('an ordinary error out of a handler: the person is told to try again', async () => {
+      await helpFailingWith(networkError('sendMessage'));
+
+      expect(delivered()).toEqual([TRY_AGAIN]);
+    });
+
+    it('a timeout a handler threw itself — not Telegraf’s limit — is an error like any other: the person is told', async () => {
+      // p-timeout's error with another limit: an OpenAI or a network timeout that came out of the handler
+      await helpFailingWith(Object.assign(new Error('Promise timed out after 20000 milliseconds'), { name: 'TimeoutError' }));
+
+      expect(delivered()).toEqual([TRY_AGAIN]);
+    });
+
+    it('Telegraf’s own limit: nothing is said, the update may still write and confirm', async () => {
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'clearImmediate', 'queueMicrotask', 'hrtime', 'performance', 'Date'] });
+      capture.mockImplementationOnce(() => new Promise(() => undefined));
+
+      const batch = stand.deliver(stand.textUpdate('такси 18к'), { botCatch: 'allow' });
+      await until(() => capture.mock.calls.length === 1);
+      jest.advanceTimersByTime(UPDATE_LIMIT_MS);
+      await batch;
+      await flush();
+
+      expect(stand.caught).toEqual([
+        expect.objectContaining({ name: 'TimeoutError', message: `Promise timed out after ${UPDATE_LIMIT_MS} milliseconds` }),
+      ]);
+      expect(sentTo(TELEGRAM_ID)).toEqual([]);
+    });
+  });
+
+  it('keeps Telegram’s order when the first update’s getOrCreate answers after the second’s could: the queue is above everything that awaits', async () => {
+    const users = userModule.getGetOrCreateUserUseCase();
+    type Input = Parameters<typeof users.execute>[0];
+    let calls = 0;
+    let othersStarted = 0;
+    const otherDone = deferred();
+    // The first lookup of the batch is the slow one. With the queue above it, the chat's second update has not got here
+    // and nothing else starts; with the queue below it, the second update's lookup starts beside it and ends first —
+    // the first one then waits until that update is past the lookup and in the line ahead of it
+    const execute = async (input: Input) => {
+      calls += 1;
+      if (calls > 1) {
+        othersStarted += 1;
+        try {
+          return await users.execute(input);
+        } finally {
+          otherDone.resolve();
+        }
+      }
+      for (let tick = 0; tick < 5; tick += 1) await flush();
+      if (othersStarted > 0) {
+        await otherDone.promise;
+        await flush();
+      }
+      return users.execute(input);
+    };
+    const slowUsers = Object.create(userModule) as UserModule;
+    slowUsers.getGetOrCreateUserUseCase = () => ({ execute }) as unknown as typeof users;
+    stand.start({ ...modules, userModule: slowUsers });
+
+    await stand.deliver([stand.textUpdate('такси 18к'), stand.textUpdate('/help')]);
+
+    expect(calls).toBeGreaterThanOrEqual(2);
+    expect(sentTo(TELEGRAM_ID)).toEqual([
+      expect.stringContaining('Не нашёл, что записать'),
+      expect.stringContaining('/undo — отменить последнюю запись'),
+    ]);
+  });
+
+  it('an update reads the session only at its turn: the queue is above Telegraf’s session(), which awaits too', async () => {
+    // session() shares one read of a stored session between the updates of a chat it holds side by side, and reads
+    // again for an update that comes in once the one before it is done: one read per update means none got to
+    // session() ahead of its turn
+    await stand.write('/help');
+    const sessionReads = jest.spyOn(MemorySessionStore.prototype, 'get');
+
+    await stand.deliver([stand.textUpdate('такси 18к'), stand.textUpdate('/help')]);
+
+    expect(sessionReads).toHaveBeenCalledTimes(2);
+  });
+
+  it('«Купить Premium» pressed behind a slow update: Telegram refuses the late answer to the press, the invoice still goes', async () => {
+    stand.start({ ...modules, subscriptionModule: {} });
+    const offer = stand.sentBefore('Ваш текущий план: Free', [[{ text: 'Купить Premium', callback_data: 'buy_premium' }]]);
+    stand.refuse('answerCallbackQuery', REFUSAL.queryTooOld);
+
+    await stand.press(offer, 'Купить Premium');
+
+    const invoices = stand.calls.filter(call => call.method === 'sendInvoice');
+    expect(invoices).toEqual([expect.objectContaining({ payload: expect.objectContaining({ chat_id: TELEGRAM_ID, currency: 'XTR' }) })]);
+    expect(invoices[0].refusedWith).toBeUndefined();
+    expect(sentTo(TELEGRAM_ID)).toEqual([]);
   });
 });

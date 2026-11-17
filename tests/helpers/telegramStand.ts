@@ -72,14 +72,15 @@ export const REFUSAL = {
   chatNotFound: { error_code: 400, description: 'Bad Request: chat not found' },
   tooManyRequests: { error_code: 429, description: 'Too Many Requests: retry after 5', parameters: { retry_after: 5 } },
   blocked: { error_code: 403, description: 'Forbidden: bot was blocked by the user' },
+  /** An answer to a press Telegram no longer waits on: answered already, or pressed too long ago. */
+  queryTooOld: {
+    error_code: 400,
+    description: 'Bad Request: query is too old and response timeout expired or query ID is invalid',
+  },
 } satisfies Record<string, Refusal>;
 
 const DELETED_MESSAGE_NOT_FOUND: Refusal = { error_code: 400, description: 'Bad Request: message to delete not found' };
 const EMPTY_TEXT: Refusal = { error_code: 400, description: 'Bad Request: message text is empty' };
-const QUERY_ANSWERED: Refusal = {
-  error_code: 400,
-  description: 'Bad Request: query is too old and response timeout expired or query ID is invalid',
-};
 
 /** The token the stand's bot runs with; Telegraf redacts it in a network error as below. */
 const TOKEN = '123:test';
@@ -436,9 +437,9 @@ export class TelegramStand {
    */
   private answerPress(method: string, payload: Record<string, any>): true {
     const answers = this.answers.get(payload.callback_query_id);
-    if (!answers) refused(QUERY_ANSWERED, method, payload);
+    if (!answers) refused(REFUSAL.queryTooOld, method, payload);
     answers.push(payload.text);
-    if (answers.length > 1) refused(QUERY_ANSWERED, method, payload);
+    if (answers.length > 1) refused(REFUSAL.queryTooOld, method, payload);
     return true;
   }
 

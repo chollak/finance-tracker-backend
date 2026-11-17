@@ -102,7 +102,9 @@ export function registerPaymentHandlers(
 
   // Callback for buy button
   bot.action('buy_premium', async (ctx) => {
-    await ctx.answerCbQuery();
+    // Telegram refuses the answer to a press it no longer waits on — the press came behind a slow update («query is
+    // too old»). The spinner is gone by then; the refusal must not stop the invoice (#386), as with the record buttons
+    await ctx.answerCbQuery().catch(() => undefined);
 
     const chatId = ctx.chat!.id;
 

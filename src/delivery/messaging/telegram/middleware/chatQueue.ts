@@ -27,24 +27,60 @@ export const UPDATE_LIMIT_MS = 10 * 60_000;
  * It goes right after the closed access, before any middleware that awaits: Telegraf enters the middleware of a batch's
  * updates in their order, and only up to the first await. An update without a chat (a payment's pre_checkout_query) is
  * not held: nothing in a chat waits for it, and Telegram wants its answer within seconds.
+ *
+ * Every update, held or not, is also watched for a failure after UPDATE_LIMIT_MS (#386): Telegraf has let it go by
+ * then, so its error reaches no `bot.catch` and would leave no trace.
  */
 export function chatQueue(): MiddlewareFn<BotContext> {
   // When the last update of each chat in line lets the chat go: the next one of the chat starts then
   const lastInLine = new Map<number, Promise<void>>();
 
   return (ctx, next) => {
+    // Now, not at the update's turn: Telegraf's limit counts the wait behind the chat's earlier updates too
+    const handle = loggingLateFailure(ctx, next);
     const chatId = ctx.chat?.id;
-    if (chatId === undefined) return next();
+    if (chatId === undefined) return handle();
 
     let letChatGo: () => void = () => undefined;
     const chatFree = new Promise<void>(resolve => { letChatGo = resolve; });
-    const turn = (lastInLine.get(chatId) ?? Promise.resolve()).then(() => handleWatched(ctx, next, letChatGo));
+    const turn = (lastInLine.get(chatId) ?? Promise.resolve()).then(() => handleWatched(ctx, handle, letChatGo));
     turn.then(letChatGo, letChatGo);
     lastInLine.set(chatId, chatFree);
     void chatFree.then(() => {
       if (lastInLine.get(chatId) === chatFree) lastInLine.delete(chatId);
     });
     return turn;
+  };
+}
+
+/**
+ * The update's handler, with a trace of a failure that comes after UPDATE_LIMIT_MS (#386). Telegraf's `handlerTimeout`
+ * has answered for the update by then — its own error went to `bot.catch`, which says nothing — and p-timeout drops
+ * whatever the handler throws later. The clock starts here, as the update comes in, a moment after Telegraf's: by the
+ * time this one runs out, Telegraf's has. The error is logged as `bot.catch` logs one; the update is named, never what
+ * the person wrote. It is thrown on as before: the queue goes on either way.
+ */
+function loggingLateFailure(ctx: BotContext, next: () => Promise<void>): () => Promise<void> {
+  let letGoByTelegraf = false;
+  const limit = setTimeout(() => { letGoByTelegraf = true; }, UPDATE_LIMIT_MS);
+  // Holds nothing running, like the timers below
+  limit.unref?.();
+
+  return async () => {
+    try {
+      await next();
+    } catch (error) {
+      if (letGoByTelegraf) {
+        logger.error(
+          'A Telegram update failed after the limit; polling had gone on without it, so nobody was told',
+          error instanceof Error ? error : new Error(String(error)),
+          { updateId: ctx.update.update_id, updateType: ctx.updateType, afterMinutes: UPDATE_LIMIT_MS / 60_000 }
+        );
+      }
+      throw error;
+    } finally {
+      clearTimeout(limit);
+    }
   };
 }
 
