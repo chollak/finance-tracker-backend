@@ -64,8 +64,6 @@ export interface EvalOptions {
 export interface EvalDeps {
   openStand(): Promise<CaptureStand>;
   parserOfRun(): ParserOfRun;
-  /** Called after each phrase, for a line of progress. */
-  onPhrase?(done: number, total: number): void;
 }
 
 async function runOnce(phrase: CapturePhrase, today: string, stand: CaptureStand, deps: EvalDeps): Promise<{ run: PhraseRun; calls: number }> {
@@ -129,14 +127,12 @@ export async function runEval(set: CapturePhraseSet, options: EvalOptions, deps:
   const phrases = options.only?.length ? set.phrases.filter(phrase => options.only!.includes(phrase.id)) : set.phrases;
   const results: PhraseResult[] = new Array(phrases.length);
   let next = 0;
-  let done = 0;
 
   const worker = async (): Promise<void> => {
     const stand = await deps.openStand();
     try {
       for (let index = next++; index < phrases.length; index = next++) {
         results[index] = await runPhrase(phrases[index], set, stand, options, deps);
-        deps.onPhrase?.(++done, phrases.length);
       }
     } finally {
       await stand.close();

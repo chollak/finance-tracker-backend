@@ -44,6 +44,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run serve` - Run the compiled application from `dist/index.js`
 - `scripts/live-update.sh` - live instance on the PC only (`~/dev/projects/kapelka-live`, FT-156): refuses off `main` or on a dirty tree, then `git pull --ff-only`, `npm ci`, webapp and server builds, restart of `kapelka.service`, health check
 - `npm run report:quality -- --db=<copy of the DB>` - FT-217 capture quality report: read-only on a `.backup` copy (the live `data/database.sqlite` is refused), counts only; on the PC — `live-instance.md`, «Отчёт о качестве записи (FT-217)»
+- `npm run eval:capture -- [--repeat=3] [--temperature=0] [--schema]` - #307: sends the set of typical phrases (`tests/fixtures/capturePhrases.json`) to the real model with the key from the env and prints how many came out as expected and in which fields the rest differ; costs cents, not a part of `verify` (the same set runs there offline, `tests/capturePhraseSet.test.ts`) — [`capture-phrase-set.md`](docs/knowledge-base/08-development/capture-phrase-set.md)
 
 **Development (Choose one):**
 - `npm run dev:full` - Full-stack development with hot reload
@@ -165,6 +166,7 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
   - [Database Guide](docs/knowledge-base/08-development/database-guide.md) - SQLite, TypeORM, migrations
   - [Troubleshooting](docs/knowledge-base/08-development/troubleshooting.md) - Common issues
   - [Live Instance](docs/knowledge-base/08-development/live-instance.md) - The live instance on the PC (WSL, systemd, `tailscale serve`): setup, update, rollback, logs (FT-156)
+  - [Capture Phrase Set](docs/knowledge-base/08-development/capture-phrase-set.md) - the set of typical phrases a change to the parser is compared on: the offline test and `npm run eval:capture` (#307)
   - [Test Logging & Contract Cleanup](docs/knowledge-base/08-development/test-logging-and-contract-cleanup.md) - FT-017 findings and cleanup plan
   - [Task Workflow](docs/knowledge-base/08-development/task-workflow.md) - the task board in GitHub Issues + Project (FT-049)
   - [API Route Coverage Matrix](docs/knowledge-base/08-development/api-route-coverage-matrix.md) - FT-022 route coverage audit
