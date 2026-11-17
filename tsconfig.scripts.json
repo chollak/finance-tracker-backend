@@ -1,6 +1,5 @@
 // Types of the TypeScript scripts in scripts/, for `npm run typecheck:scripts` (a step of `verify`, #297).
 // ts-node checks a script only when someone runs it and the build sees only src/; the glob covers a new script too.
-// The four Supabase scripts are left out: whether they stay is #324's decision, and two of them do not compile.
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
@@ -8,11 +7,5 @@
     "rootDir": ".",
     "types": ["node"]
   },
-  "include": ["scripts/**/*.ts"],
-  "exclude": [
-    "scripts/create-tables.ts",
-    "scripts/run-migration.ts",
-    "scripts/simple-test.ts",
-    "scripts/test-supabase.ts"
-  ]
+  "include": ["scripts/**/*.ts"]
 }

@@ -290,24 +290,13 @@ class CreateTransactionUseCase {
 
 **Interface:** [`src/modules/transaction/domain/transactionRepository.ts`](../../../src/modules/transaction/domain/transactionRepository.ts)
 
-**Implementations:**
-- `SqliteTransactionRepository` - TypeORM
-- `SupabaseTransactionRepository` - Supabase Client
+**Implementation:** `SqliteTransactionRepository` — TypeORM, единственная (репозитории Supabase убраны в FT-090).
 
 ```typescript
 async save(transaction: Transaction): Promise<string> {
-  // SQLite
   const entity = this.transactionRepository.create(transaction);
   const saved = await this.transactionRepository.save(entity);
   return saved.id.toString();
-
-  // Supabase
-  const { data, error } = await supabase
-    .from('transactions')
-    .insert([transaction])
-    .select()
-    .single();
-  return data.id;
 }
 ```
 
@@ -318,12 +307,7 @@ async save(transaction: Transaction): Promise<string> {
 **SQLite:**
 - Connection pool через TypeORM
 - Location: `data/database.sqlite`
-- Auto-sync in development
-
-**Supabase:**
-- PostgreSQL via REST API
-- Connection через Supabase Client
-- UUID primary keys
+- Схема — только миграциями TypeORM, `synchronize` выключен
 
 **Transaction Stored:**
 ```sql
@@ -478,7 +462,6 @@ res.on('finish', () => {
 
 ### Connection Pooling
 - TypeORM автоматически управляет connection pool
-- Supabase client использует HTTP keep-alive
 
 ---
 

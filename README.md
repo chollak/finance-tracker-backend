@@ -4,7 +4,7 @@ Kapelka is the product: one name for the Telegram bot, the Mini App and the futu
 and the npm package keep the name `finance-tracker-backend`.
 
 AI-powered finance tracking with voice/text input processing using OpenAI.
-Supports SQLite (default) and Supabase databases.
+One database: SQLite through TypeORM.
 
 ## Prerequisites
 
@@ -181,7 +181,7 @@ npm run verify
 2. `npm run typecheck:tests` — types of the tests and `src` with one `tsc` (`tsconfig.test.json`): Jest only translates
    the files and checks no types (#293)
 3. `npm run typecheck:scripts` — types of the TypeScript scripts in `scripts/` (`tsconfig.scripts.json`, #297): ts-node
-   checks a script only when it runs; the Supabase scripts are left out until #324
+   checks a script only when it runs
 4. `npm run lint:webapp` — ESLint over `webapp/` (`webapp/eslint.config.js`); a warning fails it too
    (`--max-warnings 0`, #296)
 5. `npm run test:ci` — Jest tests serially (`jest --runInBand`)
@@ -216,9 +216,7 @@ See [docs/knowledge-base/01-architecture/modules.md](docs/knowledge-base/01-arch
 
 ### Database Architecture
 
-The application supports dual database backends:
-- **SQLite** - File-based database (`data/database.sqlite`) for development
-- **Supabase** - Cloud PostgreSQL for production scaling
-
-Switch via `DATABASE_TYPE` environment variable. Repository pattern abstracts
-database implementation - same code works with both backends.
+One database path: **SQLite** (`data/database.sqlite`) through TypeORM, in development and on the live instance.
+The schema changes only by TypeORM migrations (`src/shared/infrastructure/database/migrations/`), applied on start
+after a backup. `DATABASE_TYPE` accepts only `sqlite`. The Supabase path was removed from the app in FT-090, its
+scripts and SQL files in #324; modules still depend only on the repository interfaces.
