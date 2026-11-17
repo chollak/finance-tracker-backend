@@ -161,7 +161,7 @@ describe('«Ревизия · начало»', () => {
     await renderAudit();
 
     expect(document.body.querySelector('h1')?.textContent).toBe('Ревизия сентября');
-    expect(text()).toContain(`ИИ нашёл 6 трат, которые могут быть лишними, — 2${NB}319${NB}000${NB}сум за сентябрь. Отметьте: нужно или лишнее.`);
+    expect(text()).toContain(`Нашли 6 трат, которые могут быть лишними, — 2${NB}319${NB}000${NB}сум за сентябрь. Отметьте: нужно или лишнее.`);
     expect(text()).toContain('Разобрано 0 из 6');
     expect(cards().map((item) => squash(item.querySelector('h2')?.textContent))).toEqual([
       `Доставка еды — 4${NB}раза`, 'Наушники', `Кофе — 16${NB}раз`, `Такси — 13${NB}раз`, 'Второй номер', 'Кинопоиск',
