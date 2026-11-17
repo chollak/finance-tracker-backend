@@ -2,8 +2,13 @@ import Foundation
 
 /// What «Записать оплату» gets from the Wallet automation «Транзакция», as the automation passed it.
 struct PaymentInput: Equatable, Sendable {
-    /// Wallet's «Сумма»: «28 000,00 UZS».
+    /// The old field «Сумма текстом (старое)»: Wallet's «Сумма» as text, «28 000,00 UZS». Shortcuts make that text
+    /// themselves and crash on it when Wallet has no amount yet (#398); read only when there is no `amountNumber`.
     var amount: String?
+    /// Wallet's «Сумма» as a number (#398); 0 when Wallet has none.
+    var amountNumber: Double?
+    /// Wallet's «Код валюты» of that number: `UZS`, `USD` or another code.
+    var amountCurrency: String?
     /// For an amount that names none: the card's currency from the settings, else the one chosen in the automation.
     var currency: PaymentCurrency?
     var merchant: String?
@@ -14,7 +19,7 @@ struct PaymentInput: Equatable, Sendable {
 /// A card payment in the queue (FT-179). It goes out as fields to `POST /api/quick-capture/payment`, never as a phrase:
 /// the phrase parser would read «28 000,00» as 2 800 000 (2026-10-30, the Shortcut before this app).
 struct Payment: Codable, Equatable, Sendable {
-    /// As Wallet gave it, for the list: «28 000,00 UZS».
+    /// As Wallet gave it, for the list: «28 000,00 UZS»; a number Wallet gave is written the same way (#398).
     let walletAmount: String
     /// The contract's string, `"28000.00"`; `nil` when the amount stays on the phone.
     let amount: String?
@@ -49,10 +54,10 @@ extension Payment {
 
     /// The payment as it goes into the queue, and why it stays on the phone when it cannot be sent.
     static func from(_ input: PaymentInput) -> (payment: Payment, problem: String?) {
-        let wallet = input.amount ?? ""
+        let (wallet, read) = amount(of: input)
         let merchant = tidy(input.merchant).map { limited($0, to: merchantLimit) }
         let card = tidy(input.card)
-        switch WalletAmount.read(wallet, fallback: input.currency) {
+        switch read {
         case let .amount(amount, currency):
             let payment = Payment(walletAmount: wallet, amount: amount, currency: currency.rawValue, merchant: merchant, card: card)
             return (payment, nil)
@@ -64,6 +69,17 @@ extension Payment {
             let payment = Payment(walletAmount: wallet, amount: nil, currency: code, merchant: merchant, card: card)
             return (payment, problem.reason(wallet: wallet))
         }
+    }
+
+    /// The amount for the list and how it reads: the number with «Код валюты» when the automation gives one, else the
+    /// old text.
+    private static func amount(of input: PaymentInput) -> (wallet: String, read: WalletAmount) {
+        if let number = input.amountNumber {
+            let read = WalletAmount.read(number: number, code: input.amountCurrency, fallback: input.currency)
+            return (WalletAmount.text(number: number, code: input.amountCurrency), read)
+        }
+        let wallet = input.amount ?? ""
+        return (wallet, WalletAmount.read(wallet, fallback: input.currency))
     }
 
     /// Runs of spaces made one, as the server does; blank is none.

@@ -62,6 +62,66 @@ enum WalletAmount: Equatable, Sendable {
     }
 }
 
+/// Wallet's «Сумма» as the number field of «Записать оплату» gets it, with its «Код валюты» (#398). Shortcuts crash
+/// making the text «28 000,00 UZS» when Wallet has no amount yet; to a number field they give it as a `Double` and 0
+/// for none. The cents Wallet had come back by rounding: a `Double` holds 15 significant digits, more than any amount
+/// up to the limit with cents needs. The contract's string is then written from integers, always with two decimals,
+/// as Wallet writes сумы and dollars — `"28000.00"`, `"4.50"`, the string the text gives.
+extension WalletAmount {
+    /// `code` — Wallet's «Код валюты»; `fallback` — for none, the card's currency or the automation's.
+    static func read(number: Double, code: String?, fallback: PaymentCurrency? = nil) -> WalletAmount {
+        let currency: PaymentCurrency
+        switch CurrencyMark.read(code ?? "") {
+        case let .known(known): currency = known
+        case let .other(other): return .problem(.otherCurrency(other))
+        case .unreadable: return .problem(.unreadable)
+        case .none:
+            guard let fallback else { return .problem(.noCurrency) }
+            currency = fallback
+        }
+        guard let cents = Cents(number) else { return .problem(.unreadable) }
+        if cents.isZero { return .problem(.zero) }
+        if cents.value > Cents.maximum { return .problem(.tooLarge) }
+        return .amount(cents.contract, currency)
+    }
+
+    /// The amount as Wallet writes it, for the list and a refusal: «28 000,00 UZS»; without a code only the number.
+    static func text(number: Double, code: String?) -> String {
+        let code = (code ?? "").trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let body = Cents(number.magnitude).map { (number < 0 ? "-" : "") + $0.shown } ?? "\(number)"
+        return code.isEmpty ? body : "\(body)\(MoneyText.nonBreakingSpace)\(code)"
+    }
+}
+
+/// A non-negative amount in hundredths, from Shortcuts' `Double` rounded to the cent through `Decimal`.
+private struct Cents {
+    /// The limit of a record, in hundredths.
+    static let maximum = UInt(truncating: NSDecimalNumber(decimal: WalletAmount.maximum * 100))
+
+    let value: UInt
+
+    var isZero: Bool { value == 0 }
+
+    /// `"28000.00"`.
+    var contract: String { "\(value / 100).\(Self.twoDigits(value % 100))" }
+
+    /// «28 000,00».
+    var shown: String { "\(MoneyText.grouped(value / 100)),\(Self.twoDigits(value % 100))" }
+
+    /// `nil` for a negative, NaN, infinite or absurdly large number: it is not a payment, and nothing is guessed.
+    init?(_ number: Double) {
+        guard number.isFinite, number >= 0, number < 1e15 else { return nil }
+        var hundredths = Decimal(number) * 100
+        var rounded = Decimal()
+        NSDecimalRound(&rounded, &hundredths, 0, .plain)
+        value = NSDecimalNumber(decimal: rounded).uintValue
+    }
+
+    private static func twoDigits(_ number: UInt) -> String {
+        number < 10 ? "0\(number)" : "\(number)"
+    }
+}
+
 /// The currency written next to the number: a code, a symbol or a word.
 private enum CurrencyMark {
     case none

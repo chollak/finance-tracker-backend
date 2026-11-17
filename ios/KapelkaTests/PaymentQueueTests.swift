@@ -121,6 +121,67 @@ struct PaymentQueueTests {
         #expect(saved.payment?.walletAmount == amount)
     }
 
+    @Test("сумма числом и «Код валюты» (#398): та же оплата и тот же запрос, что из текста «28 000,00 UZS»")
+    func numberAndCode() async throws {
+        let harness = try QueueHarness()
+        let queue = harness.makeQueue()
+        let input = PaymentInput(
+            amountNumber: 28_000,
+            amountCurrency: "UZS",
+            merchant: "Ooo Mazzali Super Food",
+            card: "TBC Uzbekistan"
+        )
+        _ = try await queue.addPayment(input)
+        await queue.flush()
+
+        let saved = try #require(try harness.store.load().captures.first)
+        #expect(saved.payment == Payment(
+            walletAmount: "28\u{00A0}000,00\u{00A0}UZS",
+            amount: "28000.00",
+            currency: "UZS",
+            merchant: "Ooo Mazzali Super Food",
+            card: "TBC Uzbekistan"
+        ))
+        let body = try #require(try await harness.transport.paymentBodies().first)
+        #expect(body.amount == "28000.00")
+        #expect(body.currency == "UZS")
+    }
+
+    @Test("есть число — старый текст не читается")
+    func numberBeforeText() async throws {
+        let harness = try QueueHarness()
+        let queue = harness.makeQueue()
+        _ = try await queue.addPayment(PaymentInput(amount: "10,00 €", amountNumber: 4.5, amountCurrency: "USD", merchant: "Shop"))
+        await queue.flush()
+
+        let body = try #require(try await harness.transport.paymentBodies().first)
+        #expect(body.amount == "4.50")
+        #expect(body.currency == "USD")
+    }
+
+    @Test(
+        "числом не уходит то же, что и текстом: 0 (Wallet не знал суммы), другая валюта, нет валюты (#398)",
+        arguments: [
+            (0.0, "UZS", "сумму 0", "0,00\u{00A0}UZS"),
+            (10, "EUR", "валюта EUR", "10,00\u{00A0}EUR"),
+            (4.5, "", "нет валюты", "4,50"),
+            (2_000_000_000, "UZS", "больше 1 000 000 000", "2\u{00A0}000\u{00A0}000\u{00A0}000,00\u{00A0}UZS"),
+        ]
+    )
+    func numberKeptOnPhone(number: Double, code: String, reason: String, shown: String) async throws {
+        let harness = try QueueHarness()
+        let queue = harness.makeQueue()
+        let input = PaymentInput(amountNumber: number, amountCurrency: code, merchant: "Shop", card: "TBC Uzbekistan")
+        _ = try await queue.addPayment(input)
+        await queue.flush()
+
+        #expect(await harness.transport.requests.isEmpty)
+        let saved = try #require(try harness.store.load().captures.first)
+        #expect(saved.state == .rejected)
+        #expect(saved.rejection?.contains(reason) == true)
+        #expect(saved.payment?.walletAmount == shown)
+    }
+
     @Test("валюта из автоматизации — для суммы без валюты")
     func currencyFromAutomation() async throws {
         let harness = try QueueHarness()

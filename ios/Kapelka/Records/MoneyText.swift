@@ -35,7 +35,8 @@ enum MoneyText {
         return "\(prefix)\(body)\(nonBreakingSpace)\(unit)"
     }
 
-    private static func grouped(_ number: UInt) -> String {
+    /// `28000` → «28 000», groups by a non-breaking space.
+    static func grouped(_ number: UInt) -> String {
         let digits = Array(String(number))
         return digits.enumerated().reduce(into: "") { text, pair in
             let (index, digit) = pair
