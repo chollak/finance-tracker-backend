@@ -66,8 +66,8 @@ final class CardAccountsForm {
 
     func selection(of card: String) -> Selection {
         guard let row = row(card) else { return .none }
-        if case let .loaded(offered) = list, let id = row.accountId, offered.contains(where: { $0.id == id }) {
-            return .account(id)
+        if let account = chosen(card) {
+            return .account(account.id)
         }
         return row.account.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .none : .stale
     }
@@ -105,7 +105,21 @@ final class CardAccountsForm {
     }
 
     func setCurrency(_ currency: PaymentCurrency?, for card: String) {
-        change(card) { CardAccount(card: $0.card, account: $0.account, accountId: $0.accountId, currency: currency) }
+        change(card) { row in
+            var changed = row
+            changed.currency = currency
+            return changed
+        }
+    }
+
+    /// What the picker shows as chosen: «Не выбран», «Карта TBC · сум», «Нет такого счёта». For the layout of the
+    /// largest type sizes, where the system's picker cuts its value in the middle.
+    func selectionLabel(of card: String) -> String {
+        switch selection(of: card) {
+        case .none: "Не выбран"
+        case .stale: staleLabel(of: card) ?? "Нет такого счёта"
+        case .account: chosen(card).map(CardAccountChoice.label) ?? "Не выбран"
+        }
     }
 
     func remove(at offsets: IndexSet) {
@@ -116,6 +130,14 @@ final class CardAccountsForm {
     /// What to say under the card's account; `nil` — the account is simply chosen.
     func note(for card: String) -> CardAccountNote? {
         guard let row = row(card) else { return nil }
+        // Over «переименован»: this one costs every payment its «Нужно проверить». The choice stays the owner's
+        if let account = chosen(card), CardAccountChoice.currencyDiffers(row, from: account) {
+            return CardAccountNote(
+                text: "Счёт «\(account.name)» в другой валюте, чем карта. "
+                    + "Оплаты этой карты придут с пометкой «Нужно проверить».",
+                isWarning: true
+            )
+        }
         switch issues[card] {
         case let .renamed(from):
             return CardAccountNote(
@@ -127,6 +149,13 @@ final class CardAccountsForm {
         case let .hidden(name):
             return CardAccountNote(text: "Счёт «\(name)» скрыт в Kapelka — выбери другой. \(Self.untilChosen)", isWarning: true)
         case nil:
+            // Marked at an earlier reading of the list, and this one did not come
+            if row.isAccountHidden {
+                return CardAccountNote(
+                    text: "Счёт «\(row.account)» скрыт в Kapelka — выбери другой. \(Self.untilChosen)",
+                    isWarning: true
+                )
+            }
             guard row.account.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
             return CardAccountNote(text: "Без счёта оплаты этой карты придут с пометкой «Нужно проверить».", isWarning: true)
         }
@@ -141,6 +170,12 @@ final class CardAccountsForm {
 
     private func row(_ card: String) -> CardAccount? {
         rows.first { $0.card == card }
+    }
+
+    /// The account on offer the card has; `nil` while the list is away, and for a stale name.
+    private func chosen(_ card: String) -> RecordAccount? {
+        guard case let .loaded(offered) = list, let id = row(card)?.accountId else { return nil }
+        return offered.first { $0.id == id }
     }
 
     private func change(_ card: String, _ edit: (CardAccount) -> CardAccount) {

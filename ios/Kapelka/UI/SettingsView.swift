@@ -10,6 +10,7 @@ struct SettingsView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var address: String
     @State private var token = ""
     /// Read from Keychain once, as the sheet opens (#284) — not on each redraw, which is each letter typed.
@@ -224,17 +225,27 @@ struct SettingsView: View {
         case .loading:
             LabeledContent("Счёт", value: row.account.isEmpty ? "Не выбран" : row.account)
         case let .loaded(accounts):
-            Picker("Счёт", selection: Binding(
-                get: { cardAccounts.selection(of: row.card) },
-                set: { cardAccounts.choose($0, for: row.card) }
-            )) {
-                Text("Не выбран").tag(CardAccountsForm.Selection.none)
-                if let stale = cardAccounts.staleLabel(of: row.card) {
-                    Text(stale).tag(CardAccountsForm.Selection.stale)
+            if dynamicTypeSize.isAccessibilitySize {
+                // The system's picker cuts its value in the middle at these sizes («Нали… · сум»): the same menu
+                // under a label that wraps
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Счёт")
+                        .accessibilityHidden(true)
+                    Menu {
+                        accountPicker(row, accounts)
+                    } label: {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text(cardAccounts.selectionLabel(of: row.card))
+                                .multilineTextAlignment(.leading)
+                            Image(systemName: "chevron.up.chevron.down")
+                                .imageScale(.small)
+                        }
+                    }
+                    .accessibilityLabel("Счёт")
+                    .accessibilityValue(cardAccounts.selectionLabel(of: row.card))
                 }
-                ForEach(accounts) { account in
-                    Text(CardAccountChoice.label(account)).tag(CardAccountsForm.Selection.account(account.id))
-                }
+            } else {
+                accountPicker(row, accounts)
             }
         case .failed:
             LabeledContent("Счёт") {
@@ -244,6 +255,21 @@ struct SettingsView: View {
                 ))
                 .multilineTextAlignment(.trailing)
                 .autocorrectionDisabled()
+            }
+        }
+    }
+
+    private func accountPicker(_ row: CardAccount, _ accounts: [RecordAccount]) -> some View {
+        Picker("Счёт", selection: Binding(
+            get: { cardAccounts.selection(of: row.card) },
+            set: { cardAccounts.choose($0, for: row.card) }
+        )) {
+            Text("Не выбран").tag(CardAccountsForm.Selection.none)
+            if let stale = cardAccounts.staleLabel(of: row.card) {
+                Text(stale).tag(CardAccountsForm.Selection.stale)
+            }
+            ForEach(accounts) { account in
+                Text(CardAccountChoice.label(account)).tag(CardAccountsForm.Selection.account(account.id))
             }
         }
     }

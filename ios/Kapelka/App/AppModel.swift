@@ -165,16 +165,12 @@ final class AppModel {
         services.cards.cards
     }
 
-    /// The server's accounts for «Карты → счета» (#415), hidden ones too. The saved cards follow them at once
-    /// (`CardAccountStore.reconcile`): a rename on the server must not wait for «Сохранить» to reach the next payment.
+    /// The server's accounts for «Карты → счета» (#415), hidden ones too; the saved cards follow them at once
+    /// (`CardAccountsSource`).
     func cardAccounts() async -> Result<[RecordAccount], RecordsFailure> {
-        do throws(RecordsFailure) {
-            let accounts = try await services.records.accounts()
-            services.cards.reconcile(with: accounts)
-            return .success(accounts)
-        } catch {
-            return .failure(error)
-        }
+        await CardAccountsSource(cards: services.cards) { [feed = services.records] () async throws(RecordsFailure) in
+            try await feed.accounts()
+        }.read()
     }
 
     /// Every field is checked before any is written. A payment waiting on the phone goes with the new account; a card's

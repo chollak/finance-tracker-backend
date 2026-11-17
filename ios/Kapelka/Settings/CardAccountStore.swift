@@ -9,16 +9,29 @@ struct CardAccount: Codable, Equatable, Identifiable, Sendable {
     /// The id of the account chosen from the server's list (#415): by it a rename on the server is seen. `nil` for a
     /// name typed by hand — in a build before #415, or while the list was away — until the list finds its account.
     var accountId: String?
+    /// `true` — the account is hidden in the Mini App (#415): its name stays here for the settings, but does not go
+    /// with a payment. Absent otherwise, and in every mapping saved before.
+    private(set) var accountHidden: Bool?
     /// `nil` — «Как в сумме»: an amount without a code takes the currency chosen in the automation
     /// (`PaymentRecorder`). A mapping saved before FT-179's review has none either.
     var currency: PaymentCurrency?
 
     var id: String { card }
 
-    init(card: String, account: String, accountId: String? = nil, currency: PaymentCurrency? = nil) {
+    /// The name is on the phone but is not sent: the account is hidden.
+    var isAccountHidden: Bool { accountHidden == true }
+
+    init(
+        card: String,
+        account: String,
+        accountId: String? = nil,
+        accountHidden: Bool = false,
+        currency: PaymentCurrency? = nil
+    ) {
         self.card = card
         self.account = account
         self.accountId = accountId
+        self.accountHidden = accountHidden ? true : nil
         self.currency = currency
     }
 }
@@ -63,11 +76,12 @@ final class CardAccountStore: @unchecked Sendable {
         }
     }
 
-    /// The account to send with this card's payment; `nil` — none.
+    /// The account to send with this card's payment; `nil` — none, or its account is hidden: the server would not
+    /// take a hidden account's name, and after a rename the saved name may be another account's by now.
     func account(for card: String) -> String? {
-        guard let card = Payment.tidy(card) else { return nil }
-        let account = cards.first { $0.card == card }?.account.trimmingCharacters(in: .whitespacesAndNewlines)
-        return account?.isEmpty == false ? account : nil
+        guard let card = Payment.tidy(card), let saved = cards.first(where: { $0.card == card }) else { return nil }
+        let account = saved.account.trimmingCharacters(in: .whitespacesAndNewlines)
+        return account.isEmpty || saved.isAccountHidden ? nil : account
     }
 
     /// The currency of this card's payments when Wallet's amount names none; `nil` — not chosen.
@@ -91,6 +105,7 @@ final class CardAccountStore: @unchecked Sendable {
                         card: stored.card,
                         account: account,
                         accountId: account.isEmpty ? nil : edit.accountId,
+                        accountHidden: !account.isEmpty && edit.isAccountHidden,
                         currency: edit.currency
                     )
                 }
@@ -100,7 +115,8 @@ final class CardAccountStore: @unchecked Sendable {
 
     /// The server's accounts were read (#415): a card follows its account by the id — renamed on the server, the next
     /// payment goes with the new name — and a name typed by hand that is an account's whole name gets its id. A card
-    /// whose account is hidden or not there stays as saved: the settings say so (`CardAccountChoice`).
+    /// whose account is hidden is marked, and its name is not sent until the account is visible again; one whose
+    /// account is not there stays as saved. The settings say both (`CardAccountChoice`).
     func reconcile(with accounts: [RecordAccount]) {
         lock.withLock {
             let cards = load()

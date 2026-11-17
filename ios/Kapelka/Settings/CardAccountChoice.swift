@@ -15,8 +15,10 @@ enum CardAccountIssue: Equatable, Sendable {
 enum CardAccountChoice {
     /// The card as it should be kept, and what to say about it. An account found by its id — or, for a name typed by
     /// hand (a build before #415, or the list was away), by its whole name — is taken with its id and its name of
-    /// today. A hidden or a missing one leaves the card as it was saved: its name still goes with a payment, and the
-    /// server answers with the default account and «Нужно проверить», as before.
+    /// today. A hidden one is kept with its id and marked: no name goes with the card's payments, so the server
+    /// answers with the default account and «Нужно проверить» — what the settings say. Its saved name is not sent
+    /// even though it is on the phone: after a rename another, visible account may bear it, and the payment would
+    /// land there silently. A missing one leaves the card as it was saved.
     static func resolve(
         _ card: CardAccount,
         in accounts: [RecordAccount]
@@ -30,16 +32,25 @@ enum CardAccountChoice {
             return (taking(byId, for: card), nameKey(byId.name) == key ? nil : .renamed(from: saved))
         }
         if let byId {
-            return (card, .hidden(byId.name))
+            return (keeping(byId, for: card), .hidden(byId.name))
         }
         // No id, or its account is deleted: the name decides, as it does on the server
         if let byName = accounts.first(where: { !$0.isHidden && nameKey($0.name) == key }) {
             return (taking(byName, for: card), nil)
         }
         if let hidden = accounts.first(where: { $0.isHidden && nameKey($0.name) == key }) {
-            return (card, .hidden(hidden.name))
+            return (keeping(hidden, for: card), .hidden(hidden.name))
         }
         return (card, .missing(saved))
+    }
+
+    /// `true` when the card's payments are known to be in another currency than the account: the server looks for a
+    /// named account only among those in the payment's currency (`resolveForRecord` in `accountBook.ts`), so each
+    /// payment would land on the default account with «Нужно проверить». A card without a currency («Как в сумме»)
+    /// pays in whatever Wallet says — nothing is known beforehand.
+    static func currencyDiffers(_ card: CardAccount, from account: RecordAccount) -> Bool {
+        guard let cardCurrency = card.currency, let accountCurrency = account.currency else { return false }
+        return cardCurrency.rawValue != accountCurrency
     }
 
     /// The accounts a card can take: the server writes a named payment only into a visible one.
@@ -64,5 +75,16 @@ enum CardAccountChoice {
 
     private static func taking(_ account: RecordAccount, for card: CardAccount) -> CardAccount {
         CardAccount(card: card.card, account: account.name, accountId: account.id, currency: card.currency)
+    }
+
+    /// The hidden account stays the card's own — shown again once it is visible — but its name is not sent.
+    private static func keeping(_ hidden: RecordAccount, for card: CardAccount) -> CardAccount {
+        CardAccount(
+            card: card.card,
+            account: hidden.name,
+            accountId: hidden.id,
+            accountHidden: true,
+            currency: card.currency
+        )
     }
 }

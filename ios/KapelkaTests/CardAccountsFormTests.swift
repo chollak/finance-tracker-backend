@@ -111,6 +111,118 @@ struct CardAccountsFormTests {
         ))
     }
 
+    @Test("имя прошлой сборки, без id, совпало со скрытым счётом — не выбрано: «Счёт скрыт» с предупреждением")
+    func typedNameOfHiddenAccountIsNotChosen() async {
+        let form = form([CardAccount(card: "Humo", account: " старая  карта", currency: .uzs)])
+        await form.load()
+
+        #expect(form.selection(of: "Humo") == .stale)
+        #expect(form.staleLabel(of: "Humo") == "Счёт скрыт")
+        #expect(form.selectionLabel(of: "Humo") == "Счёт скрыт")
+        #expect(form.note(for: "Humo")?.isWarning == true)
+        #expect(form.rows == [
+            CardAccount(card: "Humo", account: "Старая карта", accountId: "acc-old", accountHidden: true, currency: .uzs),
+        ])
+    }
+
+    @Test("счёт скрыли и переименовали, а его прежнее имя теперь у другого видимого счёта: экран говорит «скрыт», тот счёт сам не выбирается")
+    func hiddenAccountsOldNameOnAnotherAccount() async {
+        let other = RecordAccount(id: "acc-new", name: "Зарплатная", currency: "UZS")
+        let form = form(
+            [CardAccount(card: "Humo", account: "Зарплатная", accountId: "acc-old")],
+            answers: [.success(Self.accounts + [other])]
+        )
+        await form.load()
+
+        #expect(form.selection(of: "Humo") == .stale)
+        #expect(form.note(for: "Humo")?.text.hasPrefix("Счёт «Старая карта» скрыт в Kapelka") == true)
+        #expect(form.rows.first?.isAccountHidden == true)
+
+        // The owner's own choice of that account is a choice like any other
+        form.choose(.account("acc-new"), for: "Humo")
+        #expect(form.rows == [CardAccount(card: "Humo", account: "Зарплатная", accountId: "acc-new")])
+        #expect(form.note(for: "Humo") == nil)
+    }
+
+    @Test("скрытый счёт и список не пришёл: предупреждение остаётся, смена валюты пометку не снимает")
+    func hiddenMarkWithoutTheList() async {
+        let hidden = CardAccount(card: "Humo", account: "Старая карта", accountId: "acc-old", accountHidden: true)
+        let form = form([hidden], answers: [.failure(.later(.offline))])
+        await form.load()
+
+        #expect(form.note(for: "Humo")?.text.hasPrefix("Счёт «Старая карта» скрыт в Kapelka") == true)
+        form.setCurrency(.usd, for: "Humo")
+        #expect(form.rows == [
+            CardAccount(card: "Humo", account: "Старая карта", accountId: "acc-old", accountHidden: true, currency: .usd),
+        ])
+    }
+
+    // MARK: - Валюта карты и счёта
+
+    private static let otherCurrency = "в другой валюте, чем карта. Оплаты этой карты придут с пометкой «Нужно проверить»."
+
+    @Test("карта в сумах, счёт в долларах: предупреждение под счётом; выбор не сбрасывается")
+    func sumCardWithDollarAccount() async {
+        let form = form([CardAccount(card: "TBC Uzbekistan", account: "", currency: .uzs)])
+        await form.load()
+
+        form.choose(.account("acc-usd"), for: "TBC Uzbekistan")
+
+        #expect(form.note(for: "TBC Uzbekistan") == CardAccountNote(
+            text: "Счёт «Доллары» \(Self.otherCurrency)",
+            isWarning: true
+        ))
+        #expect(form.selection(of: "TBC Uzbekistan") == .account("acc-usd"))
+        #expect(form.selectionLabel(of: "TBC Uzbekistan") == "Доллары · USD")
+        #expect(form.rows == [
+            CardAccount(card: "TBC Uzbekistan", account: "Доллары", accountId: "acc-usd", currency: .uzs),
+        ])
+    }
+
+    @Test("карта в долларах, счёт в сумах: то же предупреждение — и когда счёт выбран раньше, и когда он ещё и переименован")
+    func dollarCardWithSumAccount() async {
+        let form = form([CardAccount(card: "Visa Kapitalbank", account: "Карта", accountId: "acc-card", currency: .usd)])
+        await form.load()
+
+        #expect(form.note(for: "Visa Kapitalbank") == CardAccountNote(
+            text: "Счёт «Карта TBC» \(Self.otherCurrency)",
+            isWarning: true
+        ))
+        #expect(form.selection(of: "Visa Kapitalbank") == .account("acc-card"))
+    }
+
+    @Test("валюта карты «Как в сумме»: предупреждения нет; сменили валюту карты — появляется и уходит")
+    func cardWithoutCurrency() async {
+        let form = form([CardAccount(card: "TBC Uzbekistan", account: "Доллары", accountId: "acc-usd")])
+        await form.load()
+        #expect(form.note(for: "TBC Uzbekistan") == nil)
+
+        form.setCurrency(.uzs, for: "TBC Uzbekistan")
+        #expect(form.note(for: "TBC Uzbekistan")?.isWarning == true)
+
+        form.setCurrency(.usd, for: "TBC Uzbekistan")
+        #expect(form.note(for: "TBC Uzbekistan") == nil)
+        form.setCurrency(nil, for: "TBC Uzbekistan")
+        #expect(form.note(for: "TBC Uzbekistan") == nil)
+    }
+
+    @Test("валюты совпали или сервер не назвал валюту счёта — предупреждения нет")
+    func sameOrUnknownCurrency() async {
+        let noCurrency = RecordAccount(id: "acc-x", name: "Без валюты")
+        let form = form(
+            [
+                CardAccount(card: "TBC Uzbekistan", account: "Карта TBC", accountId: "acc-card", currency: .uzs),
+                CardAccount(card: "Humo", account: "Без валюты", accountId: "acc-x", currency: .usd),
+            ],
+            answers: [.success(Self.accounts + [noCurrency])]
+        )
+        await form.load()
+
+        #expect(form.note(for: "TBC Uzbekistan") == nil)
+        #expect(form.note(for: "Humo") == nil)
+        #expect(form.selectionLabel(of: "TBC Uzbekistan") == "Карта TBC · сум")
+    }
+
     @Test("счёт переименовали на сервере: по id он выбран с новым именем, строка говорит, как он назывался")
     func renamedAccountIsSaid() async {
         let form = form([CardAccount(card: "TBC Uzbekistan", account: "Карта", accountId: "acc-card")])
