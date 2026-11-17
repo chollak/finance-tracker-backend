@@ -113,6 +113,7 @@ The application validates these on startup and will exit with descriptive errors
 - Tracked: `.env.example` (development) and `ops/live/env.local.example` (the live instance, FT-156) — templates without values.
 - Ignored/local: `.env`, `.env.local`, `.env.development`, `.env.*.local`.
 - `loadEnvironment.ts` (`src/shared/infrastructure/config/`) loads `.env.local` if present, otherwise `.env`; existing `process.env` values remain highest priority. It runs once, on the first import of `appConfig.ts` or of the Winston logger — both import it first, so `LOG_LEVEL` and `NODE_ENV` from the file reach the logger too (FT-165).
+- Jest does not read the env file (#393): `tests/setup/env.ts` puts an empty module in place of `loadEnvironment.ts` for every test file, so a developer's `.env.local` never decides a test; `tests/loggerEnvironment.test.ts` takes the real loader back to test it. A test sets the variables it needs itself.
 - `.env.development` is ignored for backwards compatibility but is not loaded by the app. Use `.env.local` for machine-specific local values.
 - Never print real env values in logs/reports; list keys only with values redacted.
 

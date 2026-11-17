@@ -80,6 +80,9 @@ OPENAI_API_KEY=sk-...
   The file is loaded by `src/shared/infrastructure/config/loadEnvironment.ts` before the logger is created, so
   `LOG_LEVEL` and `NODE_ENV` from it set the log level and format too (FT-165; before that only the process
   environment did).
+- Jest does not read the env file (#393): `tests/setup/env.ts` puts an empty module in place of `loadEnvironment.ts`,
+  so `npm test` gives the same result with any `.env.local` and without one. A test that needs a variable sets it
+  itself; what the shell exports still reaches the tests.
 
 **Получить OpenAI API Key:**
 1. Перейти на [platform.openai.com](https://platform.openai.com/)
