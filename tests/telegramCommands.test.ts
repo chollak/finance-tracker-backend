@@ -134,7 +134,7 @@ describe('bot commands (FT-124)', () => {
         '',
         '/today — итоги дня',
         '/month — траты за месяц',
-        '/undo — отменить последнюю запись',
+        '/undo — отменить последнюю запись или вопрос бота',
       ].join('\n'),
       keyboard: [],
     });
@@ -382,7 +382,7 @@ describe('bot commands (FT-124)', () => {
     expect(BOT_COMMANDS).toEqual([
       { command: 'today', description: 'Итоги дня' },
       { command: 'month', description: 'Траты за месяц' },
-      { command: 'undo', description: 'Отменить последнюю запись' },
+      { command: 'undo', description: 'Отменить последнюю запись или вопрос' },
       { command: 'help', description: 'Как записывать' },
       { command: 'start', description: 'Что умеет бот' },
     ]);

@@ -1698,22 +1698,69 @@ describe('bot record messages (FT-122)', () => {
         expect(await inApp(taxiId)).toBe(false);
       });
 
-      it('a large amount among other records: as «Не записывать», it is declined and the others are written', async () => {
+      it('a large amount among other records: nothing of the phrase is written — /undo never writes a record', async () => {
+        const first = await write('обед с командой 145к', [lunch]);
+        const [lunchId] = await recordIdsOf(first);
         const question = await write('кофе 25000000, такси 18к', [bigCoffee, taxi]);
         const [coffeeId, taxiId] = await recordIdsOf(question);
 
         const reply = await write('/undo');
 
-        expect(text(reply)).toBe('Не записал «Кофе».');
+        expect(text(reply)).toBe('Не записал «Кофе», «Такси».');
+        expect(labels(reply)).toEqual([]);
         expect(await inApp(coffeeId)).toBe(false);
-        expect(await inApp(taxiId)).toBe(true);
-        expect(labels(question)).toEqual([['Изменить', 'Отменить']]);
+        expect(await inApp(taxiId)).toBe(false);
+        expect(await inApp(lunchId)).toBe(true);
+        expect(text(question)).toBe(
+          `<s>${MINUS}25${NB}000${NB}000${NB}сум · «Кофе»</s>\n<s>${MINUS}18${NB}000${NB}сум · «Такси»</s>\n\nНичего из сообщения не записал.`
+        );
+        expect(labels(question)).toEqual([]);
+        expect(await awaiting()).toBeNull();
 
         const again = await write('/undo');
 
-        expect(text(again)).toBe(`Отменил последнюю запись: ${MINUS}18${NB}000${NB}сум · «Такси»`);
+        expect(text(again)).toBe(`Отменил последнюю запись: ${MINUS}145${NB}000${NB}сум · «Обед с командой»`);
+        expect(await inApp(lunchId)).toBe(false);
         expect(await inApp(taxiId)).toBe(false);
         expect(await inApp(coffeeId)).toBe(false);
+      });
+
+      it('an old large amount among other records, its hint dropped: /undo writes none of them either', async () => {
+        const first = await write('обед с командой 145к', [lunch]);
+        const [lunchId] = await recordIdsOf(first);
+        const question = await write('кофе 25000000, такси 18к', [bigCoffee, taxi]);
+        const [coffeeId, taxiId] = await recordIdsOf(question);
+        await write('/today');
+        expect(await awaiting()).toBeNull();
+        expect(labels(question)).toContainEqual(['Не записывать']);
+
+        const reply = await write('/undo');
+
+        expect(text(reply)).toBe('Не записал «Кофе», «Такси».');
+        expect(await inApp(coffeeId)).toBe(false);
+        expect(await inApp(taxiId)).toBe(false);
+        expect(await inApp(lunchId)).toBe(true);
+        expect(labels(question)).toEqual([]);
+
+        const again = await write('/undo');
+
+        expect(text(again)).toBe(`Отменил последнюю запись: ${MINUS}145${NB}000${NB}сум · «Обед с командой»`);
+        expect(await inApp(taxiId)).toBe(false);
+      });
+
+      it('the buttons of the question left from before /undo write nothing of the phrase', async () => {
+        const question = await write('кофе 25000000, такси 18к', [bigCoffee, taxi]);
+        const [coffeeId, taxiId] = await recordIdsOf(question);
+        const right = dataOf(question, 'Да, верная');
+        const decline = dataOf(question, 'Не записывать');
+        await write('/undo');
+
+        await pressData(question, right);
+        await pressData(question, decline);
+
+        expect(await inApp(coffeeId)).toBe(false);
+        expect(await inApp(taxiId)).toBe(false);
+        expect(labels(question)).toEqual([]);
       });
 
       it('a large amount whose hint another command dropped is still declined: its buttons still wait', async () => {

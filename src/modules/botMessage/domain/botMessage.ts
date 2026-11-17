@@ -77,12 +77,15 @@ export interface RecordMessageState {
   notes?: string[];
   /** The large-amount question, while the message is on the `large` screen (FT-123). */
   large?: LargeAmountQuestion;
-  /** Records of a large amount the person chose not to write: they stay deleted and out of the message. */
+  /**
+   * Records of a large amount the person chose not to write: they stay deleted and out of the message. After /undo
+   * of the question (#318) — every record of its phrase, the ones that waited for the answer too.
+   */
   declined?: string[];
   /**
    * /undo closed the message's question instead of cancelling records (#318): the chat message that did it, by
    * its client id, what it answered, and whether the answer went out. Sent again after a restart, that /undo
-   * does nothing more — the records «Не записывать» of a large amount wrote are not its to cancel.
+   * does nothing more than say so, if its answer did not go out.
    */
   undoClosed?: UndoClosedQuestion;
   /** Where «‹ Назад» of the category picker leads: back to the confirmation after «Другая» (FT-123). */

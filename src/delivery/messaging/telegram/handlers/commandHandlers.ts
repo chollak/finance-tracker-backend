@@ -19,7 +19,7 @@ const logger = createLogger(LogCategory.TELEGRAM);
 export const BOT_COMMANDS: ReadonlyArray<{ command: string; description: string }> = [
   { command: 'today', description: 'Итоги дня' },
   { command: 'month', description: 'Траты за месяц' },
-  { command: 'undo', description: 'Отменить последнюю запись' },
+  { command: 'undo', description: 'Отменить последнюю запись или вопрос' },
   { command: 'help', description: 'Как записывать' },
   { command: 'start', description: 'Что умеет бот' },
 ];

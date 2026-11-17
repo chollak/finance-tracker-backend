@@ -480,23 +480,39 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
         expect(await live()).toEqual([]);
       });
 
-      it('sent again after a large amount among other records, it does not cancel the records «Не записывать» wrote', async () => {
-        await deliver({ message_id: 10, text: 'много: кофе 25000000 и такси 30 тысяч' });
-        expect(await live()).toEqual([]);
-        await deliver({ message_id: 11, text: '/undo' });
-        expect(await live()).toEqual(['такси']);
-        expect(notWritten()).toEqual(['Не записал «Кофе».']);
+      it('sent again after a large amount among other records, it writes none of them and cancels no record', async () => {
+        await deliver({ message_id: 10, text: 'обед 25 тысяч' });
+        await deliver({ message_id: 11, text: 'много: кофе 25000000 и такси 30 тысяч' });
+        expect(await live()).toEqual(['обед']);
+        await deliver({ message_id: 12, text: '/undo' });
+        expect(await live()).toEqual(['обед']);
+        expect(notWritten()).toEqual(['Не записал «Кофе», «Такси».']);
         const before = sent().length;
+
+        await restart();
+        await deliver({ message_id: 12, text: '/undo' });
+
+        expect(await live()).toEqual(['обед']);
+        expect(await records()).toHaveLength(3);
+        expect(sent()).toHaveLength(before);
+        expect(undoReplies()).toHaveLength(0);
+        // A new /undo is a new one: it goes to the record before the phrase
+        await deliver({ message_id: 13, text: '/undo' });
+        expect(await live()).toEqual([]);
+        expect(undoReplies()).toHaveLength(1);
+      });
+
+      it('killed before it kept what it took back: the repeat writes nothing of the phrase', async () => {
+        await deliver({ message_id: 10, text: 'много: кофе 25000000 и такси 30 тысяч' });
+        const killed = stopPoint();
+        jest.spyOn(runningLog(), 'save').mockImplementation(killed.stop);
+        await deliverUntilKilled(killed, { message_id: 11, text: '/undo' });
 
         await restart();
         await deliver({ message_id: 11, text: '/undo' });
 
-        expect(await live()).toEqual(['такси']);
-        expect(sent()).toHaveLength(before);
-        expect(undoReplies()).toHaveLength(0);
-        await deliver({ message_id: 12, text: '/undo' });
         expect(await live()).toEqual([]);
-        expect(undoReplies()).toEqual([expect.stringContaining('Такси')]);
+        expect(notWritten()).toEqual(['Не записал «Кофе», «Такси».']);
       });
 
       it('stopped before its reply went out: the repeat says what was not written, once', async () => {

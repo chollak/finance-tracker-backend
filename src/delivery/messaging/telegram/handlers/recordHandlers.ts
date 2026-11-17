@@ -448,35 +448,42 @@ function undoKeyboard(targetMessageId: number): InlineKeyboardButton[][] {
  * The question of a message by which nothing is written (#318): «Сколько?» of a phrase that left no record, or a
  * large amount still held — after its hint was dropped too, since its buttons still wait.
  */
-type UnwrittenQuestion = { kind: 'missing'; items: ItemWithoutAmount[] } | { kind: 'large'; record: RecordView };
+type UnwrittenQuestion = { kind: 'missing'; items: ItemWithoutAmount[] } | { kind: 'large'; held: RecordView[] };
 
 function unwrittenQuestion(message: BotMessage, input: RecordMessageInput): UnwrittenQuestion | null {
-  const big = heldLarge(message, input);
-  if (big) return { kind: 'large', record: big };
+  // Every record of a large amount's phrase is held until it is answered, not only the large one
+  if (heldLarge(message, input)) return { kind: 'large', held: input.records.filter(record => record.cancelled) };
   const items = message.state.missing ?? [];
   if (openQuestion(message.mode, message.state) !== 'missing' || input.records.some(record => !record.cancelled)) return null;
   return { kind: 'missing', items };
 }
 
 /**
- * /undo of a question with nothing written (#318): it is closed as its «Не записывать» closes it — a large amount is
- * declined and the other records of its phrase are written; every item without an amount is dropped, none is asked
- * any more — and the reply says what was not written. No record is cancelled. What it did is kept in the message
- * before the reply, so the same /undo sent again after a stop only says it, if it has not yet.
+ * /undo of a question with nothing written (#318): the whole phrase is taken back. Every record held for a large
+ * amount stays unwritten — the large one and the ones that waited for its answer: unlike the «Не записывать» button,
+ * a command that cancels never writes a record. Every item without an amount is dropped, none is asked any more.
+ * The reply names all that was not written, in the order of the phrase, and the message is left without a button
+ * that could write any of it later. No record is cancelled. What it did is kept in the message before the reply, so
+ * the same /undo sent again after a stop only says it, if it has not yet.
  */
 async function closeUnwritten(
   ctx: BotContext,
   log: BotMessageLog,
   message: BotMessage,
-  input: RecordMessageInput,
   question: UnwrittenQuestion,
   clientId: string | undefined
 ): Promise<void> {
   let closed: PressResult;
   let names: string[];
   if (question.kind === 'large') {
-    closed = await declineLarge(ctx, message, input, question.record);
-    names = [quoted(recordName(question.record))];
+    names = question.held.map(record => quoted(recordName(record)));
+    const state: RecordMessageState = {
+      ...message.state,
+      selected: 0,
+      declined: [...(message.state.declined ?? []), ...question.held.map(record => record.id)],
+    };
+    delete state.large;
+    closed = confirmed(state);
   } else {
     names = question.items.map(item => quoted(itemName(item)));
     const state: RecordMessageState = { ...message.state, notes: [...(message.state.notes ?? []), ...names.map(RU.record.skipped)] };
@@ -500,7 +507,7 @@ async function sayNotWritten(ctx: BotContext, log: BotMessageLog, message: BotMe
  * /undo: the records of the chat's last message that still has any are cancelled — struck through
  * there with «Вернуть» — and the reply says what was cancelled, with «Вернуть» of its own. When a question
  * with nothing written comes first — «Сколько?» of a phrase without an amount, a large amount held — /undo
- * closes that question as «Не записывать» and cancels nothing (#318): the person takes back what they have
+ * closes that question, writes nothing of its phrase and cancels nothing (#318): the person takes back what they have
  * just sent. Sent again after a restart, it does nothing more (FT-172).
  */
 async function handleUndo(ctx: BotContext) {
@@ -527,7 +534,7 @@ async function handleUndo(ctx: BotContext) {
       if (question) {
         // Kept before anything changes: the bot may stop at any step, and Telegram then sends /undo again (FT-172)
         if (clientId) await log.markHandled(clientId, message);
-        await closeUnwritten(ctx, log, message, input, question, clientId);
+        await closeUnwritten(ctx, log, message, question, clientId);
         return;
       }
       const live = input.records.filter(record => !record.cancelled);
@@ -606,7 +613,7 @@ async function finishRepeatedUndo(ctx: BotContext, log: BotMessageLog, handled: 
   // Stopped before the question closed: it is closed now
   const question = unwrittenQuestion(message, input);
   if (question) {
-    await closeUnwritten(ctx, log, message, input, question, handled.clientId);
+    await closeUnwritten(ctx, log, message, question, handled.clientId);
     return;
   }
   const { records } = input;
