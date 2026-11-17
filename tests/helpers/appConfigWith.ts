@@ -1,8 +1,8 @@
 type Config = typeof import('../../src/shared/infrastructure/config/appConfig').AppConfig;
 
 /**
- * AppConfig read afresh from the given environment. What it checks is always set, so `.env.local` cannot add to it:
- * dotenv never overrides a variable that is already set, even to an empty string.
+ * AppConfig read afresh from the given environment. What it checks is always set, so a variable exported by the shell
+ * or CI cannot add to it; the env file is not read in Jest at all (`tests/setup/env.ts`, #393).
  */
 export function appConfigWith(env: Record<string, string>): Config {
   const saved = { ...process.env };
@@ -19,15 +19,10 @@ export function appConfigWith(env: Record<string, string>): Config {
     ENABLE_TELEGRAM_POLLING: 'true',
     ...env,
   });
-  // Outside NODE_ENV=test the env file loader says which file it loaded — or warns that there is none (a worktree, CI)
-  const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
-  const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
   let config!: Config;
   jest.isolateModules(() => {
     config = require('../../src/shared/infrastructure/config/appConfig').AppConfig;
   });
-  log.mockRestore();
-  warn.mockRestore();
   process.env = saved;
   return config;
 }
