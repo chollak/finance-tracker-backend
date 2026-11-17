@@ -168,6 +168,31 @@ describe('balance card', () => {
     expect(text(board())).toContain(`В ${monthNameIn(MONTH)} потрачено 47% дохода`);
   });
 
+  it('says by how much the expenses are over the income instead of a share past 100%, the bar full (#368)', () => {
+    const html = home({ accounts: ACCOUNTS, totals: totals(500_000_000, 625_000_000) });
+
+    // «на» is tied to the amount by a non-breaking space, so a wrapped line does not end with it
+    expect(text(html)).toContain(`В ${monthNameIn(MONTH)} расходы больше дохода на${NBSP} 1${NBSP}250${NBSP}000${NBSP}сум`);
+    expect(text(html)).not.toContain('%');
+    expect(html).toContain('width:100%');
+  });
+
+  it('names that amount in dollars when Home is shown in dollars', () => {
+    const html = markup(
+      <BalanceCardView
+        accounts={{ data: ACCOUNTS, isError: false }}
+        totals={{ data: totals(500_000_000, 625_000_000), isError: false }}
+        display={{ currency: 'USD', rateMinor: 1_265_000 }}
+        month={MONTH}
+        expanded={false}
+        onToggle={() => {}}
+        onRetry={() => {}}
+      />
+    );
+
+    expect(text(html)).toContain(`расходы больше дохода на${NBSP} 98,81${NBSP}USD`);
+  });
+
   it('lists the accounts in their own currencies and links to «Все счета и курс доллара» when open', () => {
     const html = home({ accounts: ACCOUNTS, totals: totals(0, 0), expanded: true });
 

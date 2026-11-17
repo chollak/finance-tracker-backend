@@ -212,8 +212,59 @@ describe('the line under the balance', () => {
     });
   });
 
-  it('keeps the bar full when more than the income is spent', () => {
-    expect(spendShare(totals(100_000_000, 130_000_000), 5)).toMatchObject({ lead: 'В мае потрачено', percent: '130%', barPercent: 100 });
+  it('names the share up to the whole income: exactly as much spent is 100%', () => {
+    expect(spendShare(totals(100_000_000, 100_000_000), 5)).toEqual({
+      kind: 'share',
+      lead: 'В мае потрачено',
+      percent: '100%',
+      tail: 'дохода',
+      barPercent: 100,
+    });
+  });
+
+  it('says by how much the expenses are over the income instead of a share past 100% (#368), the bar full', () => {
+    expect(spendShare(totals(100_000_000, 130_000_000), 5)).toEqual({
+      kind: 'over',
+      lead: 'В мае расходы больше дохода на',
+      amount: `300${NBSP}000${NBSP}сум`,
+      barPercent: 100,
+    });
+  });
+
+  it('compares the sums, not the rounded share: one сум over is already «больше»', () => {
+    // 1 сум over 16 295 000 rounds to 100%
+    expect(spendShare(totals(1_629_500_000, 1_629_500_100), 10)).toMatchObject({ kind: 'over', amount: `1${NBSP}сум` });
+  });
+
+  it('ten times the income is an amount too, not 1000%', () => {
+    expect(spendShare(totals(125_000_000, 1_250_000_000), 11)).toMatchObject({
+      kind: 'over',
+      lead: 'В ноябре расходы больше дохода на',
+      amount: `11${NBSP}250${NBSP}000${NBSP}сум`,
+    });
+  });
+
+  it('in dollars the amount is the difference of the month tiles, at the rate in effect', () => {
+    const inUsd = { currency: 'USD', rateMinor: 1_265_000 } as const;
+    // The tiles: 1 000 000 сум is 79,05 USD, 1 300 000 сум is 102,77 USD
+    expect(spendShare(totals(100_000_000, 130_000_000), 5, inUsd)).toMatchObject({ kind: 'over', amount: `23,72${NBSP}USD` });
+    // The share does not depend on the currency
+    expect(spendShare(totals(1_629_500_000, 768_440_000), 10, inUsd)).toMatchObject({ kind: 'share', percent: '47%' });
+  });
+
+  it('without a rate dollars are not shown, so the amount stays in сум', () => {
+    expect(spendShare(totals(100_000_000, 130_000_000), 5, { currency: 'USD', rateMinor: null })).toMatchObject({
+      amount: `300${NBSP}000${NBSP}сум`,
+    });
+  });
+
+  it('an amount that would be shown as zero stays a share', () => {
+    // 40 tiyin over is «0 сум»; 10 сум over is less than a cent
+    expect(spendShare(totals(100_000_000, 100_000_040), 5)).toMatchObject({ kind: 'share', percent: '100%', barPercent: 100 });
+    expect(spendShare(totals(100_000_000, 100_001_000), 5, { currency: 'USD', rateMinor: 1_265_000 })).toMatchObject({
+      kind: 'share',
+      percent: '100%',
+    });
   });
 
   it('explains the line while there is no income this month (after the first launch too)', () => {

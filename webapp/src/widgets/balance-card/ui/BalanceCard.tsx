@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { monthBounds, parseLocalDate, toLocalDate } from '@/shared/lib/dates';
+import { NBSP } from '@/shared/lib/money';
 import { SkeletonBlock } from '@/shared/ui/pastel';
 import { useAccounts, type AccountsOverview } from '@/entities/account';
 import { useSettings } from '@/entities/settings';
@@ -58,7 +59,7 @@ export function BalanceCardView({
 }: BalanceCardViewProps) {
   const listId = useId();
   const model = accounts.data ? balanceCardModel(accounts.data, defaultAccountId, display) : null;
-  const share = totals.data ? spendShare(totals.data, month) : null;
+  const share = totals.data ? spendShare(totals.data, month, display) : null;
   // A problem says what happened and what to do (design-system): each failed part says what is missing
   // where it would stand, and one «Попробовать снова» reads them again. FT-112 adds the slow state.
   const failed = (!model && accounts.isError) || (!share && totals.isError);
@@ -139,16 +140,29 @@ export function BalanceCardView({
         </ul>
       )}
 
+      {/* Two 18px lines at 390px: as tall as the bar with the line under it (8 + 8 + 20px) */}
       {share?.kind === 'hint' && (
-        <span className="mt-2.5 text-[13px] font-medium leading-[1.45] text-on-primary-muted">{share.text}</span>
+        <span className="mt-2.5 text-[13px] font-medium leading-[18px] text-on-primary-muted">{share.text}</span>
       )}
-      {share?.kind === 'share' && (
+      {share && share.kind !== 'hint' && (
         <div className="mt-2.5 flex flex-col gap-2">
           <div aria-hidden="true" className="h-2 overflow-hidden rounded-pill bg-hero-track">
             <div className="h-full rounded-pill bg-hero-fill" style={{ width: `${share.barPercent}%` }} />
           </div>
-          <span className="text-[13px] font-medium text-on-primary-muted">
-            {share.lead} <span className="font-extrabold text-on-primary">{share.percent}</span> {share.tail}
+          {/* A 20px line, as the skeleton of Home draws it; a longer one wraps to a second, never cut */}
+          <span className="text-[13px] font-medium leading-5 text-on-primary-muted">
+            {share.kind === 'share' ? (
+              <>
+                {share.lead} <span className="font-extrabold text-on-primary">{share.percent}</span> {share.tail}
+              </>
+            ) : (
+              // «на» stays with the amount when the line wraps
+              <>
+                {share.lead}
+                {NBSP}
+                <span className="font-extrabold text-on-primary">{share.amount}</span>
+              </>
+            )}
           </span>
         </div>
       )}
@@ -179,8 +193,8 @@ export function BalanceCardView({
  * Balance card of Home (FT-111, #367; BalanceCard.md): large — the default account (`defaultAccountId` of
  * the settings, else the account the server writes a record to) under its name; under it «Всего на N счетах»
  * with the total of the accounts exactly as GET /api/accounts gives it, opening the accounts inside the card
- * with «Все счета и курс доллара»; and one line — what share of this month's income is spent, from the same
- * totals service as the month tiles. In the dark theme the card turns light by the tokens alone. The amounts
+ * with «Все счета и курс доллара»; and one line — what share of this month's income is spent, or by how
+ * much the expenses are over it (#368), from the same totals service as the month tiles. In the dark theme the card turns light by the tokens alone. The amounts
  * are in the currency of «Сум / USD» in the header (FT-137).
  */
 export function BalanceCard({ className }: { className?: string }) {
