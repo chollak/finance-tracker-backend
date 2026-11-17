@@ -172,17 +172,21 @@ struct SettingsView: View {
                     accountField(row)
                     if let note = cardAccounts.note(for: row.card) {
                         Label {
+                            // Whole at the largest type too: a tall row would cut its last line («Нужно прове…»)
                             Text(note.text)
+                                .fixedSize(horizontal: false, vertical: true)
                         } icon: {
                             Image(systemName: note.isWarning ? "exclamationmark.circle" : "info.circle")
                                 .foregroundStyle(note.isWarning ? Color.orange : Color.secondary)
                         }
                         .font(.footnote)
                     }
-                    Picker("Валюта", selection: currency(of: row)) {
-                        Text("Как в сумме").tag(PaymentCurrency?.none)
-                        Text("Сум").tag(PaymentCurrency?.some(.uzs))
-                        Text("Доллар").tag(PaymentCurrency?.some(.usd))
+                    wrapping("Валюта", value: Self.currencyLabel(row.currency)) {
+                        Picker("Валюта", selection: currency(of: row)) {
+                            ForEach([PaymentCurrency?.none, .uzs, .usd], id: \.self) { currency in
+                                Text(Self.currencyLabel(currency)).tag(currency)
+                            }
+                        }
                     }
                 }
                 // The note's icon would move the row's separator in to the note's text
@@ -225,26 +229,7 @@ struct SettingsView: View {
         case .loading:
             LabeledContent("Счёт", value: row.account.isEmpty ? "Не выбран" : row.account)
         case let .loaded(accounts):
-            if dynamicTypeSize.isAccessibilitySize {
-                // The system's picker cuts its value in the middle at these sizes («Нали… · сум»): the same menu
-                // under a label that wraps
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Счёт")
-                        .accessibilityHidden(true)
-                    Menu {
-                        accountPicker(row, accounts)
-                    } label: {
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            Text(cardAccounts.selectionLabel(of: row.card))
-                                .multilineTextAlignment(.leading)
-                            Image(systemName: "chevron.up.chevron.down")
-                                .imageScale(.small)
-                        }
-                    }
-                    .accessibilityLabel("Счёт")
-                    .accessibilityValue(cardAccounts.selectionLabel(of: row.card))
-                }
-            } else {
+            wrapping("Счёт", value: cardAccounts.selectionLabel(of: row.card)) {
                 accountPicker(row, accounts)
             }
         case .failed:
@@ -271,6 +256,40 @@ struct SettingsView: View {
             ForEach(accounts) { account in
                 Text(CardAccountChoice.label(account)).tag(CardAccountsForm.Selection.account(account.id))
             }
+        }
+    }
+
+    /// A picker of a card's row. At the accessibility type sizes the system's picker cuts its value in the middle
+    /// («Нали… · сум», «Как в…умме»): there the same choice opens from a menu under the title, its value wrapping.
+    @ViewBuilder
+    private func wrapping(_ title: String, value: String, @ViewBuilder picker: () -> some View) -> some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .accessibilityHidden(true)
+                Menu {
+                    picker()
+                } label: {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(value)
+                            .multilineTextAlignment(.leading)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .imageScale(.small)
+                    }
+                }
+                .accessibilityLabel(title)
+                .accessibilityValue(value)
+            }
+        } else {
+            picker()
+        }
+    }
+
+    private static func currencyLabel(_ currency: PaymentCurrency?) -> String {
+        switch currency {
+        case nil: "Как в сумме"
+        case .uzs: "Сум"
+        case .usd: "Доллар"
         }
     }
 
