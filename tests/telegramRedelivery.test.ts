@@ -450,6 +450,93 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
       expect(undoReplies()).toEqual([expect.stringContaining('Такси')]);
     });
 
+    // #318: /undo that closed a question with nothing written cancelled no record — nor does its repeat
+    describe('/undo of a question with nothing written (#318)', () => {
+      const noAmount = { description: 'такси', category: 'Транспорт', type: 'expense', date: today };
+      const notWritten = () => sent().filter(text => text.startsWith('Не записал'));
+
+      beforeEach(() => {
+        parser.analyzeInput.mockImplementation(async (text: string) => {
+          if (text.startsWith('такси')) return { transactions: [], debts: [], withoutAmount: [noAmount] };
+          if (text.startsWith('много')) return { transactions: [{ ...coffee, amount: 25_000_000 }, taxi], debts: [] };
+          return { transactions: [coffee], debts: [] };
+        });
+      });
+
+      it('sent again, it closes nothing more and cancels no record', async () => {
+        await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
+        await deliver({ message_id: 11, text: 'такси' });
+        await deliver({ message_id: 12, text: '/undo' });
+        expect(notWritten()).toEqual(['Не записал «Такси».']);
+        const before = sent().length;
+
+        await restart();
+        await deliver({ message_id: 12, text: '/undo' });
+
+        expect(await live()).toEqual(['кофе']);
+        expect(sent()).toHaveLength(before);
+        // A new /undo is a new one: it goes to the record before
+        await deliver({ message_id: 13, text: '/undo' });
+        expect(await live()).toEqual([]);
+      });
+
+      it('sent again after a large amount among other records, it does not cancel the records «Не записывать» wrote', async () => {
+        await deliver({ message_id: 10, text: 'много: кофе 25000000 и такси 30 тысяч' });
+        expect(await live()).toEqual([]);
+        await deliver({ message_id: 11, text: '/undo' });
+        expect(await live()).toEqual(['такси']);
+        expect(notWritten()).toEqual(['Не записал «Кофе».']);
+        const before = sent().length;
+
+        await restart();
+        await deliver({ message_id: 11, text: '/undo' });
+
+        expect(await live()).toEqual(['такси']);
+        expect(sent()).toHaveLength(before);
+        expect(undoReplies()).toHaveLength(0);
+        await deliver({ message_id: 12, text: '/undo' });
+        expect(await live()).toEqual([]);
+        expect(undoReplies()).toEqual([expect.stringContaining('Такси')]);
+      });
+
+      it('stopped before its reply went out: the repeat says what was not written, once', async () => {
+        await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
+        await deliver({ message_id: 11, text: 'такси' });
+        const question = lastBotMessage();
+        await deliverUntilKilled(hangReplies(), { message_id: 12, text: '/undo' });
+        expect(notWritten()).toHaveLength(0);
+
+        await restart();
+        await deliver({ message_id: 12, text: '/undo' });
+
+        expect(notWritten()).toEqual(['Не записал «Такси».']);
+        expect(stand.labelsOf(question)).toEqual([]);
+        expect(await live()).toEqual(['кофе']);
+        const before = sent().length;
+        await restart();
+        await deliver({ message_id: 12, text: '/undo' });
+        expect(sent()).toHaveLength(before);
+        expect(await live()).toEqual(['кофе']);
+      });
+
+      it('killed right after it was marked: the repeat closes that question, and cancels no record', async () => {
+        await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
+        await deliver({ message_id: 11, text: 'такси' });
+        const question = lastBotMessage();
+        const killed = stopPoint();
+        jest.spyOn(runningLog(), 'save').mockImplementation(killed.stop);
+        await deliverUntilKilled(killed, { message_id: 12, text: '/undo' });
+        expect(stand.labelsOf(question)).toEqual([['Не записывать']]);
+
+        await restart();
+        await deliver({ message_id: 12, text: '/undo' });
+
+        expect(notWritten()).toEqual(['Не записал «Такси».']);
+        expect(stand.labelsOf(question)).toEqual([]);
+        expect(await live()).toEqual(['кофе']);
+      });
+    });
+
     it('an answer to «Сумму» killed before it was marked: the repeat answers the still open question, no record written', async () => {
       parser.analyzeInput.mockImplementation(async (text: string) => ({
         transactions: [text.startsWith('кофе') ? coffee : { intent: 'transaction', amount: Number(text), category: 'Другое', type: 'expense', date: today, description: text }],

@@ -228,6 +228,9 @@ first one had been written.
   `handled_messages` (`confirmation`) and clears it once the message is out. A repeat whose first confirmation did not
   go out sends the kept one (`sendKeptConfirmation`), a large amount's question with its records still held. /undo
   sent again cancels nothing more (`handleUndo` finds its own row); if its reply did not go out, the reply is sent then.
+  /undo that closed a question with nothing written (#318) keeps that in the message's state (`undoClosed`: its client
+  id, the reply, whether it went out): its repeat closes nothing more and cancels none of the records a declined large
+  amount let through.
   Rows are kept two days (`HANDLED_MESSAGE_DAYS`): Telegram sends an update again for up to a day.
 - **The launch count starts anew.** A launch that has polled for `POLLING_STABLE_MS` without an error counts as
   started: the next failure is the first of a new count, so a `409` days later is retried instead of `failed` at once.
