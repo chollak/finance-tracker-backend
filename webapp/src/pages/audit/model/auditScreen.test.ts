@@ -36,7 +36,7 @@ describe('the title and the too-early state («Ревизия · мало дан
     const board: Audit = { ...EARLY, firstAuditOn: '2026-11-01' };
     expect(tooEarlyView(board)).toEqual({
       title: 'Первая ревизия — 1 ноября',
-      text: 'Нужен целый месяц записей: тогда ИИ найдёт траты, которые повторяются или растут, и спросит, нужны ли они.',
+      text: 'Нужен целый месяц записей: тогда найдём траты, которые повторяются или растут, и спросим, нужны ли они.',
       progress: 'Записей пока — за 3 дня из 31',
     });
   });
@@ -60,9 +60,9 @@ describe('the list («Ревизия · начало», «Ревизия · ра
     expect(initialAuditView({ ...BOARD_OPEN, candidates: [], summary: { ...BOARD_OPEN.summary, count: 0, left: 0, totalMinor: 0 } })).toBe('done');
   });
 
-  it('the intro says what the AI found and how much it took, with the progress', () => {
+  it('the intro says what the rules found and how much it took, with the progress', () => {
     expect(auditIntro(BOARD_OPEN)).toEqual({
-      text: nb('ИИ нашёл 6 трат, которые могут быть лишними, — 2 319 000 сум за сентябрь. Отметьте: нужно или лишнее.'),
+      text: nb('Нашли 6 трат, которые могут быть лишними, — 2 319 000 сум за сентябрь. Отметьте: нужно или лишнее.'),
       progress: 'Разобрано 0 из 6',
       share: 0,
     });
@@ -71,8 +71,8 @@ describe('the list («Ревизия · начало», «Ревизия · ра
 
   it('agrees the number: one spending, two of them', () => {
     const only = (count: number): Audit => ({ ...BOARD_OPEN, candidates: BOARD_OPEN.candidates.slice(0, count), summary: { ...BOARD_OPEN.summary, count } });
-    expect(auditIntro(only(1)).text).toMatch(/^ИИ нашёл 1 трату, которая может быть лишней, — /);
-    expect(auditIntro(only(2)).text).toMatch(/^ИИ нашёл 2 траты, которые могут быть лишними, — /);
+    expect(auditIntro(only(1)).text).toMatch(/^Нашли 1 трату, которая может быть лишней, — /);
+    expect(auditIntro(only(2)).text).toMatch(/^Нашли 2 траты, которые могут быть лишними, — /);
   });
 
   it('names the undecided brought from the audit before apart from what was found', () => {
@@ -82,7 +82,7 @@ describe('the list («Ревизия · начало», «Ревизия · ра
       summary: { ...BOARD_OPEN.summary, totalMinor: 197_000_000, carriedCount: 1, carriedTotalMinor: 34_900_000 },
     };
     expect(auditIntro(carried).text).toBe(
-      nb('ИИ нашёл 5 трат, которые могут быть лишними, — 1 970 000 сум за сентябрь. Ещё 1 — из ревизии августа. Отметьте: нужно или лишнее.')
+      nb('Нашли 5 трат, которые могут быть лишними, — 1 970 000 сум за сентябрь. Ещё 1 — из ревизии августа. Отметьте: нужно или лишнее.')
     );
     expect(candidateCard(candidate(carried, 'taxi'), closed).kindLine).toBe('Часто и понемногу · Транспорт · за август');
   });
