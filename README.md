@@ -44,7 +44,7 @@ Tracked in Git:
 - `.env.example` — safe template only
 
 Ignored / local only:
-- `.env` — default local and Docker Compose env file
+- `.env` — default local env file
 - `.env.local` — machine-specific overrides; loaded before `.env`
 - `.env.development` — ignored legacy/local name; not loaded by the app
 
@@ -65,28 +65,7 @@ During development you can run the server with automatic reload:
 npm run dev
 ```
 
-## Docker Compose
-
-To build and start the application in a container:
-
-```bash
-docker compose up -d --build
-```
-
-Docker Compose loads environment variables from `.env`, so make sure to create it first (you can copy from `.env.example`).
-
-The service will be available on [http://localhost:3000](http://localhost:3000).
-View logs with:
-
-```bash
-docker compose logs -f
-```
-
-Stop and remove the containers when you're done:
-
-```bash
-docker compose down
-```
+There is no Docker image (removed in #325). The live instance is a systemd service in WSL: [docs/knowledge-base/08-development/live-instance.md](docs/knowledge-base/08-development/live-instance.md).
 
 ## Web App (Telegram Mini App)
 

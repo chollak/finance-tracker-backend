@@ -77,11 +77,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run install:webapp` - Install webapp dependencies  
 - `npm run build:webapp` - Build React frontend to `public/webapp/`: Vite builds into `public/webapp.next`, which takes the place of `public/webapp` whole only when complete, so a running server never serves a half-written file; a failed build leaves the old one (`scripts/build-webapp.js`, #380)
 
-**Docker:**
-- `docker compose up -d --build` - Build and run in container
-- `docker compose logs -f` - View container logs
-- `docker compose down` - Stop and remove containers
-
 ## Environment Configuration
 
 Required environment variables in `.env` file:

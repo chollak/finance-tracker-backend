@@ -13,7 +13,7 @@ Finance Tracker Backend — это backend система для управле�
 - **AI**: OpenAI (Whisper `whisper-1` для транскрипции, `gpt-4.1-mini` для парсинга; модели — `WHISPER_MODEL` и `OPENAI_MODEL`)
 - **Bot**: Telegraf (Telegram Bot Framework)
 - **Frontend**: React + Vite
-- **Development**: ts-node-dev, Jest, Docker
+- **Development**: ts-node-dev, Jest
 
 ### Ключевые возможности
 
@@ -100,9 +100,6 @@ npm run serve
 
 # Tests
 npm test
-
-# Docker
-docker compose up -d --build
 ```
 
 ---

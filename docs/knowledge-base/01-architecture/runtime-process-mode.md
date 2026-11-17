@@ -26,12 +26,10 @@ npm run dev:backend
 npm run dev:full
 ```
 
-Current Docker Compose runtime:
+Live instance runtime (`ops/live/kapelka.service`, a systemd service in WSL; there is no Docker image since #325):
 
-```yaml
-services:
-  app:
-    command: default image CMD / npm start behavior
+```ini
+ExecStart=__APP_DIR__/scripts/nvm-exec.sh node dist/index.js
 ```
 
 There is currently one main process that runs API + static webapp + Telegram bot together.
@@ -60,7 +58,7 @@ Runs:
 Pros:
 
 - simplest deployment
-- one Docker service
+- one service
 - fewer env vars and operational concepts
 - good enough for MVP/small production
 
@@ -86,7 +84,7 @@ Pros:
 
 - preserves one build artifact
 - minimal deployment complexity increase
-- enables split Docker Compose/services later without duplicating bootstrap code
+- enables split services later without duplicating bootstrap code
 - worker/scheduler can be run as exactly one process
 - can disable bot in local/CI/staging without code changes
 
@@ -392,24 +390,9 @@ async function startWorker(modules) { ... }
 }
 ```
 
-For cross-platform local Windows support, use shell-specific handling later if needed. Docker/Linux can use direct env prefix.
+For cross-platform local Windows support, use shell-specific handling later if needed. Linux can use direct env prefix.
 
-5. Update Docker Compose only when split deployment is desired:
-
-```yaml
-services:
-  app:
-    environment:
-      - APP_MODE=api
-
-  bot:
-    environment:
-      - APP_MODE=bot
-
-  worker:
-    environment:
-      - APP_MODE=worker
-```
+5. Add separate systemd units only when split deployment is desired: one unit per mode, each with its own `Environment=APP_MODE=api|bot|worker` next to `ops/live/kapelka.service`.
 
 6. Add tests for mode dispatch before refactoring behavior.
 
@@ -420,7 +403,7 @@ This document intentionally does not:
 - implement `APP_MODE`
 - start a scheduler
 - invoke `processExpiredSubscriptions()` automatically
-- change Docker Compose runtime behavior
+- change the systemd unit of the live instance
 - change Telegram bot startup behavior
 - change current deploy topology
 

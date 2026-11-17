@@ -86,7 +86,7 @@ export function buildServer(
   // This ensures req.params is available when middleware runs.
   // Each router receives userModule and applies middleware to routes with :userId param.
 
-  // Health check: Docker, monitoring and the webapp's offline mode; 503 when the bot failed for good (FT-154)
+  // Health check: monitoring and the webapp's offline mode; 503 when the bot failed for good (FT-154)
   router.get('/health', createHealthHandler(getTelegramBotStatus));
 
   router.use(

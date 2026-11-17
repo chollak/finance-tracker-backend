@@ -10,7 +10,7 @@ import path from 'path';
  * Environment policy:
  * - Real secrets/config live in untracked `.env` or `.env.local`.
  * - `.env.local` is preferred for machine-specific local overrides.
- * - `.env` is the default local/docker env file.
+ * - `.env` is the default local env file.
  * - Existing process.env values keep highest priority because dotenv does not override by default.
  * - `.env.development` is intentionally not loaded; use `.env.local` instead.
  *
