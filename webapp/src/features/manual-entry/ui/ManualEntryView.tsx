@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type FocusEvent, type ReactNode, type RefObject } from 'react';
 import { cn } from '@/shared/lib/utils';
 import type { KeypadKey } from '@/shared/lib/money';
-import { BackButton, Button, CategoryTile, Keypad, Segmented, SkeletonBlock } from '@/shared/ui/pastel';
+import { BackButton, Button, CategoryTile, Keypad, ReadFailed, Segmented, SkeletonBlock } from '@/shared/ui/pastel';
 import type { EntryType, ManualEntryModel } from '../model/manualEntry';
 
 /** Whether a list the screen needs is there: read, being read, or failed to read. */
@@ -52,18 +52,6 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
       <h2 className="text-[13px] font-bold leading-[normal] tracking-normal text-ink-muted">{label}</h2>
       {children}
     </section>
-  );
-}
-
-/** A list that could not be read says what is missing where it would stand, and offers to read it again. */
-function ReadFailed({ what, onRetry }: { what: string; onRetry: () => void }) {
-  return (
-    <div className="flex min-h-control items-center justify-between gap-3 rounded-control bg-card px-4">
-      <p className="type-label text-ink-muted">{`Не получилось загрузить ${what}`}</p>
-      <Button variant="text" onClick={onRetry}>
-        Попробовать снова
-      </Button>
-    </div>
   );
 }
 
@@ -192,7 +180,7 @@ export function ManualEntryView({
           <>
             <Section label="Счёт">
               {accounts === 'failed' ? (
-                <ReadFailed what="счета" onRetry={onRetry} />
+                <ReadFailed layout="row" text="Не получилось загрузить счета" onRetry={onRetry} />
               ) : accounts === 'loading' ? (
                 <div aria-busy="true" className="grid grid-cols-3 gap-2">
                   {[0, 1, 2].map((index) => <SkeletonBlock key={index} className="h-control" radius="tile" />)}
@@ -230,7 +218,7 @@ export function ManualEntryView({
 
             <Section label="Категория">
               {categories === 'failed' ? (
-                <ReadFailed what="категории" onRetry={onRetry} />
+                <ReadFailed layout="row" text="Не получилось загрузить категории" onRetry={onRetry} offlineLine={accounts !== 'failed'} />
               ) : categories === 'loading' ? (
                 <div aria-busy="true" className="grid grid-cols-4 gap-2">
                   {Array.from({ length: 8 }, (_, index) => <SkeletonBlock key={index} className="h-key" radius="tile" />)}

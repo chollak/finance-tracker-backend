@@ -194,6 +194,8 @@ describe('while the lists are read or could not be read', () => {
 
     expect(text(html)).toContain('Не получилось загрузить категории');
     expect(buttonWith(html, 'Попробовать снова')).toBeDefined();
+    // With a connection there is no «Нет связи» line
+    expect(text(html)).not.toContain('Нет связи');
   });
 });
 

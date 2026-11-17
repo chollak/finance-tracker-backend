@@ -18,7 +18,7 @@ export default defineConfig({
         // Cache strategies. No rule for `/api/` (#322): the worker passes every API request to the network and never
         // answers one itself — a slow server is waited for, not replaced by an old copy. Without connection the app
         // opens on the reads it keeps per user (FT-129, `shared/lib/offline`). The cache an earlier version filled is
-        // deleted by the app at start (`dropLegacyApiCache`)
+        // deleted by the app at every start and at «Выйти» or a lost session (`dropLegacyApiCache`)
         runtimeCaching: [
           {
             // Static assets - Cache First

@@ -27,8 +27,10 @@ afterEach(() => {
   onlineManager.setOnline(true);
 });
 
-function watch(queryFn: () => Promise<unknown>, staleTime = 0) {
-  const observer = new QueryObserver(client, { queryKey: KEY, queryFn, staleTime });
+type Retry = boolean | number | ((failureCount: number, error: unknown) => boolean);
+
+function watch(queryFn: () => Promise<unknown>, options: { retry?: Retry; retryDelay?: number } = {}) {
+  const observer = new QueryObserver(client, { queryKey: KEY, queryFn, staleTime: 0, ...options });
   stops.push(observer.subscribe(() => {}));
   return observer;
 }
@@ -46,6 +48,22 @@ describe('without a connection', () => {
 
     expect(observer.getCurrentResult()).toMatchObject({ fetchStatus: 'idle', isPaused: false, error: NO_ANSWER });
     // Not tried again: there is no connection to try on
+    expect(queryFn).toHaveBeenCalledTimes(1);
+  });
+
+  // The account screen and a category of analytics retry by their own rule (not after a 404): the rule «no retry
+  // without a connection» is the client's, so it holds for them too
+  it.each<[string, Retry]>([
+    ['its own rule', (failures, error) => (error as { statusCode?: number }).statusCode !== 404 && failures < 2],
+    ['a number', 3],
+    ['true', true],
+  ])('a read that retries by %s fails at once too: no retry waits for the connection', async (_name, retry) => {
+    const queryFn = vi.fn(async () => Promise.reject(NO_ANSWER));
+    const observer = watch(queryFn, { retry, retryDelay: 1 });
+
+    await vi.waitFor(() => expect(observer.getCurrentResult().status).toBe('error'));
+
+    expect(observer.getCurrentResult()).toMatchObject({ fetchStatus: 'idle', isPaused: false });
     expect(queryFn).toHaveBeenCalledTimes(1);
   });
 
@@ -92,6 +110,29 @@ describe('with a connection', () => {
     await vi.waitFor(() => expect(observer.getCurrentResult().status).toBe('error'));
 
     expect(queryFn).toHaveBeenCalledTimes(2);
+  });
+
+  it.each<[string, Retry, number]>([
+    ['its own rule', (failures) => failures < 2, 3],
+    ['a number', 3, 4],
+    ['false', false, 1],
+  ])('a read that retries by %s retries as it says', async (_name, retry, asked) => {
+    const queryFn = vi.fn(async () => Promise.reject(NO_ANSWER));
+    const observer = watch(queryFn, { retry, retryDelay: 1 });
+
+    await vi.waitFor(() => expect(observer.getCurrentResult().status).toBe('error'));
+
+    expect(queryFn).toHaveBeenCalledTimes(asked);
+  });
+
+  it('without a connection an answer of the server is still judged by the read\'s own rule', async () => {
+    onlineManager.setOnline(false);
+    const queryFn = vi.fn(async () => Promise.reject({ message: 'Internal error', statusCode: 500 }));
+    const observer = watch(queryFn, { retry: false });
+
+    await vi.waitFor(() => expect(observer.getCurrentResult().status).toBe('error'));
+
+    expect(queryFn).toHaveBeenCalledTimes(1);
   });
 
   it('a read with nothing to show that loses the connection on the way fails; it does not wait to try again', async () => {
