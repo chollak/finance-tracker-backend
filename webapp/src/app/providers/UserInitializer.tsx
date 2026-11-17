@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { readSession, useUserStore } from '@/entities/user';
-import { forgetCachedResponses, onMiniAppRefused, onSessionLost } from '@/shared/api';
+import { dropLegacyApiCache, forgetCachedResponses, onMiniAppRefused, onSessionLost } from '@/shared/api';
 import { env } from '@/shared/config/env';
 import { useUndoToastStore } from '@/shared/lib/undo';
 
@@ -12,8 +12,10 @@ import { useUndoToastStore } from '@/shared/lib/undo';
  * 3. A browser — the session the bot confirmed (`GET /api/auth/session`, an httpOnly cookie); without one the login
  *    screen. A browser that cannot reach the server keeps the user it had, so the app still opens.
  * Later a 401 outside Telegram means the session ended (or «Выйти» in another tab): the login screen again. A browser
- * left without its session also forgets the API answers the service worker kept for it: routes such as `/api/accounts`
- * don't name the user, and the next account here must not be served them.
+ * left without its session also forgets the answers kept on the device for it (the reads of the offline mode, FT-129):
+ * the next account here must find nothing of the last one's.
+ * At every start, whoever opens the app, the API cache an earlier service worker left is deleted (#322): the worker
+ * keeps no API answers any more.
  * Inside Telegram a 401 means the server no longer takes the Mini App's initData (#316: it lives 24 hours, Telegram
  * renews it only when the Mini App is opened again): «Откройте Kapelka заново». The user, the kept answers and the
  * outbox stay — the same account comes back with the new initData, and the waiting records go then.
@@ -61,6 +63,7 @@ export function UserInitializer() {
       }
     }
 
+    void dropLegacyApiCache();
     void initialize();
 
     onSessionLost(() => {

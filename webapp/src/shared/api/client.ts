@@ -118,7 +118,8 @@ class ApiClient {
           ...options.headers,
         },
       });
-      // The server answered a write (FT-129). A read may come from the service worker's cache, so it does not count
+      // The server answered a write (FT-129). Only a write brings the connection back here; while it is lost, the health
+      // check asks for it (`serverAnswers`). A read is left out as before #322, when the service worker could answer it
       if (options.method && options.method !== 'GET' && answeredByServer(response)) connectionReached();
 
       if (!response.ok) {
@@ -227,7 +228,7 @@ class ApiClient {
 export const apiClient = new ApiClient();
 
 /**
- * Whether the server answers at all (FT-129): `GET /api/health`, which the service worker never answers from its cache.
+ * Whether the server answers at all (FT-129): `GET /api/health`. The service worker answers no API request itself (#322).
  * The offline mode asks it while the server is not answering, to know when it is back. Its own JSON 503 — the bot is
  * down (FT-154) — is still the server answering.
  */

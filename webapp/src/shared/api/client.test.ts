@@ -214,7 +214,7 @@ describe('whether a write reached the server (FT-129)', () => {
     expect(await serverAnswers()).toBe(false);
   });
 
-  it('a read never does: the service worker may answer it from its cache', async () => {
+  it('a read never does: only a write and the health check bring the connection back', async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ success: true, data: [] }), { status: 200, headers: json }));
     const { apiClient } = await client();
     const { useConnectivityStore } = await import('@/shared/lib/offline/connectivity');
