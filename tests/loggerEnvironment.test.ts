@@ -6,7 +6,12 @@ import path from 'path';
  * FT-165: the Winston logger is created when `logger.ts` is first imported — in src/index.ts that is before
  * `appConfig.ts`, which used to load `.env.local` / `.env`. So LOG_LEVEL and NODE_ENV from the env file never reached
  * the logger. The env file is now loaded by `loadEnvironment.ts`, imported first by both.
+ *
+ * Every other test file gets an empty module in place of the loader (`tests/setup/env.ts`, #393); this one tests the
+ * loader itself, against env files in a scratch folder, so it takes the real one back.
  */
+jest.unmock('../src/shared/infrastructure/config/loadEnvironment');
+
 describe('the env file is loaded before the logger is created (FT-165)', () => {
   const saved = { ...process.env };
   let dir: string;
