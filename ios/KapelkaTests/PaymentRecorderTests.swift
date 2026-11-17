@@ -293,6 +293,35 @@ final class PaymentRecorderTests {
         #expect(try await harness.transport.paymentBodies().map(\.currency) == ["UZS"])
     }
 
+    @Test("сумма числом без «Кода валюты»: валюта карты из настроек важнее валюты автоматизации (#398)")
+    func numberCardCurrency() async throws {
+        let harness = try QueueHarness()
+        let (recorder, cards) = try makeRecorder(harness)
+        cards.noticed("Visa Kapitalbank")
+        try cards.save([CardAccount(card: "Visa Kapitalbank", account: "", currency: .usd)], removing: [])
+
+        try await recorder.record(PaymentInput(amountNumber: 4.5, currency: .uzs, merchant: "APPLE.COM/BILL", card: "Visa Kapitalbank"))
+        try await recorder.record(PaymentInput(amountNumber: 4.5, currency: .usd, merchant: "Shop", card: "Humo"))
+
+        let bodies = try await harness.transport.paymentBodies()
+        #expect(bodies.map(\.amount) == ["4.50", "4.50"])
+        #expect(bodies.map(\.currency) == ["USD", "USD"])
+    }
+
+    @Test("«Код валюты» из Wallet важнее валюты карты (#398)")
+    func walletCodeNumberBeforeCardCurrency() async throws {
+        let harness = try QueueHarness()
+        let (recorder, cards) = try makeRecorder(harness)
+        cards.noticed("TBC Uzbekistan")
+        try cards.save([CardAccount(card: "TBC Uzbekistan", account: "", currency: .usd)], removing: [])
+
+        try await recorder.record(PaymentInput(amountNumber: 28_000, amountCurrency: "UZS", merchant: "Shop", card: "TBC Uzbekistan"))
+
+        let body = try #require(try await harness.transport.paymentBodies().first)
+        #expect(body.amount == "28000.00")
+        #expect(body.currency == "UZS")
+    }
+
     @Test("у карты нет валюты — валюта автоматизации; нет и её — не отправлено, причина про валюту карты")
     func automationCurrencyThenNothing() async throws {
         let harness = try QueueHarness()

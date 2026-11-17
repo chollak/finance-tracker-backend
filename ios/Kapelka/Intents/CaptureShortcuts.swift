@@ -112,6 +112,13 @@ struct KapelkaShortcuts: AppShortcutsProvider {
 /// «Записать оплату» for the Wallet automation «Транзакция» (FT-179). iOS lets no app create that automation: it is set
 /// up once by hand (the settings show how), each field taken from «Ввод команды». Runs without opening the app, so
 /// «Выполнять сразу» needs no tap; the payment is on the phone before anything is sent, its result a notification.
+///
+/// The amount comes as a number and «Код валюты» as text (#398), never as the text «28 000,00 UZS»: Shortcuts make that
+/// text themselves and crash on it (SIGABRT in `WFCurrencyAmountContentItem`'s string coercion) when Wallet has no
+/// amount yet, before the command runs. To a number field they give 0 then. A currency amount field
+/// (`IntentCurrencyAmount`) would get the same number — Shortcuts make it a `Double` for both — but not Wallet's
+/// currency: its code is the field's own, or none. The old text field keeps its key `amount`, so an automation not set up
+/// again still works as before.
 struct RecordPaymentIntent: AppIntent {
     static var title: LocalizedStringResource { "Записать оплату" }
     static var description: IntentDescription {
@@ -119,8 +126,14 @@ struct RecordPaymentIntent: AppIntent {
     }
     static var openAppWhenRun: Bool { false }
 
-    @Parameter(title: "Сумма", description: "«Ввод команды» → сумма, как её даёт Wallet: «28 000,00 UZS».")
-    var amount: String?
+    @Parameter(title: "Сумма", description: "«Ввод команды» → «Сумма».")
+    var amountNumber: Double?
+
+    @Parameter(
+        title: "Код валюты",
+        description: "«Ввод команды» → «Тип»: «Сумма в валюте» → «Код валюты». Без него — валюта карты в настройках Kapelka."
+    )
+    var amountCurrency: String?
 
     @Parameter(title: "Магазин", description: "«Ввод команды» → продавец.")
     var merchant: String?
@@ -130,21 +143,38 @@ struct RecordPaymentIntent: AppIntent {
 
     @Parameter(
         title: "Валюта",
-        description: "Только если в сумме нет кода и все карты автоматизации в одной валюте. Иначе — валюта карты в настройках Kapelka."
+        description: "Только если Wallet не дал кода валюты и все карты автоматизации в одной валюте. Иначе — валюта карты в настройках Kapelka."
     )
     var currency: PaymentCurrency?
 
+    @Parameter(
+        title: "Сумма текстом (старое)",
+        description: "Прежнее поле — очисти его: с суммой текстом быстрые команды падают, когда Wallet ещё не знает суммы."
+    )
+    var amount: String?
+
     static var parameterSummary: some ParameterSummary {
-        Summary("Записать оплату \(\.$amount) в \(\.$merchant) с карты \(\.$card)") {
+        Summary("Записать оплату \(\.$amountNumber) \(\.$amountCurrency) в \(\.$merchant) с карты \(\.$card)") {
             \.$currency
+            \.$amount
         }
+    }
+
+    var input: PaymentInput {
+        PaymentInput(
+            amount: amount,
+            amountNumber: amountNumber,
+            amountCurrency: amountCurrency,
+            currency: currency,
+            merchant: merchant,
+            card: card
+        )
     }
 
     /// No dialog and no output value: the automation must need no tap (Shukur's decision of 2026-10-30). A dialog waits
     /// for «Готово» after each payment, a value makes iOS ask «Allow … to output» when another app runs the command.
     /// The result comes as a notification that goes away by itself.
     func perform() async throws -> some IntentResult {
-        let input = PaymentInput(amount: amount, currency: currency, merchant: merchant, card: card)
         try await AppServices.shared.payments.record(input)
         return .result()
     }
