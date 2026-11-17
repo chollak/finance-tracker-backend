@@ -83,7 +83,7 @@ struct CardAccountsFormTests {
         await form.load()
 
         #expect(form.selection(of: "TBC Uzbekistan") == .stale)
-        #expect(form.staleLabel(of: "TBC Uzbekistan") == "Карта ТБС — нет такого счёта")
+        #expect(form.staleLabel(of: "TBC Uzbekistan") == "Нет такого счёта")
         #expect(form.note(for: "TBC Uzbekistan") == CardAccountNote(
             text: "Счёта «Карта ТБС» нет в Kapelka — выбери из списка. "
                 + "Пока он не выбран, оплаты придут с пометкой «Нужно проверить».",
@@ -103,7 +103,7 @@ struct CardAccountsFormTests {
         await form.load()
 
         #expect(form.selection(of: "Humo") == .stale)
-        #expect(form.staleLabel(of: "Humo") == "Старая карта — скрыт")
+        #expect(form.staleLabel(of: "Humo") == "Счёт скрыт")
         #expect(form.note(for: "Humo") == CardAccountNote(
             text: "Счёт «Старая карта» скрыт в Kapelka — выбери другой. "
                 + "Пока он не выбран, оплаты придут с пометкой «Нужно проверить».",
@@ -134,7 +134,7 @@ struct CardAccountsFormTests {
 
         #expect(form.selection(of: "TBC Uzbekistan") == .account("acc-usd"))
         #expect(form.selection(of: "Humo") == .stale)
-        #expect(form.staleLabel(of: "Humo") == "Зарплатная — нет такого счёта")
+        #expect(form.staleLabel(of: "Humo") == "Нет такого счёта")
     }
 
     // MARK: - Список недоступен

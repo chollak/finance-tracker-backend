@@ -72,12 +72,12 @@ final class CardAccountsForm {
         return row.account.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .none : .stale
     }
 
-    /// «Карта ТБС — нет такого счёта»: the picker's item for a saved name that is not on offer; `nil` without one.
+    /// «Нет такого счёта», «Счёт скрыт»: the picker's item for a saved name that is not on offer; `nil` without one.
     func staleLabel(of card: String) -> String? {
-        guard selection(of: card) == .stale, let row = row(card) else { return nil }
+        guard selection(of: card) == .stale else { return nil }
         switch issues[card] {
-        case let .hidden(name): return "\(name) — скрыт"
-        default: return "\(row.account.trimmingCharacters(in: .whitespacesAndNewlines)) — нет такого счёта"
+        case .hidden: return "Счёт скрыт"
+        default: return "Нет такого счёта"
         }
     }
 

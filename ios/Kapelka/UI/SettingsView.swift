@@ -184,6 +184,8 @@ struct SettingsView: View {
                         Text("Доллар").tag(PaymentCurrency?.some(.usd))
                     }
                 }
+                // The note's icon would move the row's separator in to the note's text
+                .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
             }
             .onDelete { cardAccounts.remove(at: $0) }
         } header: {
