@@ -127,10 +127,11 @@ function overspendMinor(totals: PeriodTotals, currency: Currency, rateMinor: num
 /**
  * The one line under the balance (design-system «Выводы вместо голых цифр»), with a bar:
  * - expenses up to the income — «В октябре потрачено 47% дохода», the bar filled as much;
- * - expenses over the income (#368) — «В октябре расходы больше дохода на 1 250 000 сум», the bar full: a
- *   share of 299% or 1000% says nothing. The sums are compared, not the rounded share, and the amount is in
- *   the currency of «Сум / USD», as the month tiles. A difference too small to show («0 сум», «0,00 USD»)
- *   stays a share, 100%;
+ * - expenses over the income (#368) — «Расходы больше дохода на 1 250 000 сум», the bar full: a share of
+ *   299% or 1000% says nothing. The month is not named (#412): it is on the tiles below, and with it the
+ *   line took two at 390px and Home moved down after its skeleton. The sums are compared, not the rounded
+ *   share, and the amount is in the currency of «Сум / USD», as the month tiles. A difference too small to
+ *   show («0 сум», «0,00 USD») stays a share, 100%;
  * - no income this month — there is no share to name, so the line says what will appear here, as on the
  *   board after the first launch.
  */
@@ -141,7 +142,7 @@ export function spendShare(totals: PeriodTotals, month: number, display: Display
   const currency = shownCurrency(display);
   const over = formatMinor(overspendMinor(totals, currency, display.rateMinor), currency);
   if (totals.expenseMinor > totals.incomeMinor && over !== formatMinor(0, currency)) {
-    return { kind: 'over', lead: `В ${monthNameIn(month)} расходы больше дохода на`, amount: over, barPercent: 100 };
+    return { kind: 'over', lead: 'Расходы больше дохода на', amount: over, barPercent: 100 };
   }
   const percent = Math.round((totals.expenseMinor * 100) / totals.incomeMinor);
   return {

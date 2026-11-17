@@ -222,10 +222,10 @@ describe('the line under the balance', () => {
     });
   });
 
-  it('says by how much the expenses are over the income instead of a share past 100% (#368), the bar full', () => {
+  it('says by how much the expenses are over the income instead of a share past 100% (#368), the bar full; without the month, so the line stays one (#412)', () => {
     expect(spendShare(totals(100_000_000, 130_000_000), 5)).toEqual({
       kind: 'over',
-      lead: 'В мае расходы больше дохода на',
+      lead: 'Расходы больше дохода на',
       amount: `300${NBSP}000${NBSP}сум`,
       barPercent: 100,
     });
@@ -239,7 +239,7 @@ describe('the line under the balance', () => {
   it('ten times the income is an amount too, not 1000%', () => {
     expect(spendShare(totals(125_000_000, 1_250_000_000), 11)).toMatchObject({
       kind: 'over',
-      lead: 'В ноябре расходы больше дохода на',
+      lead: 'Расходы больше дохода на',
       amount: `11${NBSP}250${NBSP}000${NBSP}сум`,
     });
   });
