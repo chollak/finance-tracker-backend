@@ -41,7 +41,7 @@ export function probeFetch(trial: RequestTrial = {}, send: Fetch = globalThis.fe
         probe.failure = undefined;
         return response;
       } catch (error) {
-        probe.failure = error instanceof Error ? error.name : 'request failed';
+        probe.failure = `нет соединения${error instanceof Error ? `, ${error.name}` : ''}`;
         throw error;
       }
     },

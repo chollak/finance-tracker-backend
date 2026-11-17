@@ -382,7 +382,7 @@
       },
       "knownIssue": {
         "issue": 300,
-        "note": "Промпт отправляет «25го» в текущий или следующий месяц, дата ответа не проверяется: запись в будущем.",
+        "note": "Промпт отправляет «25го» в текущий или следующий месяц, дата ответа не проверяется: запись в будущем. Чинящему #300: вместе с кодом или промптом обновите и записанный ответ `ai` (в нём 2026-11-25) — с ним ожидаемое 2026-10-25 недостижимо.",
         "now": {
           "records": [
             {"type":"expense","semanticType":"expense","amountMinor":32000000,"currency":"UZS","date":"2026-11-25","category":"Дом","account":"Карта","needsReview":false}
@@ -738,6 +738,60 @@
           ],
           "withoutAmount": []
         }
+      }
+    },
+    {
+      "id": "cashback-point-thousands",
+      "phrase": "кэшбэк 1.500",
+      "covers": "точка-разделитель тысяч у дохода: без её чтения было бы 1,5 сум — правило «45 → 45 000» доход не трогает",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"income","semanticType":"income","amountMinor":150000,"currency":"UZS","date":"2026-11-18","category":"Кэшбэк","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "groceries-point-millions",
+      "phrase": "продукты 1.250.000",
+      "covers": "две точки-разделителя тысяч в одной сумме",
+      "ai": null,
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":125000000,"currency":"UZS","date":"2026-11-18","category":"Продукты","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "ai-reads-point-as-fraction",
+      "phrase": "взял кофе и булочку за 25.000",
+      "covers": "ответ ИИ, прочитавший «25.000» как дробь 25: сумма берётся из текста",
+      "ai": { "items": [
+        {"intent":"transaction","amount":25,"currency":"UZS","account":null,"category":"Кафе","type":"expense","semanticType":"expense","needsReview":false,"date":"2026-11-18","merchant":null,"confidence":0.9,"description":"кофе и булочка"}
+      ] },
+      "aiSource": "constructed",
+      "expected": {
+        "records": [
+          {"type":"expense","semanticType":"expense","amountMinor":2500000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false}
+        ],
+        "withoutAmount": []
+      }
+    },
+    {
+      "id": "returned-read-as-income",
+      "phrase": "мне вернули за билет 80000",
+      "covers": "ответ ИИ, прочитавший «вернули» обычным доходом: запись идёт с «Нужно проверить»",
+      "ai": { "items": [
+        {"intent":"transaction","amount":80000,"currency":"UZS","account":null,"category":"Возврат","type":"income","semanticType":"income","needsReview":false,"date":"2026-11-18","merchant":null,"confidence":0.9,"description":"билет"}
+      ] },
+      "aiSource": "constructed",
+      "expected": {
+        "records": [
+          {"type":"income","semanticType":"income","amountMinor":8000000,"currency":"UZS","date":"2026-11-18","category":"Возврат","account":"Карта","needsReview":true}
+        ],
+        "withoutAmount": []
       }
     }
   ]

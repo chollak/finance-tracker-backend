@@ -5,7 +5,7 @@
 
 ## Что это
 
-`tests/fixtures/capturePhrases.json` — 50 типичных фраз: кофе, такси, «вчера», «в пятницу», «нал», «$», «25.000»,
+`tests/fixtures/capturePhrases.json` — 54 типичные фразы: кофе, такси, «вчера», «в пятницу», «нал», «$», «25.000»,
 «25к», «1,5 млн», голое «45», две и три траты, позиция без суммы, перевод себе, «мне вернули», зарплата, голосовая
 расшифровка с числами словами, опечатки, узбекские слова. **Фразы придуманы** — репозиторий публичный, из живой базы
 сюда ничего не берётся.
@@ -44,6 +44,8 @@ scripts/nvm-exec.sh npm run eval:capture -- --repeat=3         # каждую ф
 scripts/nvm-exec.sh npm run eval:capture -- --only=two-items,friday-dinner
 scripts/nvm-exec.sh npm run eval:capture -- --repeat=3 --temperature=0 --schema   # проба параметров запроса
 scripts/nvm-exec.sh npm run eval:capture -- --json=/tmp/eval.json                 # итог и ответы модели в файл
+scripts/nvm-exec.sh npm run eval:capture -- --jobs=1           # фраз одновременно: 1–8, по умолчанию 4
+scripts/nvm-exec.sh npm run eval:capture -- --help             # справка по параметрам
 ```
 
 - Ключ — `OPENAI_API_KEY` из окружения или `.env.local` / `.env` копии. Без ключа — сообщение и код выхода 2. Ключ,
@@ -83,7 +85,7 @@ scripts/nvm-exec.sh npm run eval:capture -- --json=/tmp/eval.json               
 
 ## Проба `temperature: 0` и строгой схемы (2026-11-18)
 
-Модель `gpt-4.1-mini`, 31 фраза набора идёт в ИИ, по 3 повтора — 93 прогона на вариант.
+Модель `gpt-4.1-mini`; набор на день пробы — 50 фраз, 31 из них идёт в ИИ, по 3 повтора — 93 прогона на вариант.
 
 | | как в приложении | `temperature: 0` | схема | `temperature: 0` + схема |
 |---|---|---|---|---|

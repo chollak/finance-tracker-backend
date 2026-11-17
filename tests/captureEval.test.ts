@@ -107,7 +107,7 @@ describe('eval:capture (#307)', () => {
     expect(report).toMatch(/категория: 1\n/);
     expect(report).toMatch(/«Нужно проверить»: 1\n/);
     expect(report).toMatch(/сумма: 0\n/);
-    expect(report).toContain('прогон 2: −25000.00 UZS Другое 2026-11-18 Карта [проверить]; −18000.00 UZS Другое 2026-11-18 Карта [проверить] — расходится: категория, «Нужно проверить»');
+    expect(report).toContain('прогон 2: −25 000,00 UZS Другое 2026-11-18 Карта [проверить]; −18 000,00 UZS Другое 2026-11-18 Карта [проверить] — расходится: категория, «Нужно проверить»');
     // The fast-path phrase is read once, whatever --repeat is
     expect(report).toContain('Быстрый путь (без ИИ): 1 фраз, совпало 1 из 1');
   });

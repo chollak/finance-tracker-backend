@@ -56,10 +56,16 @@ export function differences(expected: CaptureOutcome, actual: CaptureOutcome): F
   return FIELDS.filter(field => found.has(field));
 }
 
+/** «25 000,00»: minor units as an amount with its thousands in groups. */
+function amountOf(amountMinor: number): string {
+  const [whole, fraction] = (Math.abs(amountMinor) / 100).toFixed(2).split('.');
+  return `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')},${fraction}`;
+}
+
 /** One outcome as a line of a report: «−25 000,00 UZS Кафе 2026-11-18 Карта». Made of the set's invented phrases only. */
 export function describeOutcome(outcome: CaptureOutcome): string {
   const records = outcome.records.map(record => [
-    `${record.type === 'income' ? '+' : '−'}${(record.amountMinor / 100).toFixed(2)} ${record.currency}`,
+    `${record.type === 'income' ? '+' : '−'}${amountOf(record.amountMinor)} ${record.currency}`,
     record.category,
     record.semanticType === record.type ? '' : `(${record.semanticType})`,
     record.date,
