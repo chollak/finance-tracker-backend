@@ -30,9 +30,12 @@ enum MoneyText {
             body = "\(grouped(magnitude / 100)),\(cents < 10 ? "0" : "")\(cents)"
         }
         let prefix = minor < 0 ? minus : (sign == .always && minor > 0 ? "+" : "")
-        // «сум» for сумы; «USD» and any other code as it is
-        let unit = currency == "UZS" ? "сум" : currency
-        return "\(prefix)\(body)\(nonBreakingSpace)\(unit)"
+        return "\(prefix)\(body)\(nonBreakingSpace)\(unit(currency))"
+    }
+
+    /// «сум» for сумы; «USD» and any other code as it is.
+    static func unit(_ currency: String) -> String {
+        currency == "UZS" ? "сум" : currency
     }
 
     /// `28000` → «28 000», groups by a non-breaking space.

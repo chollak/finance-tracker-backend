@@ -4,16 +4,21 @@ import Foundation
 /// names none: one automation serves several cards, so its own «Валюта» cannot tell a dollar card from a сум one.
 struct CardAccount: Codable, Equatable, Identifiable, Sendable {
     let card: String
+    /// The account's name: what goes to the server as `accountName`.
     var account: String
+    /// The id of the account chosen from the server's list (#415): by it a rename on the server is seen. `nil` for a
+    /// name typed by hand — in a build before #415, or while the list was away — until the list finds its account.
+    var accountId: String?
     /// `nil` — «Как в сумме»: an amount without a code takes the currency chosen in the automation
     /// (`PaymentRecorder`). A mapping saved before FT-179's review has none either.
     var currency: PaymentCurrency?
 
     var id: String { card }
 
-    init(card: String, account: String, currency: PaymentCurrency? = nil) {
+    init(card: String, account: String, accountId: String? = nil, currency: PaymentCurrency? = nil) {
         self.card = card
         self.account = account
+        self.accountId = accountId
         self.currency = currency
     }
 }
@@ -24,10 +29,10 @@ enum CardAccountError: Error, Equatable {
 }
 
 /// Wallet cards → Kapelka accounts (FT-179), in the app's `UserDefaults`. A card appears by itself with its first
-/// payment; the account's name is typed by hand in the settings. The app does read the list of accounts since FT-218
-/// (`RecordsFeed.accounts`) — for the rows of «Записи» and the card on «Записать» — but the settings offer no choice
-/// from it. The server takes the name only as an account's whole name (`docs/QUICK_CAPTURE_API.md`, «What is
-/// written»), otherwise the default account and «проверить счёт».
+/// payment; its account is chosen in the settings from the server's accounts (#415, `CardAccountsForm`) and kept as
+/// the account's name with its id — typed by hand only while the list is away. The server takes the name only as an
+/// account's whole name (`docs/QUICK_CAPTURE_API.md`, «What is written»), otherwise the default account and «Нужно
+/// проверить»; the id never leaves the phone. A mapping of a build before #415 has no ids and reads as it is.
 final class CardAccountStore: @unchecked Sendable {
     /// The server's limit on `accountName`.
     static let accountLimit = 100
@@ -82,9 +87,26 @@ final class CardAccountStore: @unchecked Sendable {
                 .map { stored -> CardAccount in
                     guard let edit = edited[stored.card] else { return stored }
                     let account = edit.account.trimmingCharacters(in: .whitespacesAndNewlines)
-                    return CardAccount(card: stored.card, account: account, currency: edit.currency)
+                    return CardAccount(
+                        card: stored.card,
+                        account: account,
+                        accountId: account.isEmpty ? nil : edit.accountId,
+                        currency: edit.currency
+                    )
                 }
             store(cards)
+        }
+    }
+
+    /// The server's accounts were read (#415): a card follows its account by the id — renamed on the server, the next
+    /// payment goes with the new name — and a name typed by hand that is an account's whole name gets its id. A card
+    /// whose account is hidden or not there stays as saved: the settings say so (`CardAccountChoice`).
+    func reconcile(with accounts: [RecordAccount]) {
+        lock.withLock {
+            let cards = load()
+            let reconciled = cards.map { CardAccountChoice.resolve($0, in: accounts).card }
+            guard reconciled != cards else { return }
+            store(reconciled)
         }
     }
 

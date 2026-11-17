@@ -14,8 +14,8 @@ struct SettingsView: View {
     @State private var token = ""
     /// Read from Keychain once, as the sheet opens (#284) — not on each redraw, which is each letter typed.
     @State private var hasToken = false
-    @State private var cards: [CardAccount]
-    @State private var removedCards: Set<String> = []
+    /// «Карты → счета»: the cards as edited and the server's accounts to choose from (#415).
+    @State private var cardAccounts: CardAccountsForm
     @State private var checkLine = ConnectionCheckLine()
     @State private var error: String?
     @FocusState private var addressFocused: Bool
@@ -25,7 +25,7 @@ struct SettingsView: View {
     init(model: AppModel) {
         self.model = model
         _address = State(initialValue: model.services.settings.address?.absoluteString ?? "")
-        _cards = State(initialValue: model.cards)
+        _cardAccounts = State(initialValue: CardAccountsForm(cards: model.cards) { await model.cardAccounts() })
     }
 
     var body: some View {
@@ -152,38 +152,105 @@ struct SettingsView: View {
         .tint(.primary)
         // Once per opening: «Журнал команд» and back stays in this stack
         .onAppear { hasToken = model.hasToken }
+        // With the saved address and token: the fields above count from «Сохранить»
+        .task { await cardAccounts.load() }
     }
 
     private var cardsSection: some View {
         Section {
-            if cards.isEmpty {
+            if cardAccounts.rows.isEmpty {
                 Text("Карта появится здесь после первой оплаты Apple Pay.")
                     .foregroundStyle(.secondary)
+            } else {
+                accountListState
             }
-            ForEach($cards) { $row in
+            ForEach(cardAccounts.rows) { row in
                 VStack(alignment: .leading, spacing: 8) {
-                    LabeledContent(row.card) {
-                        TextField("Счёт", text: $row.account)
-                            .multilineTextAlignment(.trailing)
-                            .autocorrectionDisabled()
+                    Text(row.card)
+                        .font(.headline)
+                    accountField(row)
+                    if let note = cardAccounts.note(for: row.card) {
+                        Label {
+                            Text(note.text)
+                        } icon: {
+                            Image(systemName: note.isWarning ? "exclamationmark.circle" : "info.circle")
+                                .foregroundStyle(note.isWarning ? Color.orange : Color.secondary)
+                        }
+                        .font(.footnote)
                     }
-                    Picker("Валюта", selection: $row.currency) {
+                    Picker("Валюта", selection: currency(of: row)) {
                         Text("Как в сумме").tag(PaymentCurrency?.none)
                         Text("Сум").tag(PaymentCurrency?.some(.uzs))
                         Text("Доллар").tag(PaymentCurrency?.some(.usd))
                     }
                 }
             }
-            .onDelete { offsets in
-                removedCards.formUnion(offsets.map { cards[$0].card })
-                cards.remove(atOffsets: offsets)
-            }
+            .onDelete { cardAccounts.remove(at: $0) }
         } header: {
             Text("Карты → счета")
         } footer: {
-            Text("Имя счёта целиком, как в Kapelka. Пусто или не совпало — оплата ляжет на счёт по умолчанию "
-                + "с пометкой «проверить счёт». Валюта карты — для суммы, в которой Wallet не пишет код.")
+            Text("Счёт — из счетов Kapelka. Без счёта оплата ляжет на счёт по умолчанию с пометкой «Нужно "
+                + "проверить». Валюта карты — для суммы, в которой Wallet не пишет код.")
         }
+    }
+
+    /// Over the cards: the list of accounts is on its way, or why it did not come.
+    @ViewBuilder private var accountListState: some View {
+        switch cardAccounts.list {
+        case .loading:
+            HStack(spacing: 8) {
+                ProgressView()
+                Text("Загружаю счета…")
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
+        case .loaded:
+            EmptyView()
+        case let .failed(failure):
+            Text(CardAccountsForm.failureText(failure))
+            Button("Повторить") {
+                Task { await cardAccounts.load() }
+            }
+        }
+    }
+
+    /// The card's account: chosen from the server's accounts; typed by hand while they are away; as saved while they
+    /// are on their way.
+    @ViewBuilder
+    private func accountField(_ row: CardAccount) -> some View {
+        switch cardAccounts.list {
+        case .loading:
+            LabeledContent("Счёт", value: row.account.isEmpty ? "Не выбран" : row.account)
+        case let .loaded(accounts):
+            Picker("Счёт", selection: Binding(
+                get: { cardAccounts.selection(of: row.card) },
+                set: { cardAccounts.choose($0, for: row.card) }
+            )) {
+                Text("Не выбран").tag(CardAccountsForm.Selection.none)
+                if let stale = cardAccounts.staleLabel(of: row.card) {
+                    Text(stale).tag(CardAccountsForm.Selection.stale)
+                }
+                ForEach(accounts) { account in
+                    Text(CardAccountChoice.label(account)).tag(CardAccountsForm.Selection.account(account.id))
+                }
+            }
+        case .failed:
+            LabeledContent("Счёт") {
+                TextField("Имя счёта", text: Binding(
+                    get: { row.account },
+                    set: { cardAccounts.type($0, for: row.card) }
+                ))
+                .multilineTextAlignment(.trailing)
+                .autocorrectionDisabled()
+            }
+        }
+    }
+
+    private func currency(of row: CardAccount) -> Binding<PaymentCurrency?> {
+        Binding(
+            get: { row.currency },
+            set: { cardAccounts.setCurrency($0, for: row.card) }
+        )
     }
 
     private func check() {
@@ -201,7 +268,12 @@ struct SettingsView: View {
     private func save() {
         Task {
             do throws(SettingsError) {
-                try await model.saveSettings(address: address, token: token, cards: cards, removedCards: removedCards)
+                try await model.saveSettings(
+                    address: address,
+                    token: token,
+                    cards: cardAccounts.rows,
+                    removedCards: cardAccounts.removed
+                )
                 dismiss()
             } catch {
                 self.error = SettingsMessage.text(for: error)

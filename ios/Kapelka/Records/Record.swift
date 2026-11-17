@@ -108,11 +108,31 @@ extension RecordCategory {
     }
 }
 
-/// An account of `GET /api/accounts` (FT-101), only for its name in the row «категория · счёт» (FT-220): balances
-/// and the total stay in the Mini App. Hidden ones come too — their records keep their account's name.
+/// An account of `GET /api/accounts` (FT-101): its name for the row «категория · счёт» (FT-220), its currency and
+/// whether it is hidden for the choice of a card's account in the settings (#415). Balances and the total stay in the
+/// Mini App. Hidden ones come too — their records keep their account's name.
 struct RecordAccount: Codable, Equatable, Identifiable, Sendable {
     let id: String
     let name: String
+    /// `UZS` or `USD`; `nil` when the server did not say.
+    let currency: String?
+    /// Hidden: the server takes no payment into it by its name.
+    let isHidden: Bool
+
+    init(id: String, name: String, currency: String? = nil, isHidden: Bool = false) {
+        self.id = id
+        self.name = name
+        self.currency = currency
+        self.isHidden = isHidden
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        currency = try container.decodeIfPresent(String.self, forKey: .currency)
+        isHidden = try container.decodeIfPresent(Bool.self, forKey: .isHidden) ?? false
+    }
 }
 
 /// `GET /api/accounts` answers `{ accounts, totalMinor, rate, missingRate }`.

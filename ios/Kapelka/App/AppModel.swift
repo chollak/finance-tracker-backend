@@ -165,6 +165,18 @@ final class AppModel {
         services.cards.cards
     }
 
+    /// The server's accounts for «Карты → счета» (#415), hidden ones too. The saved cards follow them at once
+    /// (`CardAccountStore.reconcile`): a rename on the server must not wait for «Сохранить» to reach the next payment.
+    func cardAccounts() async -> Result<[RecordAccount], RecordsFailure> {
+        do throws(RecordsFailure) {
+            let accounts = try await services.records.accounts()
+            services.cards.reconcile(with: accounts)
+            return .success(accounts)
+        } catch {
+            return .failure(error)
+        }
+    }
+
     /// Every field is checked before any is written. A payment waiting on the phone goes with the new account; a card's
     /// currency counts from the next payment, since a payment's amount is read when it lands in the queue.
     func saveSettings(
