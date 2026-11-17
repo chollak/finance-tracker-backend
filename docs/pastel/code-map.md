@@ -44,8 +44,8 @@ presentation` внутри каждого модуля `src/modules/`; прав�
 
 **Данные.** TypeORM + SQLite (`data/database.sqlite`); схема меняется только миграциями
 (`src/shared/infrastructure/database/migrations/`), они применяются при старте после копии базы в `data/backups/`;
-`synchronize` выключен (Д6, FT-090). Пути `supabase-js` в `src/` нет; SQL Supabase в корневой `migrations/` и
-скрипты `supabase:*` остались от проекта на паузе. Таблицы: `transactions`, `categories`, `accounts`,
+`synchronize` выключен (Д6, FT-090). Пути `supabase-js` в `src/` нет; SQL Supabase из корневой `migrations/` и
+скрипты `supabase:*` удалены в #324. Таблицы: `transactions`, `categories`, `accounts`,
 `account_moves`, `fx_rates`, `users`, `user_settings`, `subscriptions`, `usage_limits`, `bot_messages`,
 `handled_messages`, `notifications_log`, `login_tokens`, `audits`, `goals`; `budgets`, `debts` и `debt_payments`
 остались с прежними строками, код их не читает.

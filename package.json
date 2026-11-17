@@ -28,8 +28,6 @@
     "migration:show": "npm run build && node dist/shared/infrastructure/database/migrate.js show",
     "migration:run": "npm run build && node dist/shared/infrastructure/database/migrate.js run",
     "migration:revert": "npm run build && node dist/shared/infrastructure/database/migrate.js revert",
-    "supabase:setup": "npx ts-node scripts/create-tables.ts",
-    "supabase:test": "npx ts-node scripts/test-supabase.ts",
     "seed:test": "npx ts-node scripts/seed-test-data.ts",
     "report:quality": "npx ts-node scripts/capture-quality-report.ts",
     "eval:capture": "npx ts-node scripts/capture-eval.ts",
@@ -43,7 +41,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@supabase/supabase-js": "^2.86.2",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "express-rate-limit": "^8.2.1",
