@@ -316,8 +316,17 @@ function formatLargeQuestion(input: RecordMessageInput): string {
   return joined(lines);
 }
 
-/** «Не записывать» of a large amount: the message keeps it struck through, nothing else (FT-123). */
+/**
+ * «Не записывать» of a large amount: the message keeps it struck through, nothing else (FT-123). Several — /undo
+ * took back a phrase held for a large amount (#318): each record of it struck through, none written.
+ */
 function formatDeclined(declined: RecordView[]): string {
+  if (declined.length > 1) {
+    return joined([
+      ...declined.map(record => ({ text: `${signedAmount(record)} · ${quoted(recordName(record))}`, struck: true })),
+      { text: 'Ничего из сообщения не записал.', gap: true },
+    ]);
+  }
   return joined([
     ...declined.map(record => ({ text: largeTitle(record), bold: true, struck: true })),
     { text: 'Не записал.', gap: true },

@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { SqliteSubscriptionRepository } from '../src/modules/subscription/infrastructure/SqliteSubscriptionRepository';
-import { GrantPremiumUseCase, StartTrialUseCase } from '../src/modules/subscription/application/grantPremium';
+import { GrantPremiumUseCase } from '../src/modules/subscription/application/grantPremium';
 import { CreateSubscriptionUseCase } from '../src/modules/subscription/application/createSubscription';
 import { Subscription, SUBSCRIPTION_PRICE_STARS } from '../src/modules/subscription/domain/subscription';
 import { GrantTargets } from '../src/modules/subscription/domain/grantTargets';
@@ -54,9 +54,10 @@ describe('the price a subscription is stored with (#256)', () => {
   });
 
   it('a trial is stored at 0 Stars', async () => {
-    const trial = await new StartTrialUseCase(repository).execute({ userId: 'user-1' });
+    // Nothing starts a trial since #320; rows with `source: trial` are still read and written by the repository
+    const trial = await repository.create({ userId: 'user-1', tier: 'premium', source: 'trial', priceStars: 0 });
 
-    expect(await storedPrice(trial!.id)).toEqual({ row: 0, read: 0 });
+    expect(await storedPrice(trial.id)).toEqual({ row: 0, read: 0 });
   });
 
   it('a payment keeps the price it was paid with: the invoice amount from the configuration', async () => {

@@ -70,7 +70,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run analyze` - Run dependency-cruiser (`check:deps`): layer rules and circular imports
 - `npm run lint:webapp` - ESLint over `webapp/` (`webapp/eslint.config.js`); a warning fails it as an error does (`--max-warnings 0`, #296)
 - `npm run verify` - Full pre-commit/pre-push gate: backend build, test types, script types, webapp ESLint, serial Jest tests, webapp Vitest tests, webapp build, `check:fonts` and `check:tokens`, architecture checks
-- `ios/scripts/test.sh` - iOS app (FT-177): `xcodebuild test` on the first available iPhone simulator; `verify` does not see `ios/` ([`ios/README.md`](ios/README.md))
+- `ios/scripts/test.sh` - iOS app (FT-177): `xcodebuild test` on the first available iPhone simulator; exit code 2 — the tests did not run (no Xcode or no such simulator). `verify` and CI do not see `ios/`, so a PR that changes anything in `ios/` is not merged without a green run of it, by the development sub-chat and again by the review sub-chat (#323; [`docs/tasks/README.md`](docs/tasks/README.md) «Как проверяем», [`ios/README.md`](ios/README.md))
 - Tests use ts-jest and target Node.js environment; ts-jest only translates each file (`isolatedModules` in `tsconfig.test.json`) and checks no types — a type error in a test fails `typecheck:tests`, not `npm test` (#293)
 
 **Web App (React + Vite):**

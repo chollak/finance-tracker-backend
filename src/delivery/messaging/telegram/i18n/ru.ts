@@ -18,7 +18,7 @@ export const RU = {
       '',
       '/today — итоги дня',
       '/month — траты за месяц',
-      '/undo — отменить последнюю запись',
+      '/undo — отменить последнюю запись или вопрос бота',
     ].join('\n'),
     unknown: 'Такой команды нет. Список — /help',
   },
@@ -47,6 +47,8 @@ export const RU = {
     undone: (what: string) => `Отменил последнюю запись: ${what}`,
     // #281: several records of one message — «Отменил: 2 записи», not «последнюю запись»
     undoneSeveral: (records: string) => `Отменил: ${records}`,
+    // #318: /undo while a question with nothing written is open — «Не записал «Такси».»
+    notWritten: (names: string) => `Не записал ${names}.`,
     reverted: (count: number) => (count > 1 ? 'Вернул записи.' : 'Вернул запись.'),
     amountNotPositive: 'Сумма должна быть больше нуля.',
     amountTooBig: 'Сумма слишком большая — проверьте её и напишите ещё раз.',

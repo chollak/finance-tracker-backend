@@ -11,7 +11,7 @@ import { CreateSubscriptionUseCase } from './application/createSubscription';
 import { GetSubscriptionUseCase } from './application/getSubscription';
 import { CheckLimitUseCase } from './application/checkLimit';
 import { IncrementUsageUseCase, DecrementUsageUseCase } from './application/incrementUsage';
-import { GrantPremiumUseCase, StartTrialUseCase } from './application/grantPremium';
+import { GrantPremiumUseCase } from './application/grantPremium';
 import { CancelSubscriptionUseCase } from './application/cancelSubscription';
 import { SubscriptionService } from './application/subscriptionService';
 
@@ -27,7 +27,6 @@ export class SubscriptionModule {
   private incrementUsageUseCase: IncrementUsageUseCase;
   private decrementUsageUseCase: DecrementUsageUseCase;
   private grantPremiumUseCase: GrantPremiumUseCase;
-  private startTrialUseCase: StartTrialUseCase;
   private cancelSubscriptionUseCase: CancelSubscriptionUseCase;
   private subscriptionService: SubscriptionService;
   /** Whether free-tier limits are enforced (AppConfig.FREE_LIMITS_ENABLED, decision Д3). */
@@ -56,7 +55,6 @@ export class SubscriptionModule {
     this.incrementUsageUseCase = new IncrementUsageUseCase(usageLimitRepository);
     this.decrementUsageUseCase = new DecrementUsageUseCase(usageLimitRepository);
     this.grantPremiumUseCase = new GrantPremiumUseCase(subscriptionRepository, grantTargets);
-    this.startTrialUseCase = new StartTrialUseCase(subscriptionRepository);
     this.cancelSubscriptionUseCase = new CancelSubscriptionUseCase(subscriptionRepository);
     this.subscriptionService = new SubscriptionService(
       subscriptionRepository,
@@ -73,6 +71,7 @@ export class SubscriptionModule {
     return this.getSubscriptionUseCase;
   }
 
+  /** The bot's limit check before a record (`subscriptionMiddleware`); no HTTP route since #320. */
   getCheckLimitUseCase(): CheckLimitUseCase {
     return this.checkLimitUseCase;
   }
@@ -89,10 +88,7 @@ export class SubscriptionModule {
     return this.grantPremiumUseCase;
   }
 
-  getStartTrialUseCase(): StartTrialUseCase {
-    return this.startTrialUseCase;
-  }
-
+  /** The bot's `/cancel_subscription` (`paymentHandlers`); no HTTP route since #320. */
   getCancelSubscriptionUseCase(): CancelSubscriptionUseCase {
     return this.cancelSubscriptionUseCase;
   }
