@@ -64,6 +64,8 @@ interface PlannedRecord {
   assumed?: string;
   /** The phrase, stored with the record as the parser stores it: what a category correction teaches (FT-184). */
   phrase?: string;
+  /** The parse itself flagged the record (returned money, an amount it misread): stored with it, as the parser stores it. */
+  parseFlagged?: boolean;
 }
 
 /** What the free limit says for the next record (FT-091: off by default, on here when a test says so). */
@@ -115,6 +117,10 @@ describe('bot record messages (FT-122)', () => {
         ...(planned.phrase ? {
           originalText: planned.phrase,
           originalParsing: { amount: planned.amountMinor / 100, category: planned.category, type: planned.type ?? 'expense' },
+        } : {}),
+        ...(planned.parseFlagged ? {
+          needsReview: true,
+          originalParsing: { amount: planned.amountMinor / 100, category: planned.category, type: planned.type ?? 'expense', needsReview: true },
         } : {}),
       } as any);
       if (!created.success) throw created.error;
@@ -1571,6 +1577,19 @@ describe('bot record messages (FT-122)', () => {
           const { transactions: [{ id }] } = await running.captureWithAmount.mock.results[0].value;
           expect(await inApp(id)).toBe(true);
           expect((await record(id)).needsReview).toBe(true);
+        });
+
+        it('keeps the flag the parse itself put: the answer brings the record back, still to be checked', async () => {
+          const message = await write('кофе 25000000', [{ ...bigCoffee, parseFlagged: true }]);
+          const [id] = await recordIdsOf(message);
+          expect(await record(id)).toEqual(expect.objectContaining({ needsReview: true, originalParsing: expect.objectContaining({ needsReview: true }) }));
+          expect(labels(message)).toEqual([[`Это 25${NB}000${NB}сум`], ['Да, верная'], ['Не записывать']]);
+
+          await press(message, 'Да, верная');
+
+          expect(await inApp(id)).toBe(true);
+          expect(await record(id)).toEqual(expect.objectContaining({ amountMinor: 2_500_000_000, needsReview: true }));
+          expect(text(message)).toContain('Нужно проверить');
         });
       });
 
