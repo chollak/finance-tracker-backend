@@ -81,7 +81,7 @@
 | 500 | `INTERNAL_ERROR` | вложенная | сбой базы или неожиданная ошибка в обработчике маршрута — ниже |
 | 500 | `INTERNAL_ERROR` | плоская | неожиданная ошибка до обработчика маршрута или вне его `try` — её ловит общий обработчик (`errorHandler`) |
 | 500 | `AUTH_NOT_CONFIGURED` | плоская | нет `TG_BOT_API_KEY`: initData не проверить |
-| 502 | `EXTERNAL_SERVICE_ERROR` | вложенная | `POST /api/export/chat`: Telegram не ответил или токена бота нет |
+| 502 | `EXTERNAL_SERVICE_ERROR` | вложенная | `POST /api/export/chat`: Telegram не ответил или токена бота нет; `POST /api/quick-capture`: OpenAI не разобрал фразу. В ответе один `message` на любую причину («External service is unavailable, try again later»), без `context`; что и как отказало — в логе сервера (#302) |
 | 503 | `LOGIN_UNAVAILABLE` | вложенная | `POST /api/auth/web-login`: бот неизвестен |
 
 - `422` — только нарушенное правило. `BUSINESS_LOGIC_ERROR` с причиной в `context.reason`: `goal` у подписки,
