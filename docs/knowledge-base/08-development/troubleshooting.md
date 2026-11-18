@@ -282,12 +282,6 @@ const userId = currentUserId(req); // UUID вошедшего пользоват
 - `src/modules/subscription/presentation/subscriptionController.ts`
 - `src/delivery/web/express/routes/subscriptionRoutes.ts`
 
-**После исправления:** Rebuild Docker container:
-```bash
-docker compose down
-docker compose up -d --build
-```
-
 ---
 
 ## Telegram Bot Issues
@@ -689,31 +683,6 @@ journalctl -u kapelka-backup.service -n 20 --no-pager
 
 ---
 
-## Deployment Issues
-
-### Docker Build Fails
-
-**Error:**
-```
-Error response from daemon: No such image
-```
-
-**Solution:**
-```bash
-# Clean up Docker
-docker compose down
-docker system prune -a
-
-# Rebuild
-docker compose up -d --build
-
-# Check status
-docker compose ps
-docker compose logs -f
-```
-
----
-
 ## Getting Help
 
 ### Check Logs First
@@ -721,9 +690,6 @@ docker compose logs -f
 ```bash
 # View full logs
 npm run dev
-
-# Docker logs
-docker compose logs -f
 ```
 
 ### Verify Setup

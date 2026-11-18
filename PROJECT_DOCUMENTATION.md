@@ -38,7 +38,7 @@ The Finance Tracker Backend is a comprehensive financial management system built
 - **AI Integration**: OpenAI API for transcription and parsing
 - **Bot Framework**: Telegraf
 - **Frontend**: React, Vite
-- **Development**: ts-node-dev, Jest, Docker
+- **Development**: ts-node-dev, Jest
 
 ---
 
@@ -85,9 +85,6 @@ npm run serve
 
 # Testing
 npm test
-
-# Docker
-docker compose up -d --build
 ```
 
 ---
@@ -426,8 +423,8 @@ npm run analyze           # The same check, as verify runs it
 npm run format            # Format code with Prettier
 
 # Database operations
-node scripts/init-database.js     # Initialize fresh database
-node scripts/create-backup.js     # Backup current database
+npm run migration:run     # Back up the database, then apply pending migrations
+scripts/backup-db.sh      # Live instance only: SQLite .backup copy (live-instance.md)
 ```
 
 ---
@@ -487,27 +484,7 @@ describe('CreateTransactionUseCase', () => {
 
 ## Deployment
 
-### Docker Deployment (Recommended)
-
-The project includes complete Docker configuration:
-
-```bash
-# Build and run
-docker compose up -d --build
-
-# View logs
-docker compose logs -f
-
-# Stop
-docker compose down
-```
-
-### Docker Configuration
-- **Base Image**: Node.js 18 Alpine
-- **Multi-stage build**: Optimized production image
-- **Health checks**: Built-in health monitoring
-- **Volume mounts**: Persistent SQLite database
-- **Environment**: Production configuration
+There is no Docker image (`Dockerfile`, `docker-compose.yml` and their scripts were removed in #325). The live instance is a systemd service in WSL: [docs/knowledge-base/08-development/live-instance.md](docs/knowledge-base/08-development/live-instance.md).
 
 ### Manual Deployment
 
@@ -558,7 +535,7 @@ OPENAI_API_KEY=sk-...
 **Solution**: 
 - Ensure `data/` directory exists
 - Check file permissions
-- Run database initialization: `node scripts/init-database.js`
+- The schema is created by migrations on start; to apply them by hand: `npm run migration:run`
 
 #### 3. Port Already in Use
 **Error**: `EADDRINUSE: address already in use :::3000`
@@ -625,7 +602,7 @@ curl http://localhost:3000/api/health
 ### Production Monitoring
 
 #### Log Files
-- Application logs: Check Docker container logs
+- Application logs: the service journal on the live instance (live-instance.md)
 - Access logs: Monitor request patterns
 - Error logs: Track failure rates
 

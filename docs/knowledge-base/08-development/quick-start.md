@@ -73,7 +73,7 @@ OPENAI_API_KEY=sk-...
 
 - `.env.example` is the tracked env template for development; `ops/live/env.local.example` — for the live instance on
   the PC (FT-156, [live-instance.md](live-instance.md)).
-- `.env` is ignored and used as the default local/Docker env file.
+- `.env` is ignored and used as the default local env file.
 - `.env.local` is ignored and preferred for machine-specific overrides.
 - `.env.development` is ignored legacy/local naming; the app does not load it.
 - Loading order: existing `process.env` values stay highest priority; then `.env.local` if present; otherwise `.env`.
@@ -299,32 +299,9 @@ npm run dev:full
 
 ---
 
-## Docker (Alternative)
+## Docker
 
-### Build and Run
-
-```bash
-docker compose up -d --build
-```
-
-### View Logs
-
-```bash
-docker compose logs -f
-```
-
-### Stop
-
-```bash
-docker compose down
-```
-
-**Docker Config:**
-- Base image: `node:20-alpine` (multi-stage build: `builder` → `production`). Docker отложен вместе с production; `openai` 7 требует
-  Node 22 (FT-183), поэтому до возвращения Docker образ нужно поднять до `node:22-alpine` и проверить сборку `sqlite3`
-- Ports: 3000 (backend)
-- Volume: `./data` (for SQLite database)
-- Environment: From `.env` file
+Docker-образа нет: `Dockerfile` и `docker-compose.yml` удалены в #325. Разработка — команды `npm run dev*` выше, живой экземпляр — служба systemd в WSL ([live-instance.md](live-instance.md)).
 
 ---
 
@@ -524,9 +501,6 @@ npm run verify           # Full gate before commit/push
 npm run build            # Compile TypeScript
 npm run serve            # Run compiled app
 scripts/live-update.sh   # Live instance on the PC: pull main, build, restart (live-instance.md)
-
-# Docker
-docker compose up -d --build
 
 # Database
 sqlite3 data/database.sqlite
