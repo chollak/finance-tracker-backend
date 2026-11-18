@@ -30,6 +30,7 @@
     "migration:revert": "npm run build && node dist/shared/infrastructure/database/migrate.js revert",
     "seed:test": "npx ts-node scripts/seed-test-data.ts",
     "report:quality": "npx ts-node scripts/capture-quality-report.ts",
+    "eval:capture": "npx ts-node scripts/capture-eval.ts",
     "design:audit": "node scripts/mobile-ui-audit.js",
     "miniapp:menu": "node scripts/dev-miniapp.js",
     "dev:miniapp": "node scripts/dev-miniapp.js run",

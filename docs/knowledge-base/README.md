@@ -56,6 +56,7 @@ Finance Tracker Backend — это backend система для управле�
 - [**Database Guide**](08-development/database-guide.md) - SQLite через TypeORM, миграции
 - [**Troubleshooting**](08-development/troubleshooting.md) - Частые проблемы и решения
 - [**Live Instance**](08-development/live-instance.md) - Живой экземпляр на ПК (WSL, systemd, `tailscale serve`): установка, обновление, откат, логи (FT-156), ночной бэкап и восстановление (FT-157)
+- [**Capture Phrase Set**](08-development/capture-phrase-set.md) - Набор типичных фраз для проверки разбора: офлайн-тест в `verify` и `npm run eval:capture` с настоящей моделью (#307)
 - [**Test Logging & Contract Cleanup**](08-development/test-logging-and-contract-cleanup.md) - FT-017 findings and cleanup plan
 - [**Task Workflow**](08-development/task-workflow.md) - задачи на доске GitHub Issues + Project (FT-049)
 - [**API Route Coverage Matrix**](08-development/api-route-coverage-matrix.md) - FT-022 route coverage audit
