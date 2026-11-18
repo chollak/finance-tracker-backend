@@ -12,7 +12,7 @@ import { RecentMediaGroups } from '../utils/recentMediaGroups';
 import { answerAmountQuestion } from './recordHandlers';
 import { parseAmountReply, refusalText } from '../utils/amountReply';
 import { fromMinor } from '../../../../shared/domain/money/money';
-import { AppError, ExternalServiceError, StorageError } from '../../../../shared/domain/errors/AppError';
+import { ExternalServiceError, StorageError } from '../../../../shared/domain/errors/AppError';
 import { DetectedDebt } from '../../../../modules/voiceProcessing/domain/processedTransaction';
 import { notWrittenText } from '../utils/notWrittenText';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
@@ -77,7 +77,8 @@ async function replyWithError(ctx: BotContext, error: unknown): Promise<void> {
     await ctx.reply(RU.capture.notSaved);
     return;
   }
-  await ctx.reply(error instanceof AppError ? `❌ ${error.message}` : RU.errors.generic);
+  // Any other error: its message is English and written for the log and the API (#302), the chat gets the bot's words
+  await ctx.reply(RU.errors.generic);
 }
 
 /**
@@ -469,9 +470,8 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
       } else if (error instanceof StorageError) {
         // Heard and read, but the database did not take the records (#299): nothing is written, say it again
         await ctx.reply(RU.capture.notSavedVoice);
-      } else if (error instanceof AppError) {
-        await ctx.reply(`🎤❌ ${error.message}`);
       } else {
+        // Any other error, «Voice file not found: <path>» among them (#302): its text is for the log
         await ctx.reply(`🎤 ${RU.errors.voiceProcessing}`);
       }
     } finally {
@@ -560,11 +560,8 @@ async function handleQuickAddAmount(
 
   } catch (error) {
     logger.error('Quick add error', error as Error);
-    if (error instanceof AppError) {
-      await ctx.reply(`❌ ${error.message}`);
-    } else {
-      await ctx.reply(RU.errors.generic);
-    }
+    // The error's message is for the log (#302)
+    await ctx.reply(RU.errors.generic);
   }
 }
 

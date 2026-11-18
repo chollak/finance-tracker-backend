@@ -6,6 +6,8 @@
 export const ERROR_MESSAGES = {
   INTERNAL_ERROR: 'Internal server error',
   OPENAI_ERROR: 'OpenAI service unavailable',
+  /** What a client reads for any `ExternalServiceError` (#302): which service failed and how is in the log. */
+  EXTERNAL_SERVICE_ERROR: 'External service is unavailable, try again later',
 } as const;
 
 export const SUCCESS_MESSAGES = {

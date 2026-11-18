@@ -1,5 +1,5 @@
 import { handleControllerError, handleControllerSuccess } from '../src/shared/infrastructure/utils/controllerHelpers';
-import { AuthorizationError, NotFoundError, StorageError, ValidationError } from '../src/shared/domain/errors/AppError';
+import { AuthorizationError, ExternalServiceError, NotFoundError, StorageError, ValidationError } from '../src/shared/domain/errors/AppError';
 import { captureLogLines, levelOf, LogCapture } from './helpers/logLines';
 
 function createMockResponse() {
@@ -33,6 +33,23 @@ describe('controllerHelpers', () => {
       success: false,
       error: expect.objectContaining({ code: 'VALIDATION_ERROR', message: 'bad input' }),
     }));
+  });
+
+  // #302: the cause of an external failure (the SDK's text, the service's name) is for the log, not for the client
+  it('handleControllerError answers an external service failure without its cause', () => {
+    const res = createMockResponse();
+
+    handleControllerError(new ExternalServiceError('OpenAI Chat', new Error('Request timed out.')), res);
+
+    expect(res.status).toHaveBeenCalledWith(502);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: {
+        code: 'EXTERNAL_SERVICE_ERROR',
+        message: 'External service is unavailable, try again later',
+        timestamp: expect.any(String),
+      },
+    });
   });
 
   /**

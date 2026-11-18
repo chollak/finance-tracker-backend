@@ -11,6 +11,7 @@ import {
 import { createQuickCaptureRouter } from '../src/modules/quickCapture/presentation/controllers/quickCaptureController';
 import { QuickCaptureService } from '../src/modules/quickCapture/application/quickCaptureService';
 import { QuickCaptureResult } from '../src/modules/quickCapture/domain/quickCaptureTypes';
+import { ExternalServiceError } from '../src/shared/domain/errors/AppError';
 import { listenOnLoopback } from './helpers/testServer';
 
 /**
@@ -60,7 +61,7 @@ function buildTestApp() {
   router.use(express.json({ limit: '10mb' }));
   router.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-  const quickCaptureService = { capture: jest.fn() } as unknown as QuickCaptureService;
+  const quickCaptureService = { capture: jest.fn(), capturePayment: jest.fn() } as unknown as QuickCaptureService;
   router.use('/quick-capture', createQuickCaptureRouter(quickCaptureService));
 
   router.use('*', notFoundHandler);
@@ -419,6 +420,48 @@ describe('POST /api/quick-capture', () => {
       expect(body.success).toBe(false);
       expect(body.error).toMatchObject({ code: 'INTERNAL_ERROR' });
       expect(JSON.stringify(body)).not.toContain('parser exploded');
+    });
+
+    /**
+     * #302: a failed OpenAI call is an `ExternalServiceError` that keeps the SDK's text in `context.originalError` — a
+     * timeout, a quota, on a 401 OpenAI's own message with the key masked. The answer is the status, the code and one
+     * text for any cause; the cause stays in the log. 502, so the phone's queue sends the same `clientId` again.
+     */
+    describe('a failed OpenAI call (#302)', () => {
+      const SDK_TEXT = '401 Incorrect API key provided: sk-proj-********abcd. You can find your API key at platform.openai.com';
+      const failure = () => new ExternalServiceError('OpenAI Chat', new Error(SDK_TEXT));
+
+      async function expectPlain502(res: Response) {
+        expect(res.status).toBe(502);
+        const body = await res.json();
+        expect(body).toEqual({
+          success: false,
+          error: {
+            code: 'EXTERNAL_SERVICE_ERROR',
+            message: 'External service is unavailable, try again later',
+            timestamp: expect.any(String),
+          },
+        });
+        expect(JSON.stringify(body)).not.toMatch(/OpenAI|API key|sk-|originalError/);
+      }
+
+      it('a phrase answers 502 with the code and a general text, nothing of the SDK error', async () => {
+        (mocks.quickCaptureService.capture as jest.Mock).mockRejectedValue(failure());
+
+        await expectPlain502(await post({ userId: '555111', text: 'такси 18к' }, SIGNED_IN));
+      });
+
+      it('a payment answers the same', async () => {
+        (mocks.quickCaptureService.capturePayment as jest.Mock).mockRejectedValue(failure());
+
+        const res = await fetch(`${baseUrl}/api/quick-capture/payment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...SIGNED_IN },
+          body: JSON.stringify({ userId: '555111', amount: '25000', currency: 'UZS', merchant: 'KORZINKA 24', clientId: 'pay-302' }),
+        });
+
+        await expectPlain502(res);
+      });
     });
   });
 });
