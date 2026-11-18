@@ -12,6 +12,40 @@
 >
 > #274 (2026-11-05): the user routes — `/api/users/*` — are removed: no client called them, and `PUT /api/users/:id` answered `404` before its owner check, telling whether a UUID was someone's. A user is made only on the first request (`createCurrentUserMiddleware`, `getOrCreate`); settings change through `PATCH /api/settings`, the user taken from sign-in.
 
+## 2026-11-18 — the resolver is fail-closed: no record under a Telegram id (#315)
+
+`resolveUserIdToUUID` returned the Telegram id itself when `getOrCreate` threw (a busy database). A capture then wrote
+a record whose `userId` is no user's id: the app, the Mini App and the totals read by the UUID and never show it (the
+phantoms of FT-171 were of this kind). Now the lookup throws `UserLookupError` — a `StorageError`, `500
+INTERNAL_ERROR` with the message `The user could not be looked up, send it again`, the cause in the log — and there
+is one resolver, no loose and strict pair. A UUID still needs no lookup; a Telegram id nobody has yet still creates
+its user — that is not a failure.
+
+| Caller | On a failed lookup | Why |
+|---|---|---|
+| `POST /api/quick-capture`, `/payment` (`quickCaptureController`) | `500 INTERNAL_ERROR`, nothing parsed or written; the same `clientId` sent again writes once, for the user | A write. The iOS queue and the Mini App send a 5xx again (#299) |
+| Bot text, voice, the amount of a quick-add button (`messageHandlers.resolveUserId`) | «Не получилось записать — ничего не сохранил…» (`RU.capture.notSaved`, `notSavedVoice`), before the text is read or the voice downloaded | A write. The handlers' own fallback to the Telegram id is removed |
+| Bot answer to «Сумму» / «Сколько?» (`createAmountAnswerMiddleware`) | The same answer; the question stays open, the text is not read as a phrase | A write or a change of a record |
+| Bot repeated-message guard (`createRepeatedMessageGuard`) | Goes on to the handler, as when its other lookups fail | A read. The handler looks the user up itself and answers; the message's client id keeps a repeat from a second record |
+| Bot buttons and commands (`botUserId`: record buttons, `/undo`, quick add, reminders, «Да, не было») | The handler's own error answer (`RU.errors.generic`, «Не получилось — попробуйте ещё раз») or nothing but a log line, as for any error there; nothing changes | They change data — under the Telegram id «Да, не было» and «Позже» wrote notice rows of no user. A command still closes no question and runs (`closeAmountQuestionOnCommand` catches) |
+| Record counter (`CreateTransactionUseCase`, `DeleteTransactionUseCase`) | The counter is not changed, a log line; the record's write or delete goes on | A record's `userId` is a UUID, so there is no lookup; for an old Telegram id the counter of a user who is not there is no longer touched |
+| `createUserResolutionMiddleware` (the target of the admin grant) | `500 USER_RESOLUTION_ERROR`, as it was written to | The branch was dead while the resolver never threw |
+
+Not the resolver, unchanged: `createResolveCurrentUserMiddleware` (the user of every signed-in route) already answered a
+failed `getOrCreate` with `500`; the bot's free-limit check (`subscriptionMiddleware.getUserUUID`) still lets the action
+go on when the user is not found — it writes nothing itself; the bot's first middleware (`telegramBot.ts`, «Ensure user
+exists») still only logs.
+
+Tests: `tests/captureUserLookupFailure.test.ts` (real SQLite, only the `users` lookup fails: phrase and payment — `500`,
+no rows, no parser call, the same `clientId` again — one row joined to the user; the bot's text, voice, answer to
+«Сколько?» and a record button), `tests/userResolution.test.ts`.
+
+Counting the old records of no user — read-only, on a copy of the database:
+
+```sql
+SELECT COUNT(*) FROM transactions t LEFT JOIN users u ON u.id = t."userId" WHERE u.id IS NULL;
+```
+
 ## 2026-11-16 — all of a user's records at once is gone (#289)
 
 Only the Mini App's `useTransactions` read `GET /api/transactions/user/:userId`, and no screen called it since «Пастель»:
@@ -399,7 +433,7 @@ User ID normalization boundary.
 
 ### `resolveUserIdToUUID`
 
-Current loose resolver helper.
+The one resolver helper; fail-closed since #315 (see the section of 2026-11-18 above).
 
 - Rejects empty/whitespace-only IDs.
 - Rejects an id that is no UUID and no Telegram id (a positive whole number in digits) with a `ValidationError`
@@ -407,9 +441,9 @@ Current loose resolver helper.
 - Passes through UUIDs, in lower case since #230 (and `guest_*` ids until #206).
 - Reads a Telegram id by `telegramIdOf` (#230), as `ALLOWED_TELEGRAM_IDS` does: below 2^53, leading zeros name the same
   user; resolves it to UUID through `GetOrCreateUserUseCase`, creating the user without the zeros on first contact.
-- On resolver failure, logs and returns the Telegram id (without leading zeros) for backward compatibility.
-
-FT-017D decision: do not globally change this helper to fail-closed yet.
+- On a lookup failure, logs and throws `UserLookupError` (`500 INTERNAL_ERROR`) since #315. Until then it returned the
+  Telegram id (without leading zeros) — the FT-017D decision «do not change this helper to fail-closed yet», now
+  superseded.
 
 ## Route Boundary Matrix
 
@@ -442,6 +476,8 @@ The column «Guest allowed» went with the guests (#206). A request without sign
   in as `SHORTCUT_CAPTURE_OWNER` instead of Telegram.
 
 ## Strict vs Loose Recommendations
+
+> History: since #315 there is one resolver and it is fail-closed; nothing below is a plan any more.
 
 ### Keep loose for now
 

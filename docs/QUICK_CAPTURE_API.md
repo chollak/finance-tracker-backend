@@ -192,7 +192,11 @@ middleware set — the signed-in user's or the Shortcut owner's Telegram id — 
   around it are fine, and leading zeros name the same user — `0597843119` is `597843119`
 - anything else — `abc`, `-5`, `1.5`, `0`, an old `guest_*` id (#206), a number from 2^53 on — is a `ValidationError`
   (`400 VALIDATION_ERROR`) and creates no user (#224, #230)
-- resolution failure is **fail-open**: the Telegram id, without leading zeros, is used as the owner id
+- a lookup that fails — the database is busy, the disk — is **fail-closed** (#315): `500 INTERNAL_ERROR` with the
+  message `The user could not be looked up, send it again`, for a phrase and for a payment alike. Nothing is parsed or
+  written, and the same `clientId` sent again writes the capture once, for the user. Before #315 the capture went on
+  under the Telegram id itself: a record with `userId` of no user, which no screen and no total reads. A user who is
+  not there yet is not a failure — the Telegram id creates them, as above
 
 ---
 
@@ -461,7 +465,9 @@ it still counts against the AI limit: the limiter runs before validation.
 
 A database that fails the write (busy, the disk) answers `500 INTERNAL_ERROR` with the message `Failed to create
 transaction` and no `context`, and writes nothing (#270; before it was `422 BUSINESS_LOGIC_ERROR`, which the iOS queue
-also sent again). Sent again with the same `clientId`, the payment is written once.
+also sent again). Sent again with the same `clientId`, the payment is written once. The same `500 INTERNAL_ERROR`
+answers a user lookup that failed, with the message `The user could not be looked up, send it again` (#315,
+[User id resolution](#user-id-resolution)): nothing is written, and the queue sends the payment again.
 
 For the queue of FT-161: `400` — an error at the record, it is not sent again; `401`/`403` — stop, «проверь токен»;
 `429`, `5xx`, no network — later, with the same `clientId` and `capturedAt`.
@@ -548,6 +554,9 @@ which a client takes as final: the iOS queue stopped sending the phrase, and the
   записать» and sends the same `clientId` on the next press (`useSendCapture.test.tsx`); the bot answers «Не
   получилось записать — ничего не сохранил. Отправьте это сообщение ещё раз.» (for a voice: «…Скажите ещё раз или
   напишите текстом.»), and the answer to «Сколько?» leaves its question open.
+- **A user lookup that failed is answered the same way (#315).** The user is looked up before the text is read; when
+  the lookup fails, the answer is `500 INTERNAL_ERROR` (`The user could not be looked up, send it again`), nothing is
+  written, and the clients above do the same: the queue and the Mini App send it again, the bot asks to.
 - **A record refused for what it says is not this.** An amount over 1 000 000 000 would be refused again on every
   retry, so it is `200` with the record in `notWritten` (above), and the rest of the text is written.
 - **A busy database is waited for.** The app's connection waits up to 3 s for a database another process holds
@@ -683,6 +692,7 @@ Auth and rate-limit middleware answer earlier in the chain and use a **flat** sh
 | 429 | `AI_RATE_LIMIT_EXCEEDED` | Shared AI rate limit exhausted for the IP |
 | 500 | `AUTH_NOT_CONFIGURED` | `TG_BOT_API_KEY` missing while validating initData |
 | 500 | `INTERNAL_ERROR` | `The capture was not saved, send it again` — a record could not be written (#299); nothing of the text is left written, the same `clientId` sent again writes it. See [A record that could not be written](#a-record-that-could-not-be-written-299) |
+| 500 | `INTERNAL_ERROR` | `The user could not be looked up, send it again` — the lookup of the capture's user failed (#315); nothing is parsed or written, the same `clientId` sent again writes it. See [User id resolution](#user-id-resolution) |
 | 500 | `INTERNAL_ERROR` | Any other unexpected failure. The underlying error message is **not** leaked to the client. |
 
 Validation failures never reach the service, so they cost no OpenAI call and write nothing.

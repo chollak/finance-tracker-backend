@@ -713,6 +713,7 @@ await ctx.reply(message, { parse_mode: 'Markdown' });
 import { resolveUserIdToUUID } from '../../shared/application/helpers/userIdResolver';
 
 // ✅ ПРАВИЛЬНО
+// Сбой поиска — UserLookupError (500), а не Telegram id (#315): не ловить его, чтобы писать под Telegram id
 const userId = await resolveUserIdToUUID(telegramId, userModule);
 
 // ❌ НЕПРАВИЛЬНО - своя реализация
