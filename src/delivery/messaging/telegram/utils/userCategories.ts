@@ -1,7 +1,7 @@
 import { BotContext } from '../types';
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
 
-/** Internal id of the user behind a bot update. */
+/** Internal id of the user behind a bot update; a lookup that fails throws `UserLookupError` (#315). */
 export async function botUserId(ctx: BotContext): Promise<string> {
   return resolveUserIdToUUID(String(ctx.from?.id), ctx.modules.userModule);
 }

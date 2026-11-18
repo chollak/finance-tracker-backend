@@ -57,16 +57,13 @@ async function incrementUsage(
   }
 }
 
-/** The user behind the update; the Telegram id if it cannot be resolved. */
-async function resolveUserId(ctx: BotContext, userModule: UserModule | undefined, where: string): Promise<string> {
+/**
+ * The user behind the update. A lookup that fails throws `UserLookupError` (#315): what the message says is written
+ * for that user or not at all — under the Telegram id it was a record no screen reads.
+ */
+async function resolveUserId(ctx: BotContext, userModule: UserModule | undefined): Promise<string> {
   const telegramId = String(ctx.from?.id ?? 'unknown');
-  if (!userModule) return telegramId;
-  try {
-    return await resolveUserIdToUUID(telegramId, userModule);
-  } catch (error) {
-    logger.error(`Failed to resolve userId in ${where}`, error as Error);
-    return telegramId;
-  }
+  return userModule ? resolveUserIdToUUID(telegramId, userModule) : telegramId;
 }
 
 async function replyWithError(ctx: BotContext, error: unknown): Promise<void> {
@@ -95,12 +92,12 @@ export function createAmountAnswerMiddleware(userModule?: UserModule) {
     // Commands, an empty text and the amount of a quick-add category are not answers to «Сумму»
     if (!text.trim() || text.startsWith('/') || ctx.session?.pendingAction?.type === 'awaiting_amount') return next();
 
-    const userId = await resolveUserId(ctx, userModule, 'amount answer');
     let answered: boolean;
     try {
-      answered = await answerAmountQuestion(ctx, text, userId);
+      // The user first (#315): not found for a failure, the text is neither an answer nor a phrase — the question stays
+      answered = await answerAmountQuestion(ctx, text, await resolveUserId(ctx, userModule));
     } catch (error) {
-      logger.error('Amount answer error', error instanceof Error ? error : new Error(String(error)), { userId });
+      logger.error('Amount answer error', error instanceof Error ? error : new Error(String(error)), { telegramId: ctx.from?.id });
       await replyWithError(ctx, error);
       return;
     }
@@ -134,18 +131,21 @@ export function createRepeatedMessageGuard(userModule?: UserModule) {
     const clientId = messageClientId(ctx);
     if (!clientId) return next();
 
-    const userId = await resolveUserId(ctx, userModule, 'repeated message check');
+    let userId: string;
     let earlier: Transaction[];
     let handled: HandledMessage | null;
     let recent: BotMessage[];
     try {
+      // A user lookup that fails goes on as the other lookups here do (#315): the handler looks the user up itself
+      // and answers, and the message's client id keeps a repeat from being written twice
+      userId = await resolveUserId(ctx, userModule);
       [earlier, handled, recent] = await Promise.all([
         ctx.modules.transactionModule.findByClientId(userId, clientId),
         handledMessage(ctx, clientId),
         recentBotMessages(ctx),
       ]);
     } catch (error) {
-      logger.error('Failed to look for what a repeated message did', error as Error, { userId });
+      logger.error('Failed to look for what a repeated message did', error as Error, { telegramId: ctx.from?.id });
       return next();
     }
 
@@ -289,7 +289,15 @@ export function createTextMessageHandler(userModule?: UserModule, _subscriptionM
     if (text.startsWith('/')) return;
 
     const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
-    const userId = await resolveUserId(ctx, userModule, 'text handler');
+    // Before anything is read or written (#315): a lookup that fails is answered as a write that failed (#299)
+    let userId: string;
+    try {
+      userId = await resolveUserId(ctx, userModule);
+    } catch (error) {
+      logger.error('Text message error: the user was not looked up', error as Error, { telegramId: ctx.from?.id });
+      await replyWithError(ctx, error);
+      return;
+    }
 
     try {
       // Handle Quick Add - awaiting amount after category selection
@@ -368,7 +376,15 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
   return async function handleVoiceMessage(ctx: BotContext) {
     const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
     let filePath: string | undefined;
-    const userId = await resolveUserId(ctx, userModule, 'voice handler');
+    // Before the voice is downloaded and heard (#315): a lookup that fails is answered as a write that failed (#299)
+    let userId: string;
+    try {
+      userId = await resolveUserId(ctx, userModule);
+    } catch (error) {
+      logger.error('Voice message error: the user was not looked up', error as Error, { telegramId: ctx.from?.id });
+      await ctx.reply(error instanceof StorageError ? RU.capture.notSavedVoice : `🎤 ${RU.errors.voiceProcessing}`);
+      return;
+    }
 
     const voice = ctx.message && 'voice' in ctx.message ? ctx.message.voice : null;
     if (!voice) {

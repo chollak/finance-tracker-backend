@@ -66,6 +66,9 @@ It throws instead of returning `Result.failure(...)`. This is inconsistent with 
 
 ### 4. `resolveUserIdToUUID` fails open
 
+> Closed in #315 (2026-11-18): the resolver throws `UserLookupError` (`500`) instead of returning the Telegram id —
+> `auth-user-resolution-boundary-matrix.md`, the section of 2026-11-18. What follows is the finding as it was.
+
 Current behavior when telegramId → UUID resolution throws:
 
 ```ts
@@ -166,7 +169,7 @@ Risk: medium-low after caller audit.
 
 ### FT-017D — Resolver fail-open vs fail-closed decision
 
-Status: decision recorded; no global behavior change yet.
+Status: decision recorded; no global behavior change yet. Superseded by #315 (2026-11-18): the resolver is fail-closed.
 
 Goal: decide whether `resolveUserIdToUUID` should return original ID on resolver failure.
 

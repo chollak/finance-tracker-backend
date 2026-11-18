@@ -9,6 +9,7 @@ import {
   isUUID,
   resolvableUserIdOf,
   resolveUserIdToUUID,
+  UserLookupError,
 } from '../src/shared/application/helpers/userIdResolver';
 import {
   verifyResourceOwnership,
@@ -253,26 +254,25 @@ describe('userIdResolver', () => {
       expect(stored?.id).toBe(result);
     });
 
-    it('fails open and returns the original id when resolution throws', async () => {
+    it('fails closed: a lookup that throws is a UserLookupError, not the Telegram id (#315)', async () => {
       const brokenUserModule = {
         getGetOrCreateUserUseCase: () => ({
           execute: jest.fn().mockRejectedValue(new Error('db unavailable')),
         }),
       } as unknown as UserModule;
 
-      const result = await resolveUserIdToUUID('555555555', brokenUserModule);
-
-      expect(result).toBe('555555555');
+      await expect(resolveUserIdToUUID('555555555', brokenUserModule)).rejects.toBeInstanceOf(UserLookupError);
+      await expect(resolveUserIdToUUID(' 0555555555 ', brokenUserModule)).rejects.toBeInstanceOf(UserLookupError);
     });
 
-    it('fails open with the Telegram id as the list writes it, without leading zeros (#230)', async () => {
+    it('a UUID needs no lookup, so a failing one does not touch it (#315)', async () => {
       const brokenUserModule = {
         getGetOrCreateUserUseCase: () => ({
           execute: jest.fn().mockRejectedValue(new Error('db unavailable')),
         }),
       } as unknown as UserModule;
 
-      await expect(resolveUserIdToUUID(' 0555555555 ', brokenUserModule)).resolves.toBe('555555555');
+      await expect(resolveUserIdToUUID(VALID_UUID, brokenUserModule)).resolves.toBe(VALID_UUID);
     });
 
     it('rejects an empty userId before attempting async resolution', async () => {
