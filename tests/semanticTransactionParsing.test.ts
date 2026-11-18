@@ -270,4 +270,85 @@ describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
       expect.objectContaining({ id: 'uncertain-1', needsReview: true }),
     ]);
   });
+
+  // #301: after the AI a voice is checked and written by the code the text path uses (`ParsedRecordWriter`)
+  describe('what was read is checked against what was heard, as a typed phrase is (#301)', () => {
+    /** A voice heard as `heard` and read by the AI as `transactions`; what was sent to be written and what came back. */
+    async function said(heard: string, transactions: object[], input: { userName?: string } = {}) {
+      // A voice file is gone once it is read: a new one for each voice of a test
+      await fs.writeFile(filePath, 'fake audio content');
+      const openAIService = {
+        transcribe: jest.fn().mockResolvedValue(heard),
+        analyzeInput: jest.fn().mockResolvedValue({ transactions, debts: [] }),
+        analyzeTransactions: jest.fn(),
+      } as unknown as TranscriptionService;
+      const execute = jest.fn().mockResolvedValue({ success: true, data: 'voice-1' });
+      const useCase = new ProcessVoiceInputUseCase(openAIService, { execute } as unknown as CreateTransactionUseCase);
+
+      const result = await useCase.execute({ filePath, userId: 'user1', source: 'telegram', ...input });
+
+      return { result, sent: execute.mock.calls.map(([transaction]) => transaction) };
+    }
+
+    it('«мне вернули 100 000» read as an ordinary income is written with «Нужно проверить»', async () => {
+      const { result, sent } = await said('мне вернули 100000', [
+        { intent: 'transaction', amount: 100000, category: 'Другое', type: 'income', semanticType: 'income', needsReview: false, date: '2026-07-22' },
+      ]);
+
+      expect(sent).toEqual([expect.objectContaining({
+        type: 'income',
+        semanticType: 'income',
+        needsReview: true,
+        originalParsing: expect.objectContaining({ needsReview: true }),
+      })]);
+      expect(result.transactions).toEqual([expect.objectContaining({ id: 'voice-1', needsReview: true })]);
+    });
+
+    it('returned money the AI already named a reimbursement is trusted: no «Нужно проверить»', async () => {
+      const { sent } = await said('мне вернули 100000', [
+        { intent: 'transaction', amount: 100000, category: 'Другое', type: 'income', semanticType: 'reimbursement', date: '2026-07-22' },
+      ]);
+
+      expect(sent).toEqual([expect.objectContaining({ semanticType: 'reimbursement', needsReview: false })]);
+    });
+
+    it('one amount marked «сум» and a stray number the AI took for the amount: the marked amount, with «Нужно проверить»', async () => {
+      const { result, sent } = await said('кофе 1234 сум 1788405366', [
+        { intent: 'transaction', amount: 1788405366, category: 'Кафе', type: 'expense', date: '2026-07-22' },
+      ]);
+
+      expect(sent).toEqual([expect.objectContaining({
+        amount: 1234,
+        needsReview: true,
+        originalParsing: expect.objectContaining({ amount: 1234, needsReview: true }),
+      })]);
+      expect(result.transactions).toEqual([expect.objectContaining({ amount: 1234, needsReview: true })]);
+    });
+
+    it('two records: each number is its own record, an unmarked one is not a misread', async () => {
+      const { sent } = await said('продукты 12000 сум и такси 30000', [
+        { intent: 'transaction', amount: 12000, category: 'Продукты', type: 'expense', date: '2026-07-22' },
+        { intent: 'transaction', amount: 30000, category: 'Такси', type: 'expense', date: '2026-07-22' },
+      ]);
+
+      expect(sent.map(transaction => [transaction.amount, transaction.needsReview])).toEqual([[12000, false], [30000, false]]);
+    });
+
+    // What a voice kept of its own (#301, the table in the PR): none of it changes with the shared writer
+    it('a record the AI gave no note: what was heard, cut to the 500 characters a note may be', async () => {
+      const heard = `кофе 25000 ${'и ещё слово '.repeat(60)}`.trim();
+      const { sent } = await said(heard, [{ intent: 'transaction', amount: 25000, category: 'Кафе', type: 'expense', date: '2026-07-22' }]);
+
+      expect(heard.length).toBeGreaterThan(500);
+      expect(sent[0].description).toBe(heard.substring(0, 500));
+      expect(sent[0].originalText).toBe(heard);
+    });
+
+    it('the name of who said it: as given, else the user id', async () => {
+      const record = [{ intent: 'transaction', amount: 25000, category: 'Кафе', type: 'expense', date: '2026-07-22' }];
+
+      expect((await said('кофе 25000', record, { userName: ' Shukur ' })).sent[0].userName).toBe('Shukur');
+      expect((await said('кофе 25000', record)).sent[0].userName).toBe('user1');
+    });
+  });
 });

@@ -12,6 +12,8 @@ import { SqliteCategoryRepository } from '../../src/modules/category/infrastruct
 import { AccountBook } from '../../src/modules/account/application/accountBook';
 import { SqliteAccountRepository } from '../../src/modules/account/infrastructure/SqliteAccountRepository';
 import { ProcessTextInputUseCase } from '../../src/modules/voiceProcessing/application/processTextInput';
+import { ProcessVoiceInputUseCase } from '../../src/modules/voiceProcessing/application/processVoiceInput';
+import { ProcessedTransaction } from '../../src/modules/voiceProcessing/domain/processedTransaction';
 import { TranscriptionService } from '../../src/modules/voiceProcessing/domain/transcriptionService';
 import { LearnedCategoryWords } from '../../src/modules/voiceProcessing/domain/categoryGuess';
 import { CaptureOutcome } from './phraseSet';
@@ -29,11 +31,20 @@ export interface CaptureStand {
   close(): Promise<void>;
 }
 
+/** The stand with the voice path next to the text one (#301). */
+export interface VoiceCaptureStand extends CaptureStand {
+  /**
+   * The same phrase said to the bot (#301): a voice file whose transcription is the phrase, read by `ai` — a voice has
+   * no text fast paths, the AI is always asked — and written by the voice use case for a user like `capture`'s.
+   */
+  captureVoice(phrase: string, ai: TranscriptionService, today: string): Promise<CaptureOutcome>;
+}
+
 /**
  * The text path on a fresh SQLite file in a temp directory, every migration applied, wired as `createModules()` wires
  * it. `learned` — the learned words of the fast path: the seed in the test, the copy's own in the eval.
  */
-export async function openCaptureStand(learned: LearnedCategoryWords): Promise<CaptureStand> {
+export async function openCaptureStand(learned: LearnedCategoryWords): Promise<VoiceCaptureStand> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-eval-'));
   const file = path.join(dir, 'db.sqlite');
   const dataSource = createAppDataSource(file);
@@ -45,39 +56,60 @@ export async function openCaptureStand(learned: LearnedCategoryWords): Promise<C
   const book = new AccountBook(accounts);
   const create = new CreateTransactionUseCase(new SqliteTransactionRepository(dataSource), catalog, book);
 
+  /** A user of its own, so no phrase sees another's records: the starter categories, «Карта» and «Наличные». */
+  async function newUser(): Promise<string> {
+    const userId = randomUUID();
+    const [card] = await book.listForUser(userId);
+    await accounts.createIfMissing({
+      ...card, id: randomUUID(), name: CASH_ACCOUNT_NAME, kind: 'cash', currency: 'UZS', sortOrder: card.sortOrder + 10,
+    });
+    return userId;
+  }
+
   return {
     async capture(phrase, ai, today) {
-      // A user of its own: no phrase sees another's records
-      const userId = randomUUID();
-      const [card] = await book.listForUser(userId);
-      await accounts.createIfMissing({
-        ...card, id: randomUUID(), name: CASH_ACCOUNT_NAME, kind: 'cash', currency: 'UZS', sortOrder: card.sortOrder + 10,
-      });
-
+      const userId = await newUser();
       const useCase = new ProcessTextInputUseCase(ai, create, undefined, catalog, learned);
-      const result = await useCase.execute(phrase, userId, undefined, { source: 'miniapp', today });
-      return {
-        records: result.transactions.map(record => ({
-          type: record.type,
-          semanticType: record.semanticType ?? record.type,
-          amountMinor: record.amountMinor ?? Math.round(record.amount * 100),
-          currency: record.currency ?? 'UZS',
-          date: record.date,
-          category: record.category,
-          account: record.accountName ?? '',
-          needsReview: record.needsReview === true,
-        })),
-        withoutAmount: (result.withoutAmount ?? []).map(item => ({
-          description: item.description,
-          category: item.category,
-          type: item.type,
-        })),
+      return outcomeOf(await useCase.execute(phrase, userId, undefined, { source: 'miniapp', today }));
+    },
+    async captureVoice(phrase, ai, today) {
+      const userId = await newUser();
+      const filePath = path.join(dir, `${randomUUID()}.ogg`);
+      fs.writeFileSync(filePath, 'voice');
+      const heard: TranscriptionService = {
+        transcribe: async () => phrase,
+        analyzeTransactions: text => ai.analyzeTransactions(text),
+        analyzeInput: (text, context) => ai.analyzeInput(text, context),
+        categoryOfMerchant: (merchant, context) => ai.categoryOfMerchant(merchant, context),
       };
+      const useCase = new ProcessVoiceInputUseCase(heard, create, undefined, catalog, learned);
+      return outcomeOf(await useCase.execute({ filePath, userId, source: 'telegram', today }));
     },
     async close() {
       if (dataSource.isInitialized) await dataSource.destroy();
       fs.rmSync(dir, { recursive: true, force: true });
     },
+  };
+}
+
+/** What was written, as far as the set compares it. */
+function outcomeOf(result: ProcessedTransaction): CaptureOutcome {
+  return {
+    records: result.transactions.map(record => ({
+      type: record.type,
+      semanticType: record.semanticType ?? record.type,
+      amountMinor: record.amountMinor ?? Math.round(record.amount * 100),
+      currency: record.currency ?? 'UZS',
+      date: record.date,
+      category: record.category,
+      account: record.accountName ?? '',
+      needsReview: record.needsReview === true,
+    })),
+    withoutAmount: (result.withoutAmount ?? []).map(item => ({
+      description: item.description,
+      category: item.category,
+      type: item.type,
+    })),
   };
 }
 

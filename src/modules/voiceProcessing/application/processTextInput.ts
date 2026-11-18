@@ -1,27 +1,23 @@
-import { ProcessedTransaction, DetectedTransaction, DetectedDebt, ItemWithoutAmount } from '../domain/processedTransaction';
+import { ProcessedTransaction, DetectedTransaction, ItemWithoutAmount } from '../domain/processedTransaction';
 import { TranscriptionService } from '../domain/transcriptionService';
 import { CreateTransactionUseCase } from '../../transaction/application/createTransaction';
 import { CreateDebtUseCase } from '../../debt/application/createDebt';
-import { Transaction } from '../../transaction/domain/transactionEntity';
-import { DebtType } from '../../debt/domain/debtEntity';
-import { DebtLimitExceededError } from '../../debt/domain/errors';
 import { errorFields, getLogger, LogCategory } from '../../../shared/application/logging';
 import { AnalysisContext, starterRecordCategories, UserCategorySource } from '../domain/categoryPrompt';
-import { detectPaymentHints, PaymentHints, stripPaymentWords } from '../domain/paymentHints';
+import { detectPaymentHints, stripPaymentWords } from '../domain/paymentHints';
 import { RecordSource } from '../../transaction/domain/recordSource';
-import { ResolvedAccount } from '../../transaction/domain/accountResolver';
-import { ResolvedCategory } from '../../transaction/domain/categoryResolver';
-import { categoryNamedBy, CategoryOfRecord, LearnedCategoryWords, recordWordsOf } from '../domain/categoryGuess';
-import { captureAssumptions } from './captureAssumptions';
-import { captureMoneyOf } from './captureMoney';
-import { debtLogFields, transactionLogFields } from './captureLogFields';
-import { itemClientId } from '../../transaction/domain/clientId';
-import { fromMinor } from '../../../shared/domain/money/money';
+import { categoryNamedBy, CategoryOfRecord, LearnedCategoryWords } from '../domain/categoryGuess';
 import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { phraseDayOf } from '../domain/phraseDay';
-import { readWrittenNumber, writtenNumbersIn } from '../domain/writtenNumber';
-import { normalizeSemanticType, TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
+import {
+  CURRENCY_WORDS_PATTERN,
+  MAGNITUDE_DECIMAL_POINT_PATTERN,
+  parseSingleAmount,
+  THOUSANDS_POINT_PATTERN,
+} from '../domain/textAmounts';
+import { TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { AnalysisResult, ParsedTransaction } from '../domain/transcriptionService';
+import { ParsedRecordWriter } from './writeParsedRecords';
 import {
   conservativeKeywordPattern,
   DEBT_KEYWORDS_PATTERN,
@@ -39,146 +35,6 @@ const COMPLEX_TEXT_MARKERS_PATTERN = /[.!?;]/;
 const COMPLEX_TEXT_WORDS_PATTERN = conservativeKeywordPattern([
   'и', 'and', 'за', 'по', 'купил\\p{L}*', 'взял\\p{L}*', 'всех', 'компани\\p{L}*', 'поровну', 'скинул\\p{L}*', 'split',
 ]);
-const CURRENCY_WORD_ALTERNATIVES = ['сум', 'sum', 'uzs'];
-const CURRENCY_WORDS_PATTERN = conservativeKeywordPattern(CURRENCY_WORD_ALTERNATIVES, 'giu');
-// The same currency words, but only where they directly follow an amount ("1234 сум"),
-// which is what makes that number the one the user marked as money.
-const CURRENCY_UNIT_AFTER_AMOUNT_PATTERN = new RegExp(
-  `^\\s?(?:${CURRENCY_WORD_ALTERNATIVES.join('|')})(?![\\p{L}\\p{N}_])`,
-  'iu'
-);
-
-// Magnitude words directly after an amount: "12 млн", "25 тыс", "15к". A bare "к"/"k" only counts
-// when glued to the digits, so the preposition ("500000 к маме") and units ("4кг") stay untouched.
-const MAGNITUDE_SUFFIX_SOURCE =
-  "(?:\\s?(?:млрд|миллиард\\p{L}*|mlrd|млн|миллион\\p{L}*|mln|тысяч\\p{L}*|тыщ\\p{L}*|тыс|ming)|[кk])(?![\\p{L}\\p{N}_])";
-const MAGNITUDE_SUFFIX_PATTERN = new RegExp(`^${MAGNITUDE_SUFFIX_SOURCE}`, 'iu');
-// A decimal point inside a magnitude amount ("3.5 млн") is not sentence punctuation.
-const MAGNITUDE_DECIMAL_POINT_PATTERN = new RegExp(`(\\d)\\.(\\d+${MAGNITUDE_SUFFIX_SOURCE})`, 'giu');
-// Nor is a point that groups thousands ("25.000", "1.234.567", FT-206).
-const THOUSANDS_POINT_PATTERN = /(?<=\d)\.(?=\d{3}(?!\d))/g;
-
-const MAGNITUDE_FACTORS: Array<[RegExp, number]> = [
-  [/^(?:млрд|миллиард|mlrd)/iu, 1_000_000_000],
-  [/^(?:млн|миллион|mln)/iu, 1_000_000],
-  [/^(?:тыс|тыщ|ming|к|k)/iu, 1_000],
-];
-
-function magnitudeFactor(suffix: string): number {
-  const word = suffix.trim().toLowerCase();
-  if (!word) {
-    return 1;
-  }
-
-  const factor = MAGNITUDE_FACTORS.find(([pattern]) => pattern.test(word));
-  return factor ? factor[1] : 1;
-}
-
-interface ParsedAmount {
-  amount: number;
-  textBefore: string;
-  textAfter: string;
-}
-
-/**
- * Reads the single amount of a phrase together with its magnitude word, and reports the text
- * left on either side of it so callers never keep "млн" in a description or merchant.
- * Returns null when the phrase does not hold exactly one usable amount.
- */
-function parseSingleAmount(normalizedText: string): ParsedAmount | null {
-  const numbers = writtenNumbersIn(normalizedText);
-  if (numbers.length !== 1) {
-    return null;
-  }
-
-  const [{ token, index: start }] = numbers;
-  const tokenEnd = start + token.length;
-
-  const suffix = MAGNITUDE_SUFFIX_PATTERN.exec(normalizedText.slice(tokenEnd))?.[0] ?? '';
-  // "1,5 млн" reads as either 1.5 or 15 million; hand such phrases to OpenAI rather than pick one.
-  if (suffix && token.includes(',')) {
-    return null;
-  }
-
-  const written = readWrittenNumber(token, { beforeMagnitude: Boolean(suffix) });
-  if (written === null || written <= 0) {
-    return null;
-  }
-
-  return {
-    amount: written * magnitudeFactor(suffix),
-    textBefore: normalizedText.slice(0, start),
-    textAfter: normalizedText.slice(tokenEnd + suffix.length),
-  };
-}
-
-interface TextAmount {
-  value: number;
-  currencyMarked: boolean;
-}
-
-/**
- * Every number the phrase actually spells out, each tagged with whether a currency word follows it.
- * Unlike parseSingleAmount this never gives up on multi-number text — it is used to check an
- * already-parsed amount against the text, not to pick one.
- */
-function readTextAmounts(text: string): TextAmount[] {
-  const normalizedText = text.trim().replace(/\s+/g, ' ');
-
-  return writtenNumbersIn(normalizedText).flatMap(({ token, index: start }) => {
-    const afterToken = normalizedText.slice(start + token.length);
-    const suffix = MAGNITUDE_SUFFIX_PATTERN.exec(afterToken)?.[0] ?? '';
-
-    const written = readWrittenNumber(token, { beforeMagnitude: Boolean(suffix) });
-    if (written === null || written <= 0) {
-      return [];
-    }
-
-    return [{
-      value: written * magnitudeFactor(suffix),
-      currencyMarked: CURRENCY_UNIT_AFTER_AMOUNT_PATTERN.test(afterToken.slice(suffix.length)),
-    }];
-  });
-}
-
-/**
- * OpenAI sometimes reads a bare trailing number — an order id, a note, a phone number — as the
- * amount even though the phrase marks a different number with a currency word
- * ("кофе 1234 сум 1788405366" saved as 1 788 405 366). Only that exact misread is corrected: the
- * chosen amount has to be another number literally written in the same text, so a computed total
- * ("2 билета по 50000 сум" → 100000) is left untouched. When the text marks a single amount the
- * transaction is pulled back onto it; with several marked amounts nothing is guessed. Either way
- * the capture is flagged for review, because the parse demonstrably picked the wrong number.
- */
-function reconcileAmountWithCurrencyMarkedText(
-  transaction: ParsedTransaction,
-  text: string
-): ParsedTransaction {
-  const amounts = readTextAmounts(text);
-  const markedAmounts = [...new Set(amounts.filter(amount => amount.currencyMarked).map(amount => amount.value))];
-
-  if (markedAmounts.length === 0 || markedAmounts.includes(transaction.amount)) {
-    return transaction;
-  }
-
-  const isUnmarkedNumberFromText = amounts.some(
-    amount => !amount.currencyMarked && amount.value === transaction.amount
-  );
-  if (!isUnmarkedNumberFromText) {
-    return transaction;
-  }
-
-  logger.warn('Parsed amount ignored a currency-marked number in the same text', {
-    markedAmounts: markedAmounts.length,
-    corrected: markedAmounts.length === 1,
-  });
-
-  return {
-    ...transaction,
-    amount: markedAmounts.length === 1 ? markedAmounts[0] : transaction.amount,
-    needsReview: true,
-  };
-}
 
 function isComplexText(normalizedText: string): boolean {
   const withoutNumberPoints = normalizedText.replace(MAGNITUDE_DECIMAL_POINT_PATTERN, '$1$2').replace(THOUSANDS_POINT_PATTERN, '');
@@ -188,45 +44,6 @@ function isComplexText(normalizedText: string): boolean {
     // "мне вернули 100000" reads to the simple parser as the label "мне вернули" plus an amount,
     // so without this it silently became a real expense. Returned money is never a fast path.
     || REPAYMENT_KEYWORDS_PATTERN.test(normalizedText);
-}
-
-/**
- * Money that is handed back is a repayment, refund or reimbursement — not consumption. When the
- * parse still comes back as an ordinary expense/income, that ordinary label is the part the text
- * contradicts, so the capture is flagged for review rather than silently counted as real spending
- * or real income. A parse that already named a non-ordinary meaning (debt, reimbursement,
- * own_transfer, …) is trusted and left untouched.
- */
-function flagRepaymentWording(transaction: ParsedTransaction, text: string): ParsedTransaction {
-  if (transaction.needsReview === true || !REPAYMENT_KEYWORDS_PATTERN.test(text)) {
-    return transaction;
-  }
-
-  const semanticType = normalizeSemanticType(transaction.semanticType, transaction.type || 'expense');
-  if (semanticType !== 'expense' && semanticType !== 'income') {
-    return transaction;
-  }
-
-  logger.warn('Returned-money wording parsed as an ordinary transaction', { semanticType });
-
-  return { ...transaction, needsReview: true };
-}
-
-const LENDING_VERB_PATTERN = conservativeKeywordPattern([
-  'одолжил', 'одолжила', 'дал в долг', 'дала в долг', 'даю в долг', 'lent',
-]);
-// "у <кого>" names where the money came from and "мне" names who received it; either one means the
-// user was the borrower, whatever verb the phrase uses.
-const BORROWING_MARKER_PATTERN = conservativeKeywordPattern(['у', 'мне']);
-
-/**
- * "одолжил Азизу 300000" was being stored as `i_owe`, i.e. with the debt pointing the wrong way.
- * Only that misread is corrected: a lending verb with no borrowing marker can only mean the user
- * gave the money away. Phrases that do name a source or a receiver ("занял 200000 у Алишера",
- * "мне одолжил Азиз") no longer pin the direction on wording alone and are left to the parser.
- */
-function isUnambiguousLendingPhrase(text: string): boolean {
-  return LENDING_VERB_PATTERN.test(text) && !BORROWING_MARKER_PATTERN.test(text);
 }
 
 /**
@@ -371,26 +188,6 @@ export interface AmountAnswer {
   kind?: 'cash' | 'card';
 }
 
-/** How one parsed record is written: the phrase it came from and who writes it. */
-interface RecordWrite {
-  text: string;
-  hints: PaymentHints;
-  /**
-   * Items of the phrase, the ones named without an amount too (FT-123): with one, the words of the whole
-   * phrase apply to it.
-   */
-  itemCount: number;
-  clientId?: string;
-  source: RecordSource;
-  userId: string;
-  userName?: string;
-  /** Read by a text fast path, not by the AI (FT-138). */
-  fastPath: boolean;
-  learned: ReadonlyMap<string, readonly string[]>;
-  /** The day the phrase was said: the date of a record the parser gave none. */
-  today: string;
-}
-
 export interface TextInputOptions {
   /** Where the text came from; recorded on every record (FT-103). */
   source?: RecordSource;
@@ -451,31 +248,25 @@ export async function learnedWordsFor(source: LearnedCategoryWords | undefined):
   }
 }
 
-/**
- * How a record's category was set (FT-138): by the AI, or on a fast path from the label — unless the path
- * set it by the record's kind: a transfer, savings or cash withdrawal goes to «Другое», no word chose it.
- */
-function categoryChosenBy(fastPath: boolean, semanticType: TransactionSemanticType): 'ai' | 'words' | 'kind' {
-  if (!fastPath) return 'ai';
-  return semanticType === 'expense' || semanticType === 'income' ? 'words' : 'kind';
-}
-
 export class ProcessTextInputUseCase {
+  /** Writes what was read, as the voice path does (#301). */
+  private readonly writer: ParsedRecordWriter;
+
   constructor(
     private openAIService: TranscriptionService,
-    private createTransactionUseCase: CreateTransactionUseCase,
+    createTransactionUseCase: CreateTransactionUseCase,
     // Debt parsing is off (decision Д2): the parser no longer reports debts, so this stays unused
     // until the debt module is removed.
-    private createDebtUseCase?: CreateDebtUseCase,
+    createDebtUseCase?: CreateDebtUseCase,
     private categorySource?: UserCategorySource,
     /** Learned words, so a category a learned pattern gives is not called a guess (FT-138). */
     private learnedWords?: LearnedCategoryWords
-  ) {}
+  ) {
+    this.writer = new ParsedRecordWriter(createTransactionUseCase, createDebtUseCase);
+  }
 
   async execute(text: string, userId: string, userName?: string, options: TextInputOptions = {}): Promise<ProcessedTransaction> {
     const source: RecordSource = options.source ?? 'miniapp';
-    // «нал», «картой», «$» in the text: which account and currency (FT-103)
-    const hints = detectPaymentHints(text);
     // The user's day, not the UTC one: before 05:00 in Tashkent that is still yesterday (FT-175)
     const today = options.today ?? todayDateOnly();
 
@@ -490,97 +281,17 @@ export class ProcessTextInputUseCase {
     // Fall back to OpenAI for complex/natural-language inputs, with the user's categories
     const { parsed, fastPath } = local ? { parsed: local, fastPath: true } : await this.readByAI(text, userId, simple, today);
 
-    // Only a single-transaction parse is checked against the text's currency markers. In
-    // multi-item text ("продукты 12000 сум и такси 30000") each number belongs to its own
-    // transaction, so an unmarked amount there is expected rather than a misread.
-    const reconciled = parsed.transactions.length === 1 && parsed.debts.length === 0
-      ? [reconcileAmountWithCurrencyMarkedText(parsed.transactions[0], text)]
-      : parsed.transactions;
-    // Repayment wording, on the other hand, casts doubt on the whole capture: which item of a
-    // multi-item text the returned money belongs to is exactly what is unclear, so each one is
-    // flagged rather than guessed at.
-    const transactions = reconciled.map(transaction => flagRepaymentWording(transaction, text));
-
-    // Debt direction is read back from the text only where the wording leaves no room for doubt,
-    // and only for a single-debt parse, so a multi-debt text keeps each debt's own direction.
-    const debts = parsed.debts.length === 1 && isUnambiguousLendingPhrase(text)
-      ? [{ ...parsed.debts[0], debtType: 'owed_to_me' as const }]
-      : parsed.debts;
-
-    const transactionResults: DetectedTransaction[] = [];
-    const debtResults: DetectedDebt[] = [];
-    // Named without an amount: nothing is written, the bot asks «Сколько?» (FT-123). They are items of the
-    // phrase all the same: «нал» in «кофе 25к, такси нал» is the taxi's, so the coffee keeps only its own words
-    const withoutAmount = parsed.withoutAmount ?? [];
-    const itemCount = transactions.length + withoutAmount.length;
-
-    // Process transactions
-    for (const [index, p] of transactions.entries()) {
-      const written = await this.writeRecord(p, {
-        text,
-        hints,
-        itemCount,
-        clientId: options.clientId ? itemClientId(options.clientId, index) : undefined,
-        source,
-        userId,
-        userName,
-        fastPath,
-        learned,
-        today,
-      });
-      if (written) transactionResults.push(written);
-    }
-
-    // Process debts (if DebtModule is available)
-    if (this.createDebtUseCase && debts.length > 0) {
-      for (const d of debts) {
-        try {
-          const debtType = d.debtType === 'i_owe' ? DebtType.I_OWE : DebtType.OWED_TO_ME;
-
-          const result = await this.createDebtUseCase.execute({
-            userId,
-            type: debtType,
-            personName: d.personName,
-            amount: d.amount,
-            description: d.description || text,
-            dueDate: d.dueDate || undefined,
-            moneyTransferred: d.moneyTransferred,
-          });
-
-          // Check if result was successful
-          if (result.success) {
-            debtResults.push({
-              id: result.data.id!,
-              debtType: d.debtType,
-              personName: d.personName,
-              amount: d.amount,
-              dueDate: d.dueDate,
-              description: d.description,
-              confidence: d.confidence,
-              // Only report a real linked transaction id when the debt result provides one.
-              linkedTransactionId: result.data.relatedTransactionId,
-            });
-          } else {
-            // Re-throw DebtLimitExceededError to show user-friendly message
-            if (result.error instanceof DebtLimitExceededError) {
-              throw result.error;
-            }
-            logger.error('Failed to create debt', null, { error: result.error.message });
-          }
-        } catch (error) {
-          // Re-throw DebtLimitExceededError to show user-friendly message
-          if (error instanceof DebtLimitExceededError) {
-            throw error;
-          }
-          logger.error('Failed to create debt from text input', error as Error, {
-            debt: debtLogFields(d),
-            userId,
-          });
-        }
-      }
-    }
-
-    return { text, transactions: transactionResults, debts: debtResults, ...(withoutAmount.length ? { withoutAmount } : {}) };
+    return this.writer.writeParsed(parsed, {
+      text,
+      input: 'text',
+      clientId: options.clientId,
+      source,
+      userId,
+      userName,
+      fastPath,
+      learned,
+      today,
+    });
   }
 
   /**
@@ -652,8 +363,9 @@ export class ProcessTextInputUseCase {
       merchant: item.merchant,
       description: item.description,
     };
-    return this.writeRecord(parsed, {
+    return this.writer.writeRecord(parsed, {
       text,
+      input: 'text',
       hints: detectPaymentHints(text),
       itemCount: 1,
       // One record per answer: its id as is (FT-167)
@@ -666,95 +378,5 @@ export class ProcessTextInputUseCase {
       learned: await learnedWordsFor(this.learnedWords),
       today,
     });
-  }
-
-  /** One parsed record written: the money, account and category resolved, and what was assumed. */
-  private async writeRecord(p: ParsedTransaction, write: RecordWrite): Promise<DetectedTransaction | null> {
-    const { text, hints, userId, userName } = write;
-    try {
-      const type = p.type || 'expense';
-      const semanticType = normalizeSemanticType(p.semanticType, type);
-      const needsReview = p.needsReview === true;
-      const money = captureMoneyOf(p, text, hints, write.itemCount, semanticType);
-      const { currency } = money;
-      const transaction: Transaction = {
-        date: p.date || write.today,
-        category: p.category || 'Другое',
-        description: p.description || text,
-        amount: money.amount,
-        currency,
-        source: write.source,
-        ...(write.clientId ? { clientId: write.clientId } : {}),
-        type,
-        semanticType,
-        needsReview,
-        userId,
-        userName,
-        merchant: p.merchant,
-        confidence: p.confidence,
-        originalText: text,
-        originalParsing: {
-          amount: money.amount,
-          category: p.category || 'Другое',
-          type,
-          semanticType,
-          needsReview,
-          merchant: p.merchant,
-          confidence: p.confidence,
-        },
-      };
-
-      // Text paths choose a category automatically, so never a hidden one (FT-099), and read the
-      // account from the wording (FT-103). Moving money is not paid «налом»: no kind hint for it.
-      let account: ResolvedAccount | undefined;
-      let category: ResolvedCategory | undefined;
-      const createResult = await this.createTransactionUseCase.execute(transaction, {
-        visibleCategoriesOnly: true,
-        accountHint: { text: money.accountText, kind: money.kind },
-        allowCurrencyMismatch: true,
-        onResolved: resolved => { account = resolved.account; category = resolved.category; },
-      });
-      if (!createResult.success) {
-        logger.error('Failed to create transaction', null, { error: createResult.error?.message });
-        return null;
-      }
-      return {
-        id: createResult.data,
-        amount: transaction.amountMinor !== undefined ? fromMinor(transaction.amountMinor) : transaction.amount,
-        amountMinor: transaction.amountMinor,
-        currency: transaction.currency,
-        accountId: transaction.accountId,
-        accountName: account?.name,
-        assumptions: captureAssumptions({
-          text,
-          amount: transaction.amount,
-          category: {
-            name: transaction.category,
-            type: transaction.type,
-            presetKey: category?.presetKey ?? null,
-            chosenBy: categoryChosenBy(write.fastPath, semanticType),
-            words: recordWordsOf(text, p, write.itemCount),
-            learnedWords: category?.presetKey ? write.learned.get(category.presetKey) : undefined,
-          },
-          account,
-          currency,
-        }),
-        category: transaction.category,
-        categoryId: transaction.categoryId,
-        type: transaction.type,
-        semanticType: transaction.semanticType,
-        needsReview: transaction.needsReview,
-        date: transaction.date,
-        merchant: transaction.merchant,
-        confidence: transaction.confidence,
-        description: transaction.description,
-      };
-    } catch (error) {
-      logger.error('Failed to create transaction from text input', error as Error, {
-        transaction: transactionLogFields(p),
-        userId,
-      });
-      return null;
-    }
   }
 }
