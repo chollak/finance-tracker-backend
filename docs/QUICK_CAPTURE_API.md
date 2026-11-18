@@ -502,8 +502,9 @@ Success responses use the shared controller envelope from
 }
 ```
 
-HTTP status on success is always `200` (including `no_transaction` — nothing was parsed, but the request itself
-succeeded).
+HTTP status on success is always `200` (including `no_transaction` — nothing was parsed, or every record the text
+names was refused for what it says; the request itself succeeded). A record that **could not be written** — the
+database is busy, the disk — is never a `200`: see [A record that could not be written](#a-record-that-could-not-be-written-299).
 
 ### `data` — `QuickCaptureResult`
 
@@ -517,6 +518,7 @@ succeeded).
 | `ack` | `CaptureAck` | Ready-to-render confirmation (Russian), shared by all clients. |
 | `review` | `CaptureReview` | Machine-readable reasons the capture may need attention. |
 | `withoutAmount` | `CapturedWithoutAmount[]` \| absent | FT-123. What the text names without an amount («такси» in «кофе 25к, такси»): **nothing is written** for these. Each item: `description`, `category` (the parser's choice, by name), `type`, `semanticType?`, `date?`, `paymentKind?` (`cash` \| `card`), `merchant?`. The key is omitted when there are none. The bot asks «Сколько?» and writes the item with the answer (`QuickCaptureService.captureWithAmount`); the Mini App ignores it for now. |
+| `notWritten` | `CapturedNotWritten[]` \| absent | #299. Records the text names that were **refused for what they say**, so nothing is written for them and sending the text again would not write them either. Each item: `description` (as the text names it: «машина») and `reason` — `amount_too_large` (over 1 000 000 000), `amount_invalid` (not a number above zero), `refused` (any other refusal of the record itself, e.g. no visible account to write into). The other records of the text are written; `ack.summary` names the refused ones too. The key is omitted when there are none, and on a repeat of a `clientId` (the reasons are not stored). The bot says each with its reason; the Mini App and the iOS app do not read the field yet. |
 
 ### `status`
 
@@ -524,11 +526,32 @@ succeeded).
 |---|---|
 | `saved` | At least one transaction was created and none is flagged `needsReview`. |
 | `needs_review` | At least one created transaction has `needsReview: true`, **or** no transaction was created but one or more debts were (a debt-only capture did write something, so it is not "nothing found"). |
-| `no_transaction` | Nothing was parsed: no transactions and no debts. |
+| `no_transaction` | Nothing was written and nothing failed: nothing was parsed (no transactions and no debts), or every record the text names was refused for what it says — then `notWritten` and `ack` («Не записал») say what and why (#299). Final: sending the same text again changes nothing. |
 
 **There is no `draft` status.** There is no parse-without-save path, so a status the code cannot produce is deliberately
 absent from the type union (`src/modules/quickCapture/domain/quickCaptureTypes.ts`). There is also no `error` status —
 failures are transport-level HTTP errors (see [Errors](#errors)), never a `200` body with `status: "error"`.
+
+### A record that could not be written (#299)
+
+A write that fails — the database is busy or read-only, the disk, a category or account lookup that threw — answers
+`500 INTERNAL_ERROR` with the message `The capture was not saved, send it again` and nothing else; the cause is in
+the server log. Before #299 the record was dropped with a line in the log and the answer was `200 no_transaction`,
+which a client takes as final: the iOS queue stopped sending the phrase, and the record was lost.
+
+- **A text is written whole or not at all.** If one record of a text of several fails, the records of this text
+  written before it are taken back — the rows are removed, not deleted softly (`TransactionRepository.remove`) — and
+  the answer is the `500`. So a repeat of the `clientId` does not find a part of the text and answer `repeated` with
+  it: it reads the text again and writes all of its records, each once (`<clientId>`, `<clientId>:1`, …).
+- **Clients send it again.** The iOS queue keeps the capture and tries later on any 5xx (`CaptureClient.outcome`,
+  `ios/KapelkaTests/CaptureSendingRulesTests.swift`); the Mini App keeps the text in the field with «Не удалось
+  записать» and sends the same `clientId` on the next press (`useSendCapture.test.tsx`); the bot answers «Не
+  получилось записать — ничего не сохранил. Отправьте это сообщение ещё раз.» (for a voice: «…Скажите ещё раз или
+  напишите текстом.»), and the answer to «Сколько?» leaves its question open.
+- **A record refused for what it says is not this.** An amount over 1 000 000 000 would be refused again on every
+  retry, so it is `200` with the record in `notWritten` (above), and the rest of the text is written.
+- Not covered: the process stopped between two records of one text, or a record that could not be taken back (the
+  log line `…could not be taken back` names it). The part written then answers the repeat of the `clientId`.
 
 Everything in `transactions`/`debts` is **already written to the database** by the time the response is sent. A
 `needs_review` result is a request to correct a saved row, not a pending draft awaiting confirmation.
@@ -636,7 +659,8 @@ Auth and rate-limit middleware answer earlier in the chain and use a **flat** sh
 | 401 | `MISSING_USER_DATA` | Valid initData without a `user` payload |
 | 429 | `AI_RATE_LIMIT_EXCEEDED` | Shared AI rate limit exhausted for the IP |
 | 500 | `AUTH_NOT_CONFIGURED` | `TG_BOT_API_KEY` missing while validating initData |
-| 500 | `INTERNAL_ERROR` | Parser/persistence failure. The underlying error message is **not** leaked to the client. |
+| 500 | `INTERNAL_ERROR` | `The capture was not saved, send it again` — a record could not be written (#299); nothing of the text is left written, the same `clientId` sent again writes it. See [A record that could not be written](#a-record-that-could-not-be-written-299) |
+| 500 | `INTERNAL_ERROR` | Any other unexpected failure. The underlying error message is **not** leaked to the client. |
 
 Validation failures never reach the service, so they cost no OpenAI call and write nothing.
 
@@ -718,6 +742,30 @@ curl -sS -X POST https://<tunnel-host>/api/quick-capture \
   "review": { "reasons": ["transaction_needs_review"] }
 }
 ```
+
+### A record refused for what it says (#299)
+
+«кофе 25к и машина 1.2 млрд»: the coffee is written, the car is over the limit of one record.
+
+```json
+{
+  "status": "saved",
+  "text": "кофе 25к и машина 1.2 млрд",
+  "transactions": [{ "id": "…", "amount": 25000, "category": "Кафе", "description": "кофе", "…": "…" }],
+  "debts": [],
+  "ack": {
+    "title": "Записал",
+    "summary": "Кофе · 25 000 сум · Кафе\nМашина — не записал: сумма больше 1 000 000 000",
+    "details": "Сегодня",
+    "actions": ["edit", "delete"]
+  },
+  "review": { "reasons": [] },
+  "notWritten": [{ "description": "машина", "reason": "amount_too_large" }]
+}
+```
+
+With nothing else in the text the status is `no_transaction` and the ack is
+`{ "title": "Не записал", "summary": "Машина — сумма больше 1 000 000 000", "actions": [] }`.
 
 ### Nothing recognized
 
