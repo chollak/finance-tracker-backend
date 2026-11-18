@@ -327,11 +327,24 @@ export async function closeAmountQuestionOnCommand(ctx: BotContext, next: () => 
 }
 
 /**
+ * The large amount is answered (#305): the person said what the amount is, so the `needsReview` the rule put on the
+ * record when it was written goes — the record is an ordinary one, in the totals, as before the rule reached the
+ * writer. A flag the parse itself put (returned money, an amount it misread) stays: `originalParsing` keeps it.
+ */
+async function largeAmountChecked(ctx: BotContext, big: RecordView | undefined): Promise<void> {
+  if (!big?.needsReview) return;
+  const stored = await readRecord(ctx, big.id);
+  if (!stored || stored.originalParsing?.needsReview === true) return;
+  await update(ctx, big.id, { needsReview: false });
+}
+
+/**
  * «Да, верная», «Это 25 000 сум» or the right amount typed (FT-123): the records held for the large amount
  * come back — all but one the person declined — and the message is a confirmation again.
  */
 async function releaseLarge(ctx: BotContext, message: BotMessage, input: RecordMessageInput, changed?: string): Promise<PressResult> {
   await restoreRecords(ctx, input.records.filter(record => record.cancelled));
+  await largeAmountChecked(ctx, largeRecord(input));
   const next = { ...message.state, selected: 0 };
   delete next.large;
   return confirmed(next, changed);

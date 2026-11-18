@@ -180,16 +180,6 @@
           {"type":"expense","semanticType":"expense","amountMinor":2500000000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":true}
         ],
         "withoutAmount": []
-      },
-      "knownIssue": {
-        "issue": 305,
-        "note": "Крупная сумма в повседневной категории пишется без «Нужно проверить» везде, кроме бота.",
-        "now": {
-          "records": [
-            {"type":"expense","semanticType":"expense","amountMinor":2500000000,"currency":"UZS","date":"2026-11-18","category":"Кафе","account":"Карта","needsReview":false}
-          ],
-          "withoutAmount": []
-        }
       }
     },
     {
