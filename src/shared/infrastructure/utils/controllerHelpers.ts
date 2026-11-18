@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { AppError } from '../../domain/errors/AppError';
+import { AppError, ExternalServiceError } from '../../domain/errors/AppError';
 import { ERROR_MESSAGES } from '../../domain/constants/messages';
 import { createLogger, LogCategory } from '../logging';
 
@@ -9,6 +9,10 @@ const logger = createLogger(LogCategory.HTTP);
  * Standardized error response handler for controllers. A refusal (4xx: a wrong request, someone else's record, nothing
  * there) is a `warn` with its status and code; a fault of the server (5xx, an unexpected exception) is an `error` with
  * the stack (#275: every 400 and 404 used to read in the journal as an error).
+ *
+ * A failed external service (#302) answers its status and code with one text for any cause: the error's own message
+ * names the service, and its `context.originalError` is the SDK's text — a timeout, a quota, on a 401 OpenAI's message
+ * with the key masked. Both stay in the log line above the answer.
  */
 export function handleControllerError(error: unknown, res: Response): void {
   if (error instanceof AppError && error.statusCode < 500) {
@@ -21,6 +25,18 @@ export function handleControllerError(error: unknown, res: Response): void {
     });
   } else {
     logger.error('Controller error', error instanceof Error ? error : new Error(String(error)));
+  }
+
+  if (error instanceof ExternalServiceError) {
+    res.status(error.statusCode).json({
+      success: false,
+      error: {
+        code: error.code,
+        message: ERROR_MESSAGES.EXTERNAL_SERVICE_ERROR,
+        timestamp: error.timestamp
+      }
+    });
+    return;
   }
 
   if (error instanceof AppError) {

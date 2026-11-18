@@ -12,7 +12,7 @@ import {
 import { Transaction } from '../src/modules/transaction/domain/transactionEntity';
 import { downloadVoiceFile, cleanupFile } from '../src/delivery/messaging/telegram/utils';
 import { CaptureNotSavedError, NoSpeechDetectedError } from '../src/modules/voiceProcessing/domain/voiceErrors';
-import { ExternalServiceError } from '../src/shared/domain/errors/AppError';
+import { ExternalServiceError, ValidationError } from '../src/shared/domain/errors/AppError';
 
 // The voice path must not touch the filesystem or Telegram's CDN in tests; transcription itself
 // stays mocked at the use-case level, so no OpenAI call is ever made.
@@ -209,6 +209,34 @@ describe('Telegram message handlers', () => {
       expect(answer).toContain('Не получилось разобрать');
       expect(answer).toContain('не записал');
       expect(answer).not.toMatch(/External service|OpenAI|❌/);
+    });
+
+    // #302: an AppError's message is English and written for the log and the API, so the chat never gets it
+    it('answers any other failure of a phrase in the user\'s words, never the error\'s own text', async () => {
+      const { ctx, capture, reply } = createTextContext();
+      capture.mockRejectedValue(new ValidationError('Text is too long (maximum 2000 characters)', 'text'));
+      const handler = createTextMessageHandler();
+
+      await handler(ctx as any);
+
+      expect(reply).toHaveBeenCalledTimes(1);
+      expect(replyText(reply)).toBe('Произошла ошибка. Попробуйте снова.');
+    });
+
+    it('answers a quick-add amount that was not written in the user\'s words (#302)', async () => {
+      const { ctx, reply } = createTextContext({
+        message: { text: '500' },
+        session: { pendingAction: { type: 'awaiting_amount', category: 'coffee' } },
+      });
+      (ctx as any).modules.transactionModule.getCreateTransactionUseCase = () => ({
+        execute: jest.fn().mockResolvedValue({ success: false, error: new ValidationError('Account «Наличные» is hidden', 'accountId') }),
+      });
+      const handler = createTextMessageHandler();
+
+      await handler(ctx as any);
+
+      expect(reply).toHaveBeenCalledTimes(1);
+      expect(replyText(reply)).toBe('Произошла ошибка. Попробуйте снова.');
     });
 
     describe('a record that could not be written (#299)', () => {
@@ -630,6 +658,20 @@ describe('Telegram message handlers', () => {
       const answer = replyText(reply);
       expect(answer).toContain('Не получилось разобрать');
       expect(answer).not.toMatch(/External service|OpenAI|❌/);
+    });
+
+    // #302: «Voice file not found: <a path on the PC>» went to the chat as it was
+    it('a voice whose file is gone is answered in the user\'s words, without the path or the error\'s text', async () => {
+      const { ctx, reply } = createVoiceContext();
+      (ctx as any).modules.voiceModule.getProcessVoiceInputUseCase = () => ({
+        execute: jest.fn().mockRejectedValue(new ValidationError('Voice file not found: /tmp/voice/voice-file-1.ogg')),
+      });
+      const handler = createVoiceMessageHandler();
+
+      await handler(ctx as any);
+
+      expect(reply).toHaveBeenCalledTimes(1);
+      expect(replyText(reply)).toBe('🎤 Не удалось обработать голосовое сообщение.');
     });
 
     it('a voice whose records could not be written says so and asks to say it again (#299)', async () => {

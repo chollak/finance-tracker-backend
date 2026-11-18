@@ -701,6 +701,7 @@ Auth and rate-limit middleware answer earlier in the chain and use a **flat** sh
 | 500 | `AUTH_NOT_CONFIGURED` | `TG_BOT_API_KEY` missing while validating initData |
 | 500 | `INTERNAL_ERROR` | `The capture was not saved, send it again` — a record could not be written (#299); nothing of the text is left written, the same `clientId` sent again writes it. See [A record that could not be written](#a-record-that-could-not-be-written-299) |
 | 500 | `INTERNAL_ERROR` | `The user could not be looked up, send it again` — the lookup of the capture's user failed (#315); nothing is parsed or written, the same `clientId` sent again writes it. See [User id resolution](#user-id-resolution) |
+| 502 | `EXTERNAL_SERVICE_ERROR` | `External service is unavailable, try again later` — OpenAI did not read the phrase (#302): a timeout after `OPENAI_TIMEOUT_MS` and its retries, a quota, a refused key, an empty or unreadable answer. Nothing is written; send the same request later with the same `clientId`. The answer has the code, this one message and `timestamp` — no `context`; which call failed and the SDK's text are in the server log. A payment does not get it for its category: one the AI could not choose goes to «Другое» |
 | 500 | `INTERNAL_ERROR` | Any other unexpected failure. The underlying error message is **not** leaked to the client. |
 
 Validation failures never reach the service, so they cost no OpenAI call and write nothing.
