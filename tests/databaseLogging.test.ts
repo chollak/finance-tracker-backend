@@ -15,10 +15,22 @@ import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 const NOTE = 'кофе с собой';
 const AMOUNT_MINOR = 5_123_400;
 
-/** The query and the error of a captured line: «13:57:21 error [DATABASE] Query failed {"query":"…"}», then the error. */
+/** The query and the error of a captured line: «error [DATABASE] Query failed {"query":"…"}», then the error. */
 function partsOf(line: string): { query: string; error: string } {
   const [head, ...error] = line.trimEnd().split('\n');
   return { query: JSON.parse(head.slice(head.indexOf('{'))).query, error: error.join('\n') };
+}
+
+/** The clock alone is set (`Date`): the line reaches the capture through real timers. */
+function setClock(clock: string): void {
+  const [hours, minutes, seconds] = clock.split(':').map(Number);
+  jest.useFakeTimers({
+    now: new Date(2026, 10, 18, hours, minutes, seconds),
+    doNotFake: [
+      'hrtime', 'nextTick', 'performance', 'queueMicrotask', 'requestAnimationFrame', 'cancelAnimationFrame', 'requestIdleCallback',
+      'cancelIdleCallback', 'setImmediate', 'clearImmediate', 'setInterval', 'clearInterval', 'setTimeout', 'clearTimeout',
+    ],
+  });
 }
 
 describe('TypeORM lines go through the app logger (#295)', () => {
@@ -34,6 +46,7 @@ describe('TypeORM lines go through the app logger (#295)', () => {
   });
 
   afterEach(async () => {
+    jest.useRealTimers();
     capture.restore();
     consoleLines.forEach(spy => spy.mockRestore());
     await db.close();
@@ -76,7 +89,11 @@ describe('TypeORM lines go through the app logger (#295)', () => {
     for (const value of [String(AMOUNT_MINOR), '70', NOTE, 'user-1', '2026-11-16']) expect(lines[0]).not.toContain(value);
   });
 
-  it('writes every literal of the SQL and of the error as ? and keeps the names', async () => {
+  // #432: the logger begins a line with the clock, «21:50:22 error …», and one of the literals is 50 — at :50 the clock
+  // itself held a value the line must not hold. Captured lines come without it; checked at such a minute and second,
+  // and at both ends of the day
+  it.each(['00:00:00', '12:50:50', '23:59:59'])('writes every literal of the SQL and of the error as ? and keeps the names (clock at %s)', async clock => {
+    setClock(clock);
     db.dataSource.logger.logQueryError(
       `near "${AMOUNT_MINOR}": syntax error; unrecognized token: "'${NOTE}"`,
       `UPDATE "transactions" SET "description" = 'кофе ''с'' собой', "amount_minor" = ${AMOUNT_MINOR}, "rate" = 12.65, ` +
