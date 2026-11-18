@@ -1519,6 +1519,61 @@ describe('bot record messages (FT-122)', () => {
         expect(await inApp(wrongId)).toBe(false);
       });
 
+      describe('written by the real capture, which flags it `needsReview` (#305)', () => {
+        const coffeeItem: ItemWithoutAmount = { description: 'кофе', category: 'Кафе', type: 'expense', date: today };
+
+        /** «кофе», then «25000000» to «Сколько?»: the answer goes through the real pipeline, as a phrase does. */
+        async function askLarge(): Promise<{ message: number; id: string }> {
+          await write('кофе', [], { missing: [coffeeItem] });
+          const message = await write('25000000');
+          const [id] = await recordIdsOf(message);
+          return { message, id };
+        }
+
+        it('asks the same question; «Да, верная» writes an ordinary record, with nothing left to check', async () => {
+          const { message, id } = await askLarge();
+
+          expect(running.captureWithAmount).toHaveBeenCalledTimes(1);
+          expect((await record(id)).needsReview).toBe(true);
+          expect(await inApp(id)).toBe(false);
+          expect(text(message)).toBe(
+            `<b>Сумма большая: ${MINUS}25${NB}000${NB}000${NB}сум за «Кофе».</b>\nПока не записал — сумма верная?\n\n<i>Если сумма другая — напишите её.</i>`
+          );
+          expect(labels(message)).toEqual([[`Это 25${NB}000${NB}сум`], ['Да, верная'], ['Не записывать']]);
+
+          await press(message, 'Да, верная');
+
+          expect(await inApp(id)).toBe(true);
+          expect(await record(id)).toEqual(expect.objectContaining({ amountMinor: 2_500_000_000, needsReview: false }));
+          expect(text(message)).toContain(`<b>Расход ${MINUS}25${NB}000${NB}000${NB}сум</b>`);
+          expect(text(message)).not.toContain('Нужно проверить');
+          expect(labels(message)).toEqual([['Изменить', 'Отменить']]);
+        });
+
+        it('«Это 25 000 сум» and a typed amount leave nothing to check either', async () => {
+          const fixed = await askLarge();
+          await press(fixed.message, `Это 25${NB}000${NB}сум`);
+          expect(await record(fixed.id)).toEqual(expect.objectContaining({ amountMinor: 2_500_000, needsReview: false }));
+          expect(text(fixed.message)).not.toContain('Нужно проверить');
+
+          const typed = await askLarge();
+          await write('28000');
+          expect(await record(typed.id)).toEqual(expect.objectContaining({ amountMinor: 2_800_000, needsReview: false }));
+          expect(text(typed.message)).not.toContain('Нужно проверить');
+        });
+
+        it('stays to be checked when the question could not be asked and the record is written as it is', async () => {
+          await write('кофе', [], { missing: [coffeeItem] });
+          stand.refuse('sendMessage', networkError('sendMessage'));
+
+          await write('25000000');
+
+          const { transactions: [{ id }] } = await running.captureWithAmount.mock.results[0].value;
+          expect(await inApp(id)).toBe(true);
+          expect((await record(id)).needsReview).toBe(true);
+        });
+      });
+
       it('a second tap of «Это 25 000 сум» changes nothing more', async () => {
         const message = await write('кофе 25000000', [bigCoffee]);
         const [id] = await recordIdsOf(message);
