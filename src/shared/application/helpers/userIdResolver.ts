@@ -7,10 +7,22 @@
 
 import { UserModule } from '../../../modules/user/userModule';
 import { createLogger, LogCategory } from '../logging';
-import { ValidationError } from '../../domain/errors/AppError';
+import { StorageError, ValidationError } from '../../domain/errors/AppError';
 import { telegramIdOf } from '../../domain/access/telegramAccess';
 
 const logger = createLogger(LogCategory.USER);
+
+/**
+ * The user could not be looked up (#315): the database is busy, the disk. Whoever asked does nothing under a guessed
+ * id — a capture is not written, a button changes nothing — and the same request can be sent again. A `StorageError`,
+ * as a capture that could not be written is (#299): `500 INTERNAL_ERROR` with this message only, the cause is in the
+ * log. A user who is not there yet is not this: a Telegram id creates them.
+ */
+export class UserLookupError extends StorageError {
+  constructor() {
+    super('The user could not be looked up, send it again');
+  }
+}
 
 /**
  * UUID v4 regex pattern
@@ -57,8 +69,12 @@ function checkedUserId(userId: string): string {
  *
  * @param userId - Can be telegramId (string of numbers) or UUID
  * @param userModule - UserModule instance for resolving telegramId to UUID
- * @returns UUID string (the Telegram id without leading zeros if resolution fails: fail-open)
+ * Fail-closed (#315): a lookup that fails throws, and nothing is read or written under the Telegram id. It used to
+ * be returned as the user's id — a capture then wrote a record no screen and no total reads, for they read by the UUID.
+ *
+ * @returns UUID string
  * @throws ValidationError for an empty id or one that is no UUID and no Telegram id
+ * @throws UserLookupError when the lookup itself fails
  *
  * @example
  * // telegramId → UUID
@@ -87,7 +103,6 @@ export async function resolveUserIdToUUID(
     return user.id;
   } catch (error) {
     logger.error(`Failed to resolve userId "${resolvableId}" to UUID`, error as Error);
-    // The Telegram id if resolution fails (fail-open for backwards compatibility)
-    return resolvableId;
+    throw new UserLookupError();
   }
 }
