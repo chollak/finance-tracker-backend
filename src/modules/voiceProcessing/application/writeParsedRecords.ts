@@ -29,6 +29,7 @@ import { conservativeKeywordPattern, REPAYMENT_KEYWORDS_PATTERN } from '../../..
 import { AppError, ValidationError } from '../../../shared/domain/errors/AppError';
 import { MAX_RECORD_AMOUNT_MINOR, noteWithinLimit } from '../../../shared/application/validation/validators';
 import { MINOR_PER_MAJOR } from '../../../shared/domain/money/money';
+import { isSuspiciouslyLarge } from '../domain/largeAmount';
 import { CaptureNotSavedError } from '../domain/voiceErrors';
 
 /**
@@ -390,7 +391,20 @@ export class ParsedRecordWriter {
         visibleCategoriesOnly: true,
         accountHint: { text: money.accountText, kind: money.kind },
         allowCurrencyMismatch: true,
-        onResolved: resolved => { account = resolved.account; category = resolved.category; },
+        onResolved: resolved => {
+          account = resolved.account;
+          category = resolved.category;
+          // «кофе 25000000» is most likely «кофе 25000» (#305): written, but to be checked, whoever sent the phrase —
+          // the rule needs the category's starter key, known only here, before the record is stored. The bot asks
+          // «сумма верная?» on top of it and takes the flag off with the answer. `originalParsing` keeps what the
+          // parse itself said.
+          if (isSuspiciouslyLarge({
+            type,
+            currency,
+            amountMinor: transaction.amountMinor ?? Math.round(money.amount * MINOR_PER_MAJOR),
+            presetKey: category?.presetKey,
+          })) transaction.needsReview = true;
+        },
         onRepeat: () => { repeated = true; },
       });
       if (!createResult.success) {
