@@ -5,6 +5,7 @@ import { createTextMessageHandler } from '../src/delivery/messaging/telegram/han
 import { registerLoggerFactory } from '../src/shared/application/logging';
 import { createLogger } from '../src/shared/infrastructure/logging';
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
+import { CaptureNotSavedError } from '../src/modules/voiceProcessing/domain/voiceErrors';
 import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/application/processVoiceInput';
 import { OpenAITranscriptionService } from '../src/modules/voiceProcessing/infrastructure/openAITranscriptionService';
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
@@ -118,9 +119,9 @@ describe('the log keeps counts and signs, not what the user wrote (#269)', () =>
   it('a phrase whose record was not written: the signs of the record, not its amount, note or merchant', async () => {
     const text = new ProcessTextInputUseCase(parserOf('', PARSED) as unknown as TranscriptionService, failingCreate());
 
-    const result = await text.execute(PHRASE, 'user-1', 'Shukur');
+    // The failure goes on to the caller (#299); the log line is the same
+    await expect(text.execute(PHRASE, 'user-1', 'Shukur')).rejects.toBeInstanceOf(CaptureNotSavedError);
 
-    expect(result.transactions).toEqual([]);
     const lines = await capture.lines();
     expectNothingPrivate(lines);
     const failed = lineWith(lines, 'Failed to create transaction from text input');
@@ -145,9 +146,8 @@ describe('the log keeps counts and signs, not what the user wrote (#269)', () =>
   it('a voice whose record was not written: the signs of the record, not its amount, note or merchant', async () => {
     const voice = new ProcessVoiceInputUseCase(parserOf(PHRASE) as unknown as TranscriptionService, failingCreate());
 
-    const result = await voice.execute({ filePath: voiceFile(), userId: 'user-1', source: 'telegram' });
+    await expect(voice.execute({ filePath: voiceFile(), userId: 'user-1', source: 'telegram' })).rejects.toBeInstanceOf(CaptureNotSavedError);
 
-    expect(result.transactions).toEqual([]);
     const lines = await capture.lines();
     expectNothingPrivate(lines);
     const failed = lineWith(lines, 'Failed to create transaction from voice input');

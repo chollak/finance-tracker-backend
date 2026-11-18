@@ -334,9 +334,11 @@ export class ParsedRecordWriter {
       if (!createResult.success) {
         if (!isRefusalOfTheRecord(createResult.error)) throw createResult.error;
         const reason = refusalReason(createResult.error, money.amount);
-        // The reason, not the words: the validator's message has no user content, the record's name does (#269)
-        logger.warn(`A record of a ${write.input} input was refused: ${createResult.error.message}`, {
+        // The reason and the field, not the refusal's words: a message may name a category or an account (#269)
+        logger.warn(`A record of a ${write.input} input was refused`, {
           reason,
+          code: createResult.error.code,
+          ...(createResult.error instanceof ValidationError && createResult.error.field ? { field: createResult.error.field } : {}),
           transaction: transactionLogFields(p),
           userId,
         });
