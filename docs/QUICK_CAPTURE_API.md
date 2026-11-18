@@ -532,6 +532,7 @@ database is busy, the disk — is never a `200`: see [A record that could not be
 |---|---|
 | `saved` | At least one transaction was created and none is flagged `needsReview`. |
 | `needs_review` | At least one created transaction has `needsReview: true`, **or** no transaction was created but one or more debts were (a debt-only capture did write something, so it is not "nothing found"). |
+| `no_transaction` | Nothing was written and nothing failed: nothing was parsed (no transactions and no debts), or every record the text names was refused for what it says — then `notWritten` and `ack` («Не записал») say what and why (#299). Final: sending the same text again changes nothing. |
 
 A record is flagged `needsReview` by the parse (returned-money wording, an amount it misread), by the account
 (dollars kept on a сум account) and, since #305, by the **large-amount rule** (`isSuspiciouslyLarge`,
@@ -540,7 +541,6 @@ spending — the starter categories «Кафе», «Транспорт», «Пр
 is most likely «кофе 25000», so the record is written as sent, flagged, and the answer is `needs_review`; the rule is
 the same for a phrase and a voice from any source. An Apple Pay payment (`/payment`) is not checked by it: its amount
 comes from the bank. The bot asks «сумма верная?» on top of the flag and takes it off with the answer.
-| `no_transaction` | Nothing was written and nothing failed: nothing was parsed (no transactions and no debts), or every record the text names was refused for what it says — then `notWritten` and `ack` («Не записал») say what and why (#299). Final: sending the same text again changes nothing. |
 
 **There is no `draft` status.** There is no parse-without-save path, so a status the code cannot produce is deliberately
 absent from the type union (`src/modules/quickCapture/domain/quickCaptureTypes.ts`). There is also no `error` status —
