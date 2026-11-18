@@ -412,8 +412,9 @@ describe('a database another connection holds (#299)', () => {
     expect(DATABASE_BUSY_TIMEOUT_MS).toBeGreaterThanOrEqual(1000);
   });
 
-  it('a short lock between two records is waited out: the phrase is written whole', async () => {
-    lockAfterRecord(1, 400);
+  it('a lock of a second and a half between two records is waited out: the phrase is written whole', async () => {
+    // Longer than the second the sqlite3 package waits by itself, shorter than DATABASE_BUSY_TIMEOUT_MS
+    lockAfterRecord(1, 1500);
 
     const result = await service.capture(request);
 

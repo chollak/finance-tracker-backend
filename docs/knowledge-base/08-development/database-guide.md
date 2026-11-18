@@ -216,3 +216,12 @@ SELECT * FROM migrations;
 
 - [Quick Start](quick-start.md)
 - [Модель денег вехи 10](../../pastel/money-model.md) — какие таблицы и миграции впереди
+
+## Занятая база (#299)
+
+Соединение приложения ждёт базу, которую держит другой процесс (бэкап, отчёт, `sqlite3` в терминале), до 3 секунд:
+`busyTimeout: DATABASE_BUSY_TIMEOUT_MS` в `createAppDataSource` (`database.config.ts`), то есть `PRAGMA busy_timeout`.
+Дольше — запрос падает с `SQLITE_BUSY`. Раньше значение не задавалось: действовала одна секунда, которую пакет
+`sqlite3` ставит сам. Что при этом происходит с фразой из нескольких записей —
+[`docs/QUICK_CAPTURE_API.md`](../../QUICK_CAPTURE_API.md#a-record-that-could-not-be-written-299).
+

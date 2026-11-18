@@ -58,8 +58,9 @@ function appTypeOrmLogger(withWarnings: boolean): TypeOrmLogger {
 
 /**
  * How long a statement waits for a database another process holds (`PRAGMA busy_timeout`, #299) — a backup, a report,
- * a shell — before it fails with `SQLITE_BUSY`. Without it the failure was instant, for a write and for the taking
- * back of a phrase's records alike. Three seconds: such locks last milliseconds, and the worst case of a capture —
+ * a shell — before it fails with `SQLITE_BUSY`, for a write and for the taking back of a phrase's records alike. Set
+ * here, not left to the one second the `sqlite3` package waits by itself, which nothing in the project said or tested.
+ * Three seconds: such locks last milliseconds, and the worst case of a capture —
  * a write that waits and fails, then three passes of taking back that wait each — stays near 13 s, well inside what
  * the clients wait for an answer (the Mini App 45 s, the iOS app 60 s) and the bot's limit for one update (10 min).
  */

@@ -518,7 +518,7 @@ database is busy, the disk — is never a `200`: see [A record that could not be
 | `ack` | `CaptureAck` | Ready-to-render confirmation (Russian), shared by all clients. |
 | `review` | `CaptureReview` | Machine-readable reasons the capture may need attention. |
 | `withoutAmount` | `CapturedWithoutAmount[]` \| absent | FT-123. What the text names without an amount («такси» in «кофе 25к, такси»): **nothing is written** for these. Each item: `description`, `category` (the parser's choice, by name), `type`, `semanticType?`, `date?`, `paymentKind?` (`cash` \| `card`), `merchant?`. The key is omitted when there are none. The bot asks «Сколько?» and writes the item with the answer (`QuickCaptureService.captureWithAmount`); the Mini App ignores it for now. |
-| `notWritten` | `CapturedNotWritten[]` \| absent | #299. Records the text names that were **refused for what they say**, so nothing is written for them and sending the text again would not write them either. Each item: `description` (as the text names it: «машина») and `reason` — `amount_too_large` (over 1 000 000 000), `amount_invalid` (not a number above zero), `refused` (any other refusal of the record itself, e.g. no visible account to write into). The other records of the text are written; `ack.summary` names the refused ones too. The key is omitted when there are none, and on a repeat of a `clientId` (the reasons are not stored). The bot says each with its reason; the Mini App and the iOS app do not read the field yet. |
+| `notWritten` | `CapturedNotWritten[]` \| absent | #299. Records the text names that were **not written**: as a rule refused for what they say, so sending the text again would not write them either. Each item: `description` (as the text names it: «машина») and `reason` — `amount_too_large` (over 1 000 000 000), `amount_invalid` (not a number above zero), `no_account` (no visible account in the record's currency; the item then has `currency`), `refused` (any other refusal of the record itself). One more reason is not a refusal: `not_saved` — the write failed and the text stayed written in part, see [A record that could not be written](#a-record-that-could-not-be-written-299); only these are worth sending again. The other records of the text are written; `ack.summary` names the refused ones too. The key is omitted when there are none, and on a repeat of a `clientId` (the reasons are not stored). The bot says each with its reason; the Mini App and the iOS app do not read the field yet. |
 
 ### `status`
 
@@ -550,8 +550,31 @@ which a client takes as final: the iOS queue stopped sending the phrase, and the
   напишите текстом.»), and the answer to «Сколько?» leaves its question open.
 - **A record refused for what it says is not this.** An amount over 1 000 000 000 would be refused again on every
   retry, so it is `200` with the record in `notWritten` (above), and the rest of the text is written.
-- Not covered: the process stopped between two records of one text, or a record that could not be taken back (the
-  log line `…could not be taken back` names it). The part written then answers the repeat of the `clientId`.
+- **A busy database is waited for.** The app's connection waits up to 3 s for a database another process holds
+  (`PRAGMA busy_timeout`, `DATABASE_BUSY_TIMEOUT_MS`) before a write — or the taking back — fails. The taking back
+  is tried in three passes, 300 ms apart.
+- **A text saved in part.** If the records written before the failure still cannot be taken back — the database
+  stayed busy through every pass — the answer is **not** the `500`, which would claim that nothing was saved. It is
+  `200` with what is in the database: the records that stayed in `transactions`, every other record of the text in
+  `notWritten` with `reason: "not_saved"` (the one that failed, the ones taken back, the ones never reached), and a
+  line for each in `ack.summary` («Хлеб — не записал: не получилось, отправьте ещё раз»). A repeat of the `clientId`
+  answers `repeated` with the same records, so the two answers agree. Only the `not_saved` records are to be sent
+  again, as a new capture; the log has `…was saved in part` with counts and `…could not be taken back` with the
+  record's id. The bot says «Записал не всё. Не получилось записать: «Хлеб». Отправьте заново только это — остальное
+  уже записано.» under its confirmation of what was written.
+
+#### Not covered
+
+- **The process stopped between two records of one text** (killed, power): nothing takes the written part back, and
+  no answer is sent. The repeat of the `clientId` answers `repeated` with that part; the rest of the text is lost
+  unless it is entered again.
+- **A text saved in part reaches a client that does not read `notWritten`.** The iOS app and the Mini App take the
+  `200` as written and show the records that are in; the `not_saved` ones are named only in `ack.summary`. The
+  iOS queue does not send the text again.
+- **The bot cannot tell a phrase sent again from a new one**: a new message has a new `clientId`. After «Записал не
+  всё…» the whole phrase sent again writes the records that stayed a second time — hence «только это».
+- **A repeat does not carry `notWritten`**: the reasons are not stored, so the repeat of a text saved in part shows
+  its records without the `not_saved` list.
 
 Everything in `transactions`/`debts` is **already written to the database** by the time the response is sent. A
 `needs_review` result is a request to correct a saved row, not a pending draft awaiting confirmation.
