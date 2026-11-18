@@ -217,6 +217,8 @@ AI-powered обработка голосовых сообщений и текс�
 ### Use Cases
 - `ProcessVoiceInputUseCase` - OGG → MP3 → Whisper → GPT → Transaction
 - `ProcessTextInputUseCase` - Text → GPT → Transaction
+- Оба после разбора пишут записи одним кодом — `ParsedRecordWriter` (`application/writeParsedRecords.ts`, #301):
+  сверка суммы с «сум», пометка «вернули», запись каждого пункта
 
 ### Services
 - `OpenAITranscriptionService` - Whisper transcription + GPT parsing

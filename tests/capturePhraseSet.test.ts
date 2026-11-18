@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { OpenAITranscriptionService } from '../src/modules/voiceProcessing/infrastructure/openAITranscriptionService';
 import { TransactionLearningService } from '../src/shared/application/learning/transactionLearning';
-import { CaptureStand, openCaptureStand, parserNeverAsked } from '../scripts/capture-eval/captureStand';
+import { VoiceCaptureStand, openCaptureStand, parserNeverAsked } from '../scripts/capture-eval/captureStand';
 import { differences } from '../scripts/capture-eval/compare';
 import { CapturePhrase, loadPhraseSet, phraseSetProblems } from '../scripts/capture-eval/phraseSet';
 
@@ -16,6 +16,9 @@ import { CapturePhrase, loadPhraseSet, phraseSetProblems } from '../scripts/capt
  *
  * `npm run eval:capture` sends the same phrases to the real model and compares with the same expected records.
  */
+
+// The voice path converts its file with ffmpeg first: faked, as in the other voice tests (#295)
+jest.mock('child_process', () => jest.requireActual('./helpers/fakeFfmpeg').childProcessWithFakeFfmpeg());
 
 const set = loadPhraseSet();
 const SEED_DIR = path.join(__dirname, '..', 'data');
@@ -33,7 +36,7 @@ function answering(answer: unknown) {
 }
 
 describe('the set of typical phrases (#307)', () => {
-  let stand: CaptureStand;
+  let stand: VoiceCaptureStand;
   let learningDir: string;
 
   beforeAll(async () => {
@@ -88,6 +91,24 @@ describe('the set of typical phrases (#307)', () => {
       const lines = known.map(phrase => `#${phrase.knownIssue!.issue} ${phrase.id}: ${phrase.knownIssue!.note}`);
       process.stdout.write(`\nНабор фраз: известные ошибки кода (${known.length}):\n${lines.join('\n')}\n`);
       expect(known.every(phrase => phrase.knownIssue!.note.trim().length > 0)).toBe(true);
+    });
+  });
+
+  /**
+   * #301: the same phrases said by voice — the transcription is the phrase. A voice has no text fast paths, so only
+   * the phrases with a kept answer can be said without the network; after the AI the voice writes with the same code
+   * as the text, so each of them becomes what the text path writes.
+   */
+  describe('said by voice (#301)', () => {
+    const answered = set.phrases.filter(phrase => phrase.ai !== null);
+
+    it.each(answered.map(phrase => [phrase.id, phrase.phrase, phrase] as const))('%s: «%s»', async (_id, _text, phrase) => {
+      const { fetch, parser } = answering(phrase.ai);
+
+      const outcome = await stand.captureVoice(phrase.phrase, parser, set.today);
+
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(outcome).toEqual(phrase.knownIssue?.now ?? phrase.expected);
     });
   });
 });

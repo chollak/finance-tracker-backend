@@ -41,7 +41,9 @@ flowchart TD
     F1 -->|нет или другое| G[Enhanced Prompt<br/>+ Learning Patterns]
     G --> H[OpenAI Chat API<br/>gpt-4.1-mini]
     H --> I[Parsed Transactions<br/>+ withoutAmount]
-    I --> M[CreateTransactionUseCase]
+    T[Текст: быстрый путь<br/>или тот же запрос к ИИ] --> W
+    I --> W[ParsedRecordWriter.writeParsed<br/>сверка с фразой: «сум», «вернули»<br/>одна запись на пункт]
+    W --> M[CreateTransactionUseCase]
     M --> O[TransactionRepository.save]
     O --> P[Database SQLite]
     P --> Q[Return Transaction IDs]
@@ -282,6 +284,45 @@ if (description.length < 3) confidence -= 0.05;
 **Decision Logic:**
 - **High confidence (≥ 0.6):** Автосохранение с опциями Edit/Delete
 - **Low confidence (< 0.6):** Запрос подтверждения у пользователя
+
+---
+
+### 7а. Запись распознанного — одна для текста и голоса (#301)
+**Класс:** `ParsedRecordWriter` (`src/modules/voiceProcessing/application/writeParsedRecords.ts`)
+
+Всё, что идёт после разбора, делает один код. Его вызывают `ProcessVoiceInputUseCase` (после ИИ) и
+`ProcessTextInputUseCase` (после быстрого пути или ИИ); ответ на «Сколько?» (`executeWithAmount`) пишет одну запись
+тем же `writeRecord`. Раньше голос писал своей копией, и она отстала: не было двух сверок ниже. Правка записи — дата,
+сбой записи, проверка ответа ИИ, крупная сумма — теперь делается здесь один раз.
+
+`writeParsed(parsed, phrase)` по порядку:
+1. **Сумма с «сум»** (`reconcileAmountWithCurrencyMarkedText`) — только когда во фразе одна запись. Если ИИ взял
+   суммой голое число из текста, а другое число помечено «сум» / `sum` / `uzs` («кофе 1234 сум 1788405366»), запись
+   получает помеченную сумму и «Нужно проверить». Помеченных сумм несколько — сумма остаётся, «Нужно проверить»
+   ставится. Сумма, которой в тексте нет («2 билета по 50000 сум» → 100 000), не трогается.
+2. **«Вернули»** (`flagRepaymentWording`) — у каждой записи фразы. Слова возврата («мне вернули», «вернул») при
+   обычном расходе или доходе дают «Нужно проверить»; запись, которой ИИ уже дал особый смысл (`reimbursement`,
+   `own_transfer`…), не трогается.
+3. **Позиции фразы** — записи и названное без суммы (`withoutAmount`) вместе: от их числа зависит, чьи слова «нал»
+   и «$» (`captureMoneyOf`, `recordWordsOf`).
+4. **Запись каждого пункта** (`writeRecord`): валюта, сумма и счёт по словам (`captureMoneyOf`),
+   `CreateTransactionUseCase` с видимыми категориями, `assumptions`. `clientId` фразы — `<id>`, `<id>:1`, …
+   Пункт, который не записался, пропускается с ошибкой в логе (`Failed to create transaction from text|voice input`),
+   остальные пишутся — что при этом видит человек, решает #299.
+5. Долги (`createDebtUseCase`) — до #266; разбор их не отдаёт.
+
+Что вызывающий передаёт своё:
+
+| | Текст | Голос |
+|---|---|---|
+| `text` | фраза | расшифровка |
+| `fastPath` | да, если фразу прочёл быстрый путь (категорию назвали слова) | всегда нет: голос быстрыми путями не читается |
+| `noteFallback` — заметка записи, которой ИИ не дал описания | вся фраза | первые 500 символов расшифровки: заметка длиннее 500 не проходит проверку |
+| `userName` | как пришло | как пришло, иначе id пользователя (в базу не пишется) |
+| `input` — только для строки лога | `text` | `voice` |
+
+Сами числа фразы для быстрых путей и для сверки читает `voiceProcessing/domain/textAmounts.ts`
+(`parseSingleAmount`, `readTextAmounts`) поверх `writtenNumber.ts`.
 
 ---
 
@@ -540,6 +581,7 @@ if (description.length < 3) confidence -= 0.05;
 ## Критичные файлы
 
 - [`src/modules/voiceProcessing/application/processVoiceInput.ts`](../../../src/modules/voiceProcessing/application/processVoiceInput.ts) - Main use case
+- [`src/modules/voiceProcessing/application/writeParsedRecords.ts`](../../../src/modules/voiceProcessing/application/writeParsedRecords.ts) - `ParsedRecordWriter`: сверка разбора с фразой и запись, общая для текста и голоса (#301)
 - [`src/modules/voiceProcessing/infrastructure/openAITranscriptionService.ts`](../../../src/modules/voiceProcessing/infrastructure/openAITranscriptionService.ts) - OpenAI integration
 - [`src/delivery/messaging/telegram/telegramBot.ts`](../../../src/delivery/messaging/telegram/telegramBot.ts) - Telegram handlers
 - [`src/shared/application/learning/transactionLearning.ts`](../../../src/shared/application/learning/transactionLearning.ts) - ML service
