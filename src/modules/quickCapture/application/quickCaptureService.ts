@@ -178,7 +178,7 @@ export class QuickCaptureService {
   /**
    * Writes an item a phrase named without an amount, with the amount of the answer to «Сколько?» (FT-123),
    * through the same pipeline as the phrase itself. A write that failed is thrown (#299), so the asker keeps its
-   * question open and says the record was not written.
+   * question open and says the record was not written; an answer refused for what it says is in `notWritten`.
    */
   async captureWithAmount(request: AmountAnswerRequest): Promise<QuickCaptureResult> {
     const written = await this.processTextInputUseCase.executeWithAmount(
@@ -189,7 +189,9 @@ export class QuickCaptureService {
       { source: request.source ?? 'miniapp', ...(request.clientId ? { clientId: request.clientId } : {}) }
     );
     const text = `${request.item.description} ${request.answer.text}`.trim();
-    return buildResult(text, request.source, written ? [toCapturedTransaction(written)] : [], []);
+    // Refused for what it says: nothing written, and the reason for the asker to say
+    if ('refused' in written) return buildResult(text, request.source, [], [], [written.refused]);
+    return buildResult(text, request.source, [toCapturedTransaction(written)], []);
   }
 }
 

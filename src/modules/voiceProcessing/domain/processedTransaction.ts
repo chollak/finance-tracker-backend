@@ -68,19 +68,26 @@ export interface ItemWithoutAmount {
 }
 
 /**
- * Why a record the phrase names was not written (#299): `amount_too_large` — over 1 000 000 000, `amount_invalid` — not
- * a number above zero, `refused` — any other refusal of the record itself (no visible account to write into).
+ * Why a record the phrase names was not written (#299). Refused for what it says — sending it again would not help:
+ * `amount_too_large` — over 1 000 000 000, `amount_invalid` — not a number above zero, `no_account` — the user has no
+ * visible account in the record's `currency`, `refused` — any other refusal of the record itself.
+ *
+ * `not_saved` is another matter: the write failed, and the records of the phrase written before it could not all be
+ * taken back (the database stayed busy). The answer then says what is in the database — those records as written,
+ * the rest `not_saved` — so it never claims that nothing was saved, and only these are to be sent again.
  */
-export type NotWrittenReason = 'amount_too_large' | 'amount_invalid' | 'refused';
+export type NotWrittenReason = 'amount_too_large' | 'amount_invalid' | 'no_account' | 'refused' | 'not_saved';
 
 /**
- * A record of the phrase refused for what it says (#299): nothing is written for it and sending the phrase again
- * would not write it either, so it is named with the reason instead; the other records of the phrase are written.
+ * A record of the phrase that was not written (#299), named with the reason; the other records of the phrase are
+ * written.
  */
 export interface NotWrittenItem {
   /** As the phrase names it: «машина». */
   description: string;
   reason: NotWrittenReason;
+  /** With `no_account`: the currency no visible account has. */
+  currency?: 'UZS' | 'USD';
 }
 
 export interface ProcessedTransaction {

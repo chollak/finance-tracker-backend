@@ -4,7 +4,7 @@ import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/applicat
 import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/application/processVoiceInput';
 import { NoSpeechDetectedError } from '../src/modules/voiceProcessing/domain/voiceErrors';
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
-import { ItemWithoutAmount } from '../src/modules/voiceProcessing/domain/processedTransaction';
+import { DetectedTransaction, ItemWithoutAmount } from '../src/modules/voiceProcessing/domain/processedTransaction';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
 import { QuickCaptureService } from '../src/modules/quickCapture/application/quickCaptureService';
 import { isSuspiciouslyLarge, LARGE_AMOUNT_MIN_MINOR } from '../src/modules/voiceProcessing/domain/largeAmount';
@@ -206,7 +206,7 @@ describe('writing a named item once the amount is known (FT-123)', () => {
     );
     expect(result).toEqual(expect.objectContaining({ id: 'taxi-1', amount: 18000, category: 'Транспорт' }));
     // «такси» names the category itself: not a guess
-    expect(result?.assumptions?.some(assumption => assumption.kind === 'category')).toBe(false);
+    expect((result as DetectedTransaction).assumptions?.some(assumption => assumption.kind === 'category')).toBe(false);
   });
 
   it('says «18» was read as 18 000', async () => {
@@ -214,7 +214,7 @@ describe('writing a named item once the amount is known (FT-123)', () => {
 
     const result = await useCase.executeWithAmount(taxi, { text: '18', amount: 18000, currency: 'UZS' }, 'user-1');
 
-    expect(result?.assumptions).toContainEqual({ kind: 'thousands', written: '18', amount: 18000 });
+    expect((result as DetectedTransaction).assumptions).toContainEqual({ kind: 'thousands', written: '18', amount: 18000 });
   });
 
   it('the quick capture writes it through the same pipeline', async () => {

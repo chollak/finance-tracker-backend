@@ -13,8 +13,8 @@ import { answerAmountQuestion } from './recordHandlers';
 import { parseAmountReply, refusalText } from '../utils/amountReply';
 import { fromMinor } from '../../../../shared/domain/money/money';
 import { AppError, ExternalServiceError, StorageError } from '../../../../shared/domain/errors/AppError';
-import { DetectedDebt, NotWrittenItem } from '../../../../modules/voiceProcessing/domain/processedTransaction';
-import { itemName, quoted } from '../formatters/recordMessage';
+import { DetectedDebt } from '../../../../modules/voiceProcessing/domain/processedTransaction';
+import { notWrittenText } from '../utils/notWrittenText';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
 import { UserModule } from '../../../../modules/user/userModule';
 import {
@@ -81,11 +81,6 @@ async function replyWithError(ctx: BotContext, error: unknown): Promise<void> {
     return;
   }
   await ctx.reply(error instanceof AppError ? `❌ ${error.message}` : RU.errors.generic);
-}
-
-/** «Машина» — сумма больше 1 000 000 000, не записал.: a line for every record refused for what it says (#299). */
-function notWrittenText(items: NotWrittenItem[]): string {
-  return items.map(item => RU.record.notWrittenBecause[item.reason](quoted(itemName(item)))).join('\n');
 }
 
 /**

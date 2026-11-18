@@ -66,6 +66,9 @@ export const RU = {
       amount_invalid: (name: string) => `${name} — сумма должна быть числом больше нуля, не записал.`,
       refused: (name: string) => `${name} — запись не прошла проверку, не записал.`,
     },
+    // #299: the write failed and the records written before it could not all be taken back. Under the confirmation
+    // of what did get written: what did not, and that only it is to be sent again — the whole phrase would double
+    savedInPart: (names: string) => `Записал не всё. Не получилось записать: ${names}.\nОтправьте заново только это — остальное уже записано.`,
     skipped: (name: string) => `${name} — пропустил.`,
     writtenSeparately: (name: string) => `${name} — записал отдельным сообщением.`,
     changed: (what: string) => `Изменил: ${what}`,

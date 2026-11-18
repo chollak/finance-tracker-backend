@@ -1,4 +1,4 @@
-import { ProcessedTransaction, DetectedTransaction, ItemWithoutAmount } from '../domain/processedTransaction';
+import { ProcessedTransaction, DetectedTransaction, ItemWithoutAmount, NotWrittenItem } from '../domain/processedTransaction';
 import { TranscriptionService } from '../domain/transcriptionService';
 import { CreateTransactionUseCase } from '../../transaction/application/createTransaction';
 import { CreateDebtUseCase } from '../../debt/application/createDebt';
@@ -340,7 +340,7 @@ export class ProcessTextInputUseCase {
    * answer to «Сколько?»). The record is the item — its category, note, date — with the answer's amount,
    * currency and account word, through the same pipeline as a parsed phrase, so its guesses read the same:
    * the text it is read from is the note and the answer («такси 18к нал»), and «18» says it was 18 000.
-   * Null when the record was refused for what it says; a write that failed is a `CaptureNotSavedError` (#299).
+   * A record refused for what it says comes back as `{ refused }` with the reason; a write that failed is a `CaptureNotSavedError` (#299).
    */
   async executeWithAmount(
     item: ItemWithoutAmount,
@@ -348,7 +348,7 @@ export class ProcessTextInputUseCase {
     userId: string,
     userName?: string,
     options: TextInputOptions = {}
-  ): Promise<DetectedTransaction | null> {
+  ): Promise<DetectedTransaction | { refused: NotWrittenItem }> {
     const text = `${item.description} ${answer.text}`.trim();
     const today = options.today ?? todayDateOnly();
     const parsed: ParsedTransaction = {
@@ -379,7 +379,6 @@ export class ProcessTextInputUseCase {
       learned: await learnedWordsFor(this.learnedWords),
       today,
     });
-    // The bot checked the amount before asking to write it; any other refusal leaves the question open
-    return 'written' in outcome ? outcome.written : null;
+    return 'refused' in outcome ? outcome : outcome.written;
   }
 }

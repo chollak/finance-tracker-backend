@@ -238,6 +238,38 @@ describe('Telegram message handlers', () => {
         expect(replyText(reply)).toBe(`«Машина» — сумма больше 1${NB}000${NB}000${NB}000, не записал.`);
       });
 
+      it('a phrase saved in part: confirms what is written, names what is not and asks to send only that again', async () => {
+        const partly: QuickCaptureResult = {
+          ...captureResult([captured()]),
+          notWritten: [{ description: 'кофе', reason: 'not_saved' }, { description: 'хлеб', reason: 'not_saved' }],
+        };
+        const { ctx, reply } = createTextContext({}, partly);
+        const handler = createTextMessageHandler();
+
+        await handler(ctx as any);
+
+        expect(reply).toHaveBeenCalledTimes(2);
+        expect(replyText(reply, 0)).toContain(`<b>Расход ${MINUS}18${NB}000${NB}сум</b>`);
+        expect(replyText(reply, 1)).toBe(
+          'Записал не всё. Не получилось записать: «Кофе», «Хлеб».\nОтправьте заново только это — остальное уже записано.'
+        );
+        expect(replyText(reply, 1)).not.toMatch(EMOJI);
+        expect(replyText(reply, 1)).not.toContain('Такси');
+      });
+
+      it('no account in the record’s currency is said in the words the bot already has', async () => {
+        const refused: QuickCaptureResult = {
+          ...captureResult([], { text: 'наушники 55$' }),
+          notWritten: [{ description: 'наушники', reason: 'no_account', currency: 'USD' }],
+        };
+        const { ctx, reply } = createTextContext({}, refused);
+        const handler = createTextMessageHandler();
+
+        await handler(ctx as any);
+
+        expect(replyText(reply)).toBe('Счёта в долларах нет — добавьте его в Kapelka.');
+      });
+
       it('confirms what was written and then names what was refused', async () => {
         const partly: QuickCaptureResult = {
           ...captureResult([captured()]),

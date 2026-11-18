@@ -90,15 +90,20 @@ function detailsFor(transaction: CapturedTransaction, today: string): string {
 }
 
 /** Why a record was refused, in the words of the ack (#299). */
-const NOT_WRITTEN_REASON: Record<CapturedNotWritten['reason'], string> = {
-  amount_too_large: 'сумма больше 1 000 000 000',
-  amount_invalid: 'сумма должна быть числом больше нуля',
-  refused: 'запись не прошла проверку',
-};
+function notWrittenReason(item: CapturedNotWritten): string {
+  switch (item.reason) {
+    case 'amount_too_large': return 'сумма больше 1 000 000 000';
+    case 'amount_invalid': return 'сумма должна быть числом больше нуля';
+    case 'no_account': return item.currency === 'USD' ? 'нет счёта в долларах' : 'нет счёта в сумах';
+    // The write failed and the phrase stayed written in part: only this is to be sent again
+    case 'not_saved': return 'не получилось, отправьте ещё раз';
+    default: return 'запись не прошла проверку';
+  }
+}
 
 /** «Машина — сумма больше 1 000 000 000»; after written records, «Машина — не записал: сумма больше …». */
 function notWrittenLine(item: CapturedNotWritten, afterWritten: boolean): string {
-  return `${capitalize(item.description)} — ${afterWritten ? 'не записал: ' : ''}${NOT_WRITTEN_REASON[item.reason]}`;
+  return `${capitalize(item.description)} — ${afterWritten ? 'не записал: ' : ''}${notWrittenReason(item)}`;
 }
 
 /** The written records' summary with a line for every refused one under it. */

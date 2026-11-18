@@ -2,6 +2,7 @@ import {
   ProcessedTransaction,
   DetectedTransaction,
   DetectedDebt,
+  ItemWithoutAmount,
   NotWrittenItem,
   NotWrittenReason,
 } from '../domain/processedTransaction';
@@ -134,9 +135,18 @@ function isRefusalOfTheRecord(error: unknown): error is AppError {
 }
 
 function refusalReason(error: AppError, amount: number): NotWrittenReason {
-  if (!(error instanceof ValidationError) || error.field !== 'amount') return 'refused';
+  if (!(error instanceof ValidationError)) return 'refused';
+  // The account resolver's «No visible account to record into»: no account is picked on this path, so that is it
+  if (error.field === 'accountId') return 'no_account';
+  if (error.field !== 'amount') return 'refused';
   return amount * MINOR_PER_MAJOR > MAX_RECORD_AMOUNT_MINOR ? 'amount_too_large' : 'amount_invalid';
 }
+
+/** How often the records of a phrase that was not saved whole are tried to be taken back, and the pause between. */
+const TAKE_BACK_PASSES = 3;
+const TAKE_BACK_PAUSE_MS = 300;
+
+const pause = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
 /** How the phrase names a record that was not written: its note, else its merchant, else its category. */
 function nameOf(p: ParsedTransaction): string {
@@ -229,6 +239,8 @@ export class ParsedRecordWriter {
     const notWritten: NotWrittenItem[] = [];
     // Created by this call — not found by their `clientId` — so they are this call's to take back
     const created: string[] = [];
+    // What became of each record so far, by its place in the phrase
+    const outcomes: RecordOutcome[] = [];
 
     try {
       for (const [index, p] of transactions.entries()) {
@@ -239,6 +251,7 @@ export class ParsedRecordWriter {
           // A refused record keeps its number, so the same phrase sent again names the same records
           clientId: phrase.clientId ? itemClientId(phrase.clientId, index) : undefined,
         });
+        outcomes.push(outcome);
         if ('refused' in outcome) {
           notWritten.push(outcome.refused);
           continue;
@@ -249,8 +262,11 @@ export class ParsedRecordWriter {
     } catch (error) {
       // A phrase is written whole or not at all (#299): with a part of it written, the same `clientId` sent again
       // would be answered as a repeat with that part, and the rest would be lost for good
-      await this.takeBack(created, phrase);
-      throw error;
+      const left = await this.takeBack(created, phrase);
+      if (left.length === 0) throw error;
+      // Not all of it could be taken back — the database stayed busy. The answer says what is in the database, never
+      // «nothing was saved»: a person told so sends the whole phrase again and gets the records that stayed twice
+      return this.savedInPart(transactions, outcomes, new Set(created.filter(id => !left.includes(id))), phrase, withoutAmount);
     }
 
     const debtResults = await this.writeDebts(debts, phrase);
@@ -264,18 +280,64 @@ export class ParsedRecordWriter {
     };
   }
 
-  /** Removes the records of a phrase written before one of them failed; one that cannot be removed is in the log. */
-  private async takeBack(created: string[], phrase: WriteContext): Promise<void> {
-    for (const id of [...created].reverse()) {
-      try {
-        await this.createTransactionUseCase.takeBack(id, phrase.userId);
-      } catch (error) {
-        logger.error(`A record of a ${phrase.input} input that was not saved whole could not be taken back`, error as Error, {
-          transactionId: id,
-          userId: phrase.userId,
-        });
+  /**
+   * Removes the records of a phrase written before one of them failed, the last first, and returns the ids of those
+   * still there. A database busy for the write is likely busy for this too, so it is tried in `TAKE_BACK_PASSES`
+   * passes with a pause between; a pass stops at its first failure — the rest would wait for the same lock — so the
+   * whole of it takes at most the passes times the connection's busy timeout.
+   */
+  private async takeBack(created: string[], phrase: WriteContext): Promise<string[]> {
+    let left = [...created].reverse();
+    let lastError: unknown;
+    for (let pass = 1; left.length > 0 && pass <= TAKE_BACK_PASSES; pass += 1) {
+      if (pass > 1) await pause(TAKE_BACK_PAUSE_MS);
+      for (const id of [...left]) {
+        try {
+          await this.createTransactionUseCase.takeBack(id, phrase.userId);
+          left = left.filter(other => other !== id);
+        } catch (error) {
+          lastError = error;
+          break;
+        }
       }
     }
+    for (const id of left) {
+      logger.error(`A record of a ${phrase.input} input that was not saved whole could not be taken back`, lastError as Error, {
+        transactionId: id,
+        userId: phrase.userId,
+      });
+    }
+    return left;
+  }
+
+  /**
+   * The answer for a phrase whose write failed and whose written records could not all be taken back (#299): the
+   * records still in the database as written — those that stayed, and those found by their `clientId` — and every
+   * other record of the phrase `not_saved`: the one that failed, the ones taken back, the ones never reached. The
+   * same `clientId` sent again finds the same records, so both answers say one thing.
+   */
+  private savedInPart(
+    transactions: ParsedTransaction[],
+    outcomes: RecordOutcome[],
+    takenBack: ReadonlySet<string>,
+    phrase: WriteContext,
+    withoutAmount: ItemWithoutAmount[]
+  ): ProcessedTransaction {
+    const written: DetectedTransaction[] = [];
+    const notWritten: NotWrittenItem[] = [];
+    for (const [index, p] of transactions.entries()) {
+      const outcome = outcomes[index];
+      if (outcome && 'refused' in outcome) notWritten.push(outcome.refused);
+      else if (outcome && !takenBack.has(outcome.written.id)) written.push(outcome.written);
+      else notWritten.push({ description: nameOf(p), reason: 'not_saved' });
+    }
+    // Counts only: the names are the user's words (#269)
+    logger.error(`A ${phrase.input} input was saved in part: its other records are answered as not saved`, null, {
+      written: written.length,
+      notSaved: notWritten.filter(item => item.reason === 'not_saved').length,
+      userId: phrase.userId,
+    });
+    return { text: phrase.text, transactions: written, debts: [], ...(withoutAmount.length ? { withoutAmount } : {}), notWritten };
   }
 
   /**
@@ -342,7 +404,7 @@ export class ParsedRecordWriter {
           transaction: transactionLogFields(p),
           userId,
         });
-        return { refused: { description: nameOf(p), reason } };
+        return { refused: { description: nameOf(p), reason, ...(reason === 'no_account' ? { currency } : {}) } };
       }
       const written: DetectedTransaction = {
         id: createResult.data,

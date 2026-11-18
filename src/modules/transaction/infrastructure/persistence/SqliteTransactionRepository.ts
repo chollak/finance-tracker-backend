@@ -71,9 +71,10 @@ export class SqliteTransactionRepository implements TransactionRepository {
     // One INSERT, not wrapped in BEGIN…COMMIT: SQLite gives TypeORM one connection, so a concurrent
     // create that fails (a repeated clientId, FT-106) and rolls back would roll this insert back too
     const saved = await this.repository.save(entity, { transaction: false });
-    const stored = await this.findByIdIncludingArchived(saved.id);
-    if (!stored) throw new Error(`Transaction ${saved.id} not found after create`);
-    return stored;
+    // The row is in: a read back that fails must not make it a failed create (#299) — the record would stay written
+    // with no one knowing its id, neither counted in the free limit nor taken back with the rest of its phrase
+    const stored = await this.findByIdIncludingArchived(saved.id).catch(() => null);
+    return stored ?? { ...transaction, id: saved.id };
   }
 
   async findById(id: string): Promise<Transaction | null> {

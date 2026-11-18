@@ -21,7 +21,7 @@ import { ProcessVoiceOptions } from '../src/modules/voiceProcessing/application/
 import { VoiceInput } from '../src/modules/voiceProcessing/domain/voiceInput';
 import { ItemWithoutAmount } from '../src/modules/voiceProcessing/domain/processedTransaction';
 import { NoSpeechDetectedError } from '../src/modules/voiceProcessing/domain/voiceErrors';
-import { StorageError } from '../src/shared/domain/errors/AppError';
+import { StorageError, ValidationError } from '../src/shared/domain/errors/AppError';
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
 import { QuickCaptureService } from '../src/modules/quickCapture/application/quickCaptureService';
@@ -1327,6 +1327,17 @@ describe('bot record messages (FT-122)', () => {
         expect((await record(taxiId)).amountMinor).toBe(1_800_000);
         expect(text(message)).toMatch(/\n\n«Такси» — записал отдельным сообщением\.$/);
         expect(await awaiting()).toBeNull();
+      });
+
+      it('an answer refused for what it says names the reason, not «Произошла ошибка», and keeps the question open (#299)', async () => {
+        const message = await write('кофе 25к, такси', [coffee], { missing: [taxiItem] });
+        const create = running.transactionModule.getCreateTransactionUseCase();
+        jest.spyOn(create, 'execute').mockResolvedValueOnce({ success: false, error: new ValidationError('No visible account to record into', 'accountId') });
+
+        const refused = await write('18к нал');
+
+        expect(text(refused)).toBe('Счёта в сумах нет — добавьте его в Kapelka.');
+        expect((await awaiting())?.messageId).toBe(message);
       });
 
       it('says «"18" понял как 18 000 сум» under the new record', async () => {
