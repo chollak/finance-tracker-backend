@@ -100,6 +100,11 @@ export class SqliteTransactionRepository implements TransactionRepository {
     return result.affected === 1;
   }
 
+  /** `DELETE`, not `deleted_at`: the row is gone, so a repeat of its `clientId` writes it again (#299). */
+  async remove(id: string): Promise<void> {
+    await this.repository.delete({ id });
+  }
+
   async findByClientId(userId: string, clientId: string): Promise<Transaction[]> {
     const prefix = `${clientId}:`;
     const entities = await this.query({ includeDeleted: true })

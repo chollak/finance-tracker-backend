@@ -11,7 +11,7 @@ import {
 } from '../src/modules/voiceProcessing/domain/processedTransaction';
 import { Transaction } from '../src/modules/transaction/domain/transactionEntity';
 import { downloadVoiceFile, cleanupFile } from '../src/delivery/messaging/telegram/utils';
-import { NoSpeechDetectedError } from '../src/modules/voiceProcessing/domain/voiceErrors';
+import { CaptureNotSavedError, NoSpeechDetectedError } from '../src/modules/voiceProcessing/domain/voiceErrors';
 import { ExternalServiceError } from '../src/shared/domain/errors/AppError';
 
 // The voice path must not touch the filesystem or Telegram's CDN in tests; transcription itself
@@ -209,6 +209,51 @@ describe('Telegram message handlers', () => {
       expect(answer).toContain('Не получилось разобрать');
       expect(answer).toContain('не записал');
       expect(answer).not.toMatch(/External service|OpenAI|❌/);
+    });
+
+    describe('a record that could not be written (#299)', () => {
+      it('says the phrase was not written and asks to send it again — not «Не нашёл, что записать», not the technical error', async () => {
+        const { ctx, capture, reply } = createTextContext();
+        capture.mockRejectedValue(new CaptureNotSavedError());
+        const handler = createTextMessageHandler();
+
+        await handler(ctx as any);
+
+        expect(reply).toHaveBeenCalledTimes(1);
+        expect(replyText(reply)).toBe('Не получилось записать — ничего не сохранил.\nОтправьте это сообщение ещё раз.');
+        expect(replyText(reply)).not.toMatch(EMOJI);
+      });
+
+      it('names a record refused for what it says, with the reason, instead of «Не нашёл, что записать»', async () => {
+        const refused: QuickCaptureResult = {
+          ...captureResult([], { text: 'купил машину за 1.2 млрд' }),
+          notWritten: [{ description: 'машина', reason: 'amount_too_large' }],
+        };
+        const { ctx, reply } = createTextContext({}, refused);
+        const handler = createTextMessageHandler();
+
+        await handler(ctx as any);
+
+        expect(reply).toHaveBeenCalledTimes(1);
+        expect(replyText(reply)).toBe(`«Машина» — сумма больше 1${NB}000${NB}000${NB}000, не записал.`);
+      });
+
+      it('confirms what was written and then names what was refused', async () => {
+        const partly: QuickCaptureResult = {
+          ...captureResult([captured()]),
+          notWritten: [{ description: 'машина', reason: 'amount_too_large' }, { description: 'подарок', reason: 'amount_invalid' }],
+        };
+        const { ctx, reply } = createTextContext({}, partly);
+        const handler = createTextMessageHandler();
+
+        await handler(ctx as any);
+
+        expect(reply).toHaveBeenCalledTimes(2);
+        expect(replyText(reply, 0)).toContain(`<b>Расход ${MINUS}18${NB}000${NB}сум</b>`);
+        expect(replyText(reply, 1)).toBe(
+          `«Машина» — сумма больше 1${NB}000${NB}000${NB}000, не записал.\n«Подарок» — сумма должна быть числом больше нуля, не записал.`
+        );
+      });
     });
 
     it('does not call capture for commands', async () => {
@@ -553,6 +598,34 @@ describe('Telegram message handlers', () => {
       const answer = replyText(reply);
       expect(answer).toContain('Не получилось разобрать');
       expect(answer).not.toMatch(/External service|OpenAI|❌/);
+    });
+
+    it('a voice whose records could not be written says so and asks to say it again (#299)', async () => {
+      const { ctx, reply } = createVoiceContext();
+      (ctx as any).modules.voiceModule.getProcessVoiceInputUseCase = () => ({
+        execute: jest.fn().mockRejectedValue(new CaptureNotSavedError()),
+      });
+      const handler = createVoiceMessageHandler();
+
+      await handler(ctx as any);
+
+      expect(reply).toHaveBeenCalledTimes(1);
+      expect(replyText(reply)).toBe('Не получилось записать — ничего не сохранил.\nСкажите ещё раз или напишите текстом.');
+      expect(replyText(reply)).not.toMatch(EMOJI);
+    });
+
+    it('a voice names a record refused for what it says (#299)', async () => {
+      const { ctx, reply } = createVoiceContext({}, voiceResult({
+        text: 'купил машину за миллиард двести',
+        transactions: [],
+        debts: [],
+        notWritten: [{ description: 'машина', reason: 'amount_too_large' }],
+      }));
+      const handler = createVoiceMessageHandler();
+
+      await handler(ctx as any);
+
+      expect(replyText(reply)).toBe(`«Машина» — сумма больше 1${NB}000${NB}000${NB}000, не записал.`);
     });
 
     it('counts the voice input; created transactions are counted by the create use case', async () => {

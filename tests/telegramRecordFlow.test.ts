@@ -21,6 +21,7 @@ import { ProcessVoiceOptions } from '../src/modules/voiceProcessing/application/
 import { VoiceInput } from '../src/modules/voiceProcessing/domain/voiceInput';
 import { ItemWithoutAmount } from '../src/modules/voiceProcessing/domain/processedTransaction';
 import { NoSpeechDetectedError } from '../src/modules/voiceProcessing/domain/voiceErrors';
+import { StorageError } from '../src/shared/domain/errors/AppError';
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
 import { QuickCaptureService } from '../src/modules/quickCapture/application/quickCaptureService';
@@ -1306,6 +1307,25 @@ describe('bot record messages (FT-122)', () => {
         expect(text(answer)).toBe(`<b>Расход ${MINUS}18${NB}000${NB}сум</b>\nТранспорт · «Такси»\nНаличные · ${absoluteDate(today, today)}`);
         expect(text(message)).toMatch(/\n\n«Такси» — записал отдельным сообщением\.$/);
         expect(labels(message)).not.toContainEqual(['Пропустить «Такси»']);
+        expect(await awaiting()).toBeNull();
+      });
+
+      it('an answer that could not be written says so and keeps the question open; the amount sent again writes it (#299)', async () => {
+        const message = await write('кофе 25к, такси', [coffee], { missing: [taxiItem] });
+        const create = running.transactionModule.getCreateTransactionUseCase();
+        jest.spyOn(create, 'execute').mockResolvedValueOnce({ success: false, error: new StorageError('Failed to create transaction') });
+
+        const failed = await write('18к нал');
+
+        expect(text(failed)).toBe('Не получилось записать — ничего не сохранил.\nОтправьте это сообщение ещё раз.');
+        expect((await awaiting())?.messageId).toBe(message);
+        expect(text(message)).toMatch(/\n\n«Такси» — без суммы\. Сколько\? Напишите числом\.$/);
+
+        const answer = await write('18к нал');
+
+        const [taxiId] = await recordIdsOf(answer);
+        expect((await record(taxiId)).amountMinor).toBe(1_800_000);
+        expect(text(message)).toMatch(/\n\n«Такси» — записал отдельным сообщением\.$/);
         expect(await awaiting()).toBeNull();
       });
 

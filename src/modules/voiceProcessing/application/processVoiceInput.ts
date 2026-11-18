@@ -6,7 +6,7 @@ import { TranscriptionService } from '../domain/transcriptionService';
 import { CreateTransactionUseCase } from '../../transaction/application/createTransaction';
 import { CreateDebtUseCase } from '../../debt/application/createDebt';
 import { ErrorFactory } from '../../../shared/domain/errors/AppError';
-import { Validators } from '../../../shared/application/validation/validators';
+import { noteWithinLimit, Validators } from '../../../shared/application/validation/validators';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { UserCategorySource } from '../domain/categoryPrompt';
 import { analysisContextFor, learnedWordsFor } from './processTextInput';
@@ -16,9 +16,6 @@ import { NoSpeechDetectedError } from '../domain/voiceErrors';
 import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 
 const logger = getLogger(LogCategory.OPENAI);
-
-/** The longest note a record takes (`Validators.description`). */
-const MAX_NOTE_LENGTH = 500;
 
 function convertOggToMp3(input: string, output: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -165,7 +162,7 @@ export class ProcessVoiceInputUseCase {
         learned: parsed.transactions.length > 0 ? await learnedWordsFor(this.learnedWords) : new Map<string, readonly string[]>(),
         today,
         // What was heard can be longer than a note may be
-        noteFallback: recognizedText.substring(0, MAX_NOTE_LENGTH),
+        noteFallback: noteWithinLimit(recognizedText),
       });
     } finally {
       // Both the voice and its .mp3, whichever is there: converted, both are; after a failed ffmpeg the voice was

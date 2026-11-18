@@ -67,10 +67,28 @@ export interface ItemWithoutAmount {
   merchant?: string;
 }
 
+/**
+ * Why a record the phrase names was not written (#299): `amount_too_large` — over 1 000 000 000, `amount_invalid` — not
+ * a number above zero, `refused` — any other refusal of the record itself (no visible account to write into).
+ */
+export type NotWrittenReason = 'amount_too_large' | 'amount_invalid' | 'refused';
+
+/**
+ * A record of the phrase refused for what it says (#299): nothing is written for it and sending the phrase again
+ * would not write it either, so it is named with the reason instead; the other records of the phrase are written.
+ */
+export interface NotWrittenItem {
+  /** As the phrase names it: «машина». */
+  description: string;
+  reason: NotWrittenReason;
+}
+
 export interface ProcessedTransaction {
   text: string;
   transactions: DetectedTransaction[];
   debts: DetectedDebt[];
   /** Named without an amount, so not written (FT-123). */
   withoutAmount?: ItemWithoutAmount[];
+  /** Refused for what they say, so not written (#299); absent when there are none. */
+  notWritten?: NotWrittenItem[];
 }

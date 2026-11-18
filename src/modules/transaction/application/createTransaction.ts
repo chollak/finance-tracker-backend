@@ -209,6 +209,25 @@ export class CreateTransactionUseCase {
     }
   }
 
+  /**
+   * Takes back a record this use case has just created (#299): another record of its phrase could not be written, and
+   * a phrase is written whole or not at all. The row is removed, not deleted softly — the phrase is sent again with the
+   * same `clientId` and must be written then — and the free limit gets the record back.
+   */
+  async takeBack(id: string, userId: string): Promise<void> {
+    await this.primaryRepository.remove(id);
+    if (this.subscriptionModule && this.userModule) await this.decrementTransactionCount(userId);
+  }
+
+  private async decrementTransactionCount(userId: string): Promise<void> {
+    try {
+      const ownerId = await resolveUserIdToUUID(userId, this.userModule!);
+      await this.subscriptionModule!.getDecrementUsageUseCase().execute({ userId: ownerId, limitType: 'transactions' });
+    } catch (error) {
+      logger.error('Failed to decrement transaction count', error as Error);
+    }
+  }
+
   private async findRepeat(userId: string, clientId: string): Promise<Transaction | null> {
     const records = await this.primaryRepository.findByClientId(userId, clientId);
     return records.find(record => record.clientId === clientId) ?? null;

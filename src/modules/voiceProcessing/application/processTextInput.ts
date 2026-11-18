@@ -340,6 +340,7 @@ export class ProcessTextInputUseCase {
    * answer to «Сколько?»). The record is the item — its category, note, date — with the answer's amount,
    * currency and account word, through the same pipeline as a parsed phrase, so its guesses read the same:
    * the text it is read from is the note and the answer («такси 18к нал»), and «18» says it was 18 000.
+   * Null when the record was refused for what it says; a write that failed is a `CaptureNotSavedError` (#299).
    */
   async executeWithAmount(
     item: ItemWithoutAmount,
@@ -363,7 +364,7 @@ export class ProcessTextInputUseCase {
       merchant: item.merchant,
       description: item.description,
     };
-    return this.writer.writeRecord(parsed, {
+    const outcome = await this.writer.writeRecord(parsed, {
       text,
       input: 'text',
       hints: detectPaymentHints(text),
@@ -378,5 +379,7 @@ export class ProcessTextInputUseCase {
       learned: await learnedWordsFor(this.learnedWords),
       today,
     });
+    // The bot checked the amount before asking to write it; any other refusal leaves the question open
+    return 'written' in outcome ? outcome.written : null;
   }
 }

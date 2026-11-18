@@ -1,4 +1,10 @@
-import { ProcessedTransaction, DetectedTransaction, DetectedDebt } from '../domain/processedTransaction';
+import {
+  ProcessedTransaction,
+  DetectedTransaction,
+  DetectedDebt,
+  NotWrittenItem,
+  NotWrittenReason,
+} from '../domain/processedTransaction';
 import { AnalysisResult, ParsedDebt, ParsedTransaction } from '../domain/transcriptionService';
 import { CreateTransactionUseCase } from '../../transaction/application/createTransaction';
 import { CreateDebtUseCase } from '../../debt/application/createDebt';
@@ -19,6 +25,10 @@ import { fromMinor } from '../../../shared/domain/money/money';
 import { readTextAmounts } from '../domain/textAmounts';
 import { normalizeSemanticType, TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { conservativeKeywordPattern, REPAYMENT_KEYWORDS_PATTERN } from '../../../shared/domain/semantics/semanticKeywords';
+import { AppError, ValidationError } from '../../../shared/domain/errors/AppError';
+import { MAX_RECORD_AMOUNT_MINOR, noteWithinLimit } from '../../../shared/application/validation/validators';
+import { MINOR_PER_MAJOR } from '../../../shared/domain/money/money';
+import { CaptureNotSavedError } from '../domain/voiceErrors';
 
 /**
  * The one place a parsed phrase becomes records (#301): what the text and the voice paths both call once the phrase
@@ -115,6 +125,30 @@ function categoryChosenBy(fastPath: boolean, semanticType: TransactionSemanticTy
   return semanticType === 'expense' || semanticType === 'income' ? 'words' : 'kind';
 }
 
+/**
+ * A refusal of the record itself (#299) — an amount over the limit, no visible account: a `4xx` of the create use
+ * case. The same record sent again would be refused again, so it is not a failure to send again.
+ */
+function isRefusalOfTheRecord(error: unknown): error is AppError {
+  return error instanceof AppError && error.statusCode < 500;
+}
+
+function refusalReason(error: AppError, amount: number): NotWrittenReason {
+  if (!(error instanceof ValidationError) || error.field !== 'amount') return 'refused';
+  return amount * MINOR_PER_MAJOR > MAX_RECORD_AMOUNT_MINOR ? 'amount_too_large' : 'amount_invalid';
+}
+
+/** How the phrase names a record that was not written: its note, else its merchant, else its category. */
+function nameOf(p: ParsedTransaction): string {
+  return p.description?.trim() || p.merchant?.trim() || p.category || 'Другое';
+}
+
+/** What became of one parsed record: written, or refused for what it says. A failed write is thrown, not returned. */
+export type RecordOutcome =
+  /** `repeated`: the `clientId` was written before (FT-106) — nothing new was created by this write. */
+  | { written: DetectedTransaction; repeated: boolean }
+  | { refused: NotWrittenItem };
+
 /** Who writes and where from: the same for every record of a phrase. */
 interface WriteContext {
   /** The phrase: typed, or heard in a voice. */
@@ -191,23 +225,65 @@ export class ParsedRecordWriter {
     const withoutAmount = parsed.withoutAmount ?? [];
     const itemCount = transactions.length + withoutAmount.length;
 
-    for (const [index, p] of transactions.entries()) {
-      const written = await this.writeRecord(p, {
-        ...phrase,
-        hints,
-        itemCount,
-        clientId: phrase.clientId ? itemClientId(phrase.clientId, index) : undefined,
-      });
-      if (written) transactionResults.push(written);
+    // Refused for what they say: named with the reason, the rest of the phrase is written (#299)
+    const notWritten: NotWrittenItem[] = [];
+    // Created by this call — not found by their `clientId` — so they are this call's to take back
+    const created: string[] = [];
+
+    try {
+      for (const [index, p] of transactions.entries()) {
+        const outcome = await this.writeRecord(p, {
+          ...phrase,
+          hints,
+          itemCount,
+          // A refused record keeps its number, so the same phrase sent again names the same records
+          clientId: phrase.clientId ? itemClientId(phrase.clientId, index) : undefined,
+        });
+        if ('refused' in outcome) {
+          notWritten.push(outcome.refused);
+          continue;
+        }
+        transactionResults.push(outcome.written);
+        if (!outcome.repeated) created.push(outcome.written.id);
+      }
+    } catch (error) {
+      // A phrase is written whole or not at all (#299): with a part of it written, the same `clientId` sent again
+      // would be answered as a repeat with that part, and the rest would be lost for good
+      await this.takeBack(created, phrase);
+      throw error;
     }
 
     const debtResults = await this.writeDebts(debts, phrase);
 
-    return { text, transactions: transactionResults, debts: debtResults, ...(withoutAmount.length ? { withoutAmount } : {}) };
+    return {
+      text,
+      transactions: transactionResults,
+      debts: debtResults,
+      ...(withoutAmount.length ? { withoutAmount } : {}),
+      ...(notWritten.length ? { notWritten } : {}),
+    };
   }
 
-  /** One parsed record written: the money, account and category resolved, and what was assumed. */
-  async writeRecord(p: ParsedTransaction, write: RecordWrite): Promise<DetectedTransaction | null> {
+  /** Removes the records of a phrase written before one of them failed; one that cannot be removed is in the log. */
+  private async takeBack(created: string[], phrase: WriteContext): Promise<void> {
+    for (const id of [...created].reverse()) {
+      try {
+        await this.createTransactionUseCase.takeBack(id, phrase.userId);
+      } catch (error) {
+        logger.error(`A record of a ${phrase.input} input that was not saved whole could not be taken back`, error as Error, {
+          transactionId: id,
+          userId: phrase.userId,
+        });
+      }
+    }
+  }
+
+  /**
+   * One parsed record written: the money, account and category resolved, and what was assumed. A record refused for
+   * what it says comes back named with the reason; a write that failed is a `CaptureNotSavedError` (#299) — it used to
+   * be dropped with a line in the log, and the answer was «не нашёл операцию».
+   */
+  async writeRecord(p: ParsedTransaction, write: RecordWrite): Promise<RecordOutcome> {
     const { text, hints, userId, userName } = write;
     try {
       const type = p.type || 'expense';
@@ -218,7 +294,8 @@ export class ParsedRecordWriter {
       const transaction: Transaction = {
         date: p.date || write.today,
         category: p.category || 'Другое',
-        description: p.description || (write.noteFallback ?? text),
+        // Within the limit of an edit: a record with a longer note could not be edited (#299)
+        description: noteWithinLimit(p.description || (write.noteFallback ?? text)),
         amount: money.amount,
         currency,
         source: write.source,
@@ -246,17 +323,26 @@ export class ParsedRecordWriter {
       // from the wording (FT-103). Moving money is not paid «налом»: no kind hint for it.
       let account: ResolvedAccount | undefined;
       let category: ResolvedCategory | undefined;
+      let repeated = false;
       const createResult = await this.createTransactionUseCase.execute(transaction, {
         visibleCategoriesOnly: true,
         accountHint: { text: money.accountText, kind: money.kind },
         allowCurrencyMismatch: true,
         onResolved: resolved => { account = resolved.account; category = resolved.category; },
+        onRepeat: () => { repeated = true; },
       });
       if (!createResult.success) {
-        logger.error('Failed to create transaction', null, { error: createResult.error?.message });
-        return null;
+        if (!isRefusalOfTheRecord(createResult.error)) throw createResult.error;
+        const reason = refusalReason(createResult.error, money.amount);
+        // The reason, not the words: the validator's message has no user content, the record's name does (#269)
+        logger.warn(`A record of a ${write.input} input was refused: ${createResult.error.message}`, {
+          reason,
+          transaction: transactionLogFields(p),
+          userId,
+        });
+        return { refused: { description: nameOf(p), reason } };
       }
-      return {
+      const written: DetectedTransaction = {
         id: createResult.data,
         amount: transaction.amountMinor !== undefined ? fromMinor(transaction.amountMinor) : transaction.amount,
         amountMinor: transaction.amountMinor,
@@ -287,12 +373,13 @@ export class ParsedRecordWriter {
         confidence: transaction.confidence,
         description: transaction.description,
       };
+      return { written, repeated };
     } catch (error) {
       logger.error(`Failed to create transaction from ${write.input} input`, error as Error, {
         transaction: transactionLogFields(p),
         userId,
       });
-      return null;
+      throw new CaptureNotSavedError();
     }
   }
 
