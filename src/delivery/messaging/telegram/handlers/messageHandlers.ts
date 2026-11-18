@@ -12,8 +12,9 @@ import { RecentMediaGroups } from '../utils/recentMediaGroups';
 import { answerAmountQuestion } from './recordHandlers';
 import { parseAmountReply, refusalText } from '../utils/amountReply';
 import { fromMinor } from '../../../../shared/domain/money/money';
-import { AppError, ExternalServiceError } from '../../../../shared/domain/errors/AppError';
+import { AppError, ExternalServiceError, StorageError } from '../../../../shared/domain/errors/AppError';
 import { DetectedDebt } from '../../../../modules/voiceProcessing/domain/processedTransaction';
+import { notWrittenText } from '../utils/notWrittenText';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
 import { UserModule } from '../../../../modules/user/userModule';
 import {
@@ -72,6 +73,11 @@ async function replyWithError(ctx: BotContext, error: unknown): Promise<void> {
   // A failed AI call says so in the user's words; its own message («External service error: OpenAI Chat») is for the log
   if (error instanceof ExternalServiceError) {
     await ctx.reply(RU.errors.aiUnavailable, { parse_mode: 'HTML' });
+    return;
+  }
+  // The database did not take the record (#299): said in the user's words, and that the message can be sent again
+  if (error instanceof StorageError) {
+    await ctx.reply(RU.capture.notSaved);
     return;
   }
   await ctx.reply(error instanceof AppError ? `❌ ${error.message}` : RU.errors.generic);
@@ -317,9 +323,11 @@ export function createTextMessageHandler(userModule?: UserModule, _subscriptionM
       });
 
       const withoutAmount = result.withoutAmount ?? [];
+      const notWritten = result.notWritten ?? [];
       if (result.transactions.length === 0 && result.debts.length === 0 && withoutAmount.length === 0) {
-        // Nothing to write: say how to write it, with an example (FT-123)
-        await ctx.reply(RU.capture.notUnderstood, { parse_mode: 'HTML' });
+        // Nothing to write: say how to write it, with an example (FT-123) — or what was refused and why (#299)
+        if (notWritten.length > 0) await ctx.reply(notWrittenText(notWritten));
+        else await ctx.reply(RU.capture.notUnderstood, { parse_mode: 'HTML' });
         return;
       }
 
@@ -331,6 +339,8 @@ export function createTextMessageHandler(userModule?: UserModule, _subscriptionM
         assumed: assumedThousands(result.transactions),
         missing: withoutAmount,
       });
+      // What the phrase named but the bot refused to write, after what it did write (#299)
+      if (notWritten.length > 0) await ctx.reply(notWrittenText(notWritten));
 
       // Process each debt
       for (const debt of result.debts) {
@@ -398,10 +408,13 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
       }
 
       const withoutAmount = result.withoutAmount ?? [];
+      const notWritten = result.notWritten ?? [];
       if (result.transactions.length === 0 && (!result.debts || result.debts.length === 0) && withoutAmount.length === 0) {
         // Heard, but nothing to write («привет»): the answer to a text of the same words, with an example
-        // (FT-123, board «Бот · не понял, не расслышал»). «Не расслышал» is for a voice with no words in it
-        await ctx.reply(RU.capture.notUnderstood, { parse_mode: 'HTML' });
+        // (FT-123, board «Бот · не понял, не расслышал»). «Не расслышал» is for a voice with no words in it.
+        // Heard and read, but refused for what it says: what and why (#299)
+        if (notWritten.length > 0) await ctx.reply(notWrittenText(notWritten));
+        else await ctx.reply(RU.capture.notUnderstood, { parse_mode: 'HTML' });
         return;
       }
 
@@ -415,6 +428,7 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
         missing: withoutAmount,
         heard: result.text,
       });
+      if (notWritten.length > 0) await ctx.reply(notWrittenText(notWritten));
 
       // Process each debt
       if (result.debts && result.debts.length > 0) {
@@ -436,6 +450,9 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
         await ctx.reply(RU.capture.notHeard);
       } else if (error instanceof ExternalServiceError) {
         await ctx.reply(RU.errors.aiUnavailable, { parse_mode: 'HTML' });
+      } else if (error instanceof StorageError) {
+        // Heard and read, but the database did not take the records (#299): nothing is written, say it again
+        await ctx.reply(RU.capture.notSavedVoice);
       } else if (error instanceof AppError) {
         await ctx.reply(`🎤❌ ${error.message}`);
       } else {

@@ -21,6 +21,11 @@ export interface TransactionRepository {
      * restored it, false when it is not deleted — restored by another call at the same moment too — or is unknown.
      */
     restore(id: string): Promise<boolean>;
+    /**
+     * Removes the row itself, not softly: only for a record just created whose phrase could not be written whole
+     * (#299). A softly deleted one would answer the repeat of its `clientId`, and the rest of the phrase would be lost.
+     */
+    remove(id: string): Promise<void>;
     findByIdIncludingDeleted(id: string): Promise<Transaction | null>;
     /**
      * The records the client sent under this id (FT-106), deleted ones too: the record with exactly

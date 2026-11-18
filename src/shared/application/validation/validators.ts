@@ -10,6 +10,20 @@ import { resolveAmountMinor } from '../../domain/money/money';
 /** Largest amount of one record: 1 000 000 000 сум (or dollars), in minor units. */
 export const MAX_RECORD_AMOUNT_MINOR = 100_000_000_000;
 
+/**
+ * The longest note of a record: what `POST` and an edit accept, and what a note written from a phrase is cut to (#299)
+ * — a record with a longer one could not be edited.
+ */
+export const MAX_NOTE_LENGTH = 500;
+
+/** The note cut to `MAX_NOTE_LENGTH`, never in the middle of a character of two UTF-16 units. */
+export function noteWithinLimit(note: string): string {
+  if (note.length <= MAX_NOTE_LENGTH) return note;
+  const cut = note.substring(0, MAX_NOTE_LENGTH);
+  const last = cut.charCodeAt(cut.length - 1);
+  return last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut;
+}
+
 export interface ValidationResult {
   isValid: boolean;
   errors: string[];
@@ -140,7 +154,7 @@ export class Validators {
     const stringResult = this.string(value, 'description');
     if (!stringResult.success) return stringResult;
 
-    return this.maxLength(stringResult.data, 500, 'description');
+    return this.maxLength(stringResult.data, MAX_NOTE_LENGTH, 'description');
   }
 
   static transactionType(value: any): Result<'income' | 'expense', ValidationError> {

@@ -60,6 +60,15 @@ export const RU = {
       currency === 'USD' ? 'Счёта в долларах нет — добавьте его в Kapelka.' : 'Счёта в сумах нет — добавьте его в Kapelka.',
     // FT-123: what was named without an amount, «не 25, а 28»
     withoutAmountNotWritten: (name: string) => `${name} — без суммы, не записал.`,
+    // #299: a record of the phrase refused for what it says — by the reason
+    notWrittenBecause: {
+      amount_too_large: (name: string) => `${name} — сумма больше 1\u00a0000\u00a0000\u00a0000, не записал.`,
+      amount_invalid: (name: string) => `${name} — сумма должна быть числом больше нуля, не записал.`,
+      refused: (name: string) => `${name} — запись не прошла проверку, не записал.`,
+    },
+    // #299: the write failed and the records written before it could not all be taken back. Under the confirmation
+    // of what did get written: what did not, and that only it is to be sent again — the whole phrase would double
+    savedInPart: (names: string) => `Записал не всё. Не получилось записать: ${names}.\nОтправьте заново только это — остальное уже записано.`,
     skipped: (name: string) => `${name} — пропустил.`,
     writtenSeparately: (name: string) => `${name} — записал отдельным сообщением.`,
     changed: (what: string) => `Изменил: ${what}`,
@@ -77,6 +86,10 @@ export const RU = {
     notUnderstood: 'Не нашёл, что записать.\nНапишите трату и сумму:\n'
       + '<blockquote><i>такси 18к, обед 45\u00a0000 картой</i></blockquote>\n\n<i>Подробнее — /help</i>',
     notHeard: 'Не расслышал.\nСкажите ещё раз — что купили и сколько, например: «такси восемнадцать тысяч». Или напишите текстом.',
+    // #299: the phrase was read, but the database did not take its records — nothing of it is written, so the same
+    // message can be sent again. Not «Не нашёл, что записать»: there was something to write
+    notSaved: 'Не получилось записать — ничего не сохранил.\nОтправьте это сообщение ещё раз.',
+    notSavedVoice: 'Не получилось записать — ничего не сохранил.\nСкажите ещё раз или напишите текстом.',
     // A photo, an audio file, a video note, a video, a document or a sticker: the bot reads none of them (#279)
     unsupported: 'Пока понимаю текст и голосовые. Напишите: такси 18к.',
   },

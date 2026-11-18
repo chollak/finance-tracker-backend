@@ -1,6 +1,6 @@
 import { TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { Transaction } from '../../transaction/domain/transactionEntity';
-import { CaptureAssumption, DetectedDebt, ItemWithoutAmount } from '../../voiceProcessing/domain/processedTransaction';
+import { CaptureAssumption, DetectedDebt, ItemWithoutAmount, NotWrittenItem } from '../../voiceProcessing/domain/processedTransaction';
 import { RecordCurrency, RecordSource } from '../../transaction/domain/recordSource';
 
 /**
@@ -109,6 +109,9 @@ export type CapturedDebt = DetectedDebt;
 /** Named without an amount, so not written (FT-123): «такси» in «кофе 25к, такси». */
 export type CapturedWithoutAmount = ItemWithoutAmount;
 
+/** Refused for what it says, so not written (#299): «машина» in «кофе 25к, машина 1.2 млрд», with the reason. */
+export type CapturedNotWritten = NotWrittenItem;
+
 /**
  * The answer to «Сколько?» for an item named without an amount (FT-123): the item is written with the
  * answer's amount through the same pipeline as a phrase.
@@ -162,4 +165,10 @@ export interface QuickCaptureResult {
   repeated?: boolean;
   /** Named without an amount, so nothing was written for them (FT-123); absent when there are none. */
   withoutAmount?: CapturedWithoutAmount[];
+  /**
+   * Records the phrase names that were refused for what they say (#299) — an amount over 1 000 000 000 — so nothing
+   * was written for them and sending the phrase again would not help; `ack` names them too. Absent when there are
+   * none, and on a repeat: it answers with what the first capture wrote.
+   */
+  notWritten?: CapturedNotWritten[];
 }

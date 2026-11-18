@@ -39,6 +39,7 @@ import { AmountReply, parseAmountCorrection, parseAmountReply, refusalText, writ
 import { botUserId } from '../utils/userCategories';
 import { messageClientId, withMessageClientId } from '../utils/messageClientId';
 import { checkTelegramLimit } from '../middleware/subscriptionMiddleware';
+import { notWrittenText } from '../utils/notWrittenText';
 import { BotMessage, openQuestion, RecordMessageMode, RecordMessageState } from '../../../../modules/botMessage/domain/botMessage';
 import { BotMessageLog } from '../../../../modules/botMessage/application/botMessageLog';
 import { HandledMessage } from '../../../../modules/botMessage/domain/handledMessage';
@@ -756,8 +757,8 @@ async function answerMissing(ctx: BotContext, log: BotMessageLog, message: BotMe
     ...withMessageClientId(ctx),
   });
   if (captured.transactions.length === 0) {
-    // Nothing written: the question stays open
-    await ctx.reply(RU.errors.generic);
+    // Nothing written: the question stays open. Refused for what it says (#299) — the reason, not «Произошла ошибка»
+    await ctx.reply(captured.notWritten?.length ? notWrittenText(captured.notWritten) : RU.errors.generic);
     return true;
   }
 

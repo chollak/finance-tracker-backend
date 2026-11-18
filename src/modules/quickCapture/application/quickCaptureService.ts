@@ -10,6 +10,7 @@ import { APPLE_PAY_SOURCE, RecordSource } from '../../transaction/domain/recordS
 import { Transaction } from '../../transaction/domain/transactionEntity';
 import {
   AmountAnswerRequest,
+  CapturedNotWritten,
   CaptureReplay,
   CaptureReviewReason,
   CapturedDebt,
@@ -28,6 +29,9 @@ const CAPTURED_AT_TOO_OLD = `capturedAt is older than ${CAPTURED_AT_LIMITS.ageMs
  * The shared quick-capture boundary. It owns the client-facing contract (status + ack)
  * and nothing else: parsing, the conservative transfer/savings/withdrawal safeguards and
  * persistence all stay inside ProcessTextInputUseCase, which this service only wraps.
+ *
+ * A record that could not be written is not a status (#299): the pipeline throws `CaptureNotSavedError` with nothing
+ * of the phrase left written, and it goes on to the caller — a `500` on the HTTP route — so the capture is sent again.
  */
 export class QuickCaptureService {
   /** Captures with a clientId still being parsed, so a retry waits for them instead of parsing again. */
@@ -134,7 +138,8 @@ export class QuickCaptureService {
       text,
       request.source,
       processed.transactions.map(toCapturedTransaction),
-      processed.debts
+      processed.debts,
+      processed.notWritten
     );
     // Named without an amount (FT-123): nothing written, the bot asks how much
     if (processed.withoutAmount?.length) result.withoutAmount = processed.withoutAmount;
@@ -146,6 +151,7 @@ export class QuickCaptureService {
       transactions: result.transactions.length,
       debts: processed.debts.length,
       withoutAmount: processed.withoutAmount?.length ?? 0,
+      notWritten: processed.notWritten?.length ?? 0,
     });
 
     return result;
@@ -171,7 +177,8 @@ export class QuickCaptureService {
 
   /**
    * Writes an item a phrase named without an amount, with the amount of the answer to «Сколько?» (FT-123),
-   * through the same pipeline as the phrase itself.
+   * through the same pipeline as the phrase itself. A write that failed is thrown (#299), so the asker keeps its
+   * question open and says the record was not written; an answer refused for what it says is in `notWritten`.
    */
   async captureWithAmount(request: AmountAnswerRequest): Promise<QuickCaptureResult> {
     const written = await this.processTextInputUseCase.executeWithAmount(
@@ -182,7 +189,9 @@ export class QuickCaptureService {
       { source: request.source ?? 'miniapp', ...(request.clientId ? { clientId: request.clientId } : {}) }
     );
     const text = `${request.item.description} ${request.answer.text}`.trim();
-    return buildResult(text, request.source, written ? [toCapturedTransaction(written)] : [], []);
+    // Refused for what it says: nothing written, and the reason for the asker to say
+    if ('refused' in written) return buildResult(text, request.source, [], [], [written.refused]);
+    return buildResult(text, request.source, [toCapturedTransaction(written)], []);
   }
 }
 
@@ -190,7 +199,8 @@ function buildResult(
   text: string,
   source: RecordSource | undefined,
   transactions: CapturedTransaction[],
-  debts: CapturedDebt[]
+  debts: CapturedDebt[],
+  notWritten: CapturedNotWritten[] = []
 ): QuickCaptureResult {
   const reasons: CaptureReviewReason[] = [];
   if (transactions.some(transaction => transaction.needsReview)) {
@@ -206,8 +216,9 @@ function buildResult(
     source,
     transactions,
     debts,
-    ack: buildCaptureAck(transactions, { debtsDetected: debts.length }),
+    ack: buildCaptureAck(transactions, { debtsDetected: debts.length, notWritten }),
     review: { reasons },
+    ...(notWritten.length ? { notWritten } : {}),
   };
 }
 

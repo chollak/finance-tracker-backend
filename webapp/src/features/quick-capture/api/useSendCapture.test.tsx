@@ -232,6 +232,22 @@ describe('a send that failed', () => {
     const [first, second] = sentClientIds();
     expect(second).toBe(first);
   });
+
+  it('a record the server could not write (500, #299) keeps the text and says to try again; the press again sends the same client id', async () => {
+    mutateAsync
+      .mockRejectedValueOnce({ message: 'The capture was not saved, send it again', statusCode: 500, code: 'INTERNAL_ERROR' })
+      .mockResolvedValueOnce(result([{}]));
+    const { send } = mountSend();
+
+    expect(await send('кофе 25к')).toBe('kept');
+    expect(useCaptureStore.getState().draft).toBe('кофе 25к, такси 18к');
+    expect(navigate).not.toHaveBeenCalled();
+    expect(shownToast()).toMatchObject({ kind: 'info', title: 'Не удалось записать', detail: 'Текст остался в поле — попробуйте ещё раз' });
+
+    expect(await send('кофе 25к')).toBe('review');
+    const [first, second] = sentClientIds();
+    expect(second).toBe(first);
+  });
 });
 
 /**

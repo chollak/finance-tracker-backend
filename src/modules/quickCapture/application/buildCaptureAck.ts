@@ -1,9 +1,11 @@
 import { getCategoryById } from '../../../shared/domain/entities/Category';
 import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
-import { CaptureAck, CaptureAckAction, CapturedTransaction } from '../domain/quickCaptureTypes';
+import { CaptureAck, CaptureAckAction, CapturedNotWritten, CapturedTransaction } from '../domain/quickCaptureTypes';
 
 export interface BuildCaptureAckOptions {
   debtsDetected?: number;
+  /** Records refused for what they say (#299): the ack names each with the reason. */
+  notWritten?: CapturedNotWritten[];
   /** ISO date (YYYY-MM-DD) used to render "Сегодня"; the user's today by default. Injectable so the formatter stays pure in tests. */
   today?: string;
 }
@@ -87,6 +89,29 @@ function detailsFor(transaction: CapturedTransaction, today: string): string {
   return [dateLabel, hint].filter(Boolean).join(' · ');
 }
 
+/** Why a record was refused, in the words of the ack (#299). */
+function notWrittenReason(item: CapturedNotWritten): string {
+  switch (item.reason) {
+    case 'amount_too_large': return 'сумма больше 1 000 000 000';
+    case 'amount_invalid': return 'сумма должна быть числом больше нуля';
+    case 'no_account': return item.currency === 'USD' ? 'нет счёта в долларах' : 'нет счёта в сумах';
+    // The write failed and the phrase stayed written in part: only this is to be sent again
+    case 'not_saved': return 'не получилось, отправьте ещё раз';
+    default: return 'запись не прошла проверку';
+  }
+}
+
+/** «Машина — сумма больше 1 000 000 000»; after written records, «Машина — не записал: сумма больше …». */
+function notWrittenLine(item: CapturedNotWritten, afterWritten: boolean): string {
+  return `${capitalize(item.description)} — ${afterWritten ? 'не записал: ' : ''}${notWrittenReason(item)}`;
+}
+
+/** The written records' summary with a line for every refused one under it. */
+function withNotWritten(ack: CaptureAck, notWritten: CapturedNotWritten[]): CaptureAck {
+  if (notWritten.length === 0) return ack;
+  return { ...ack, summary: [ack.summary, ...notWritten.map(item => notWrittenLine(item, true))].join('\n') };
+}
+
 function actionsFor(reviewCount: number): CaptureAckAction[] {
   return reviewCount > 0 ? ['edit', 'delete', 'review'] : ['edit', 'delete'];
 }
@@ -101,6 +126,7 @@ export function buildCaptureAck(
 ): CaptureAck {
   const debtsDetected = options.debtsDetected ?? 0;
   const today = options.today ?? todayDateOnly();
+  const notWritten = options.notWritten ?? [];
 
   if (transactions.length === 0) {
     // A debt was persisted even though no transaction was: do not report "nothing found".
@@ -110,6 +136,15 @@ export function buildCaptureAck(
         summary: `Долгов записано: ${debtsDetected}`,
         details: 'Проверьте в разделе долгов',
         actions: ['review'],
+      };
+    }
+
+    // Read, but refused for what it says (#299): not «не нашёл» — the person is told what and why
+    if (notWritten.length > 0) {
+      return {
+        title: 'Не записал',
+        summary: notWritten.map(item => notWrittenLine(item, false)).join('\n'),
+        actions: [],
       };
     }
 
@@ -125,19 +160,19 @@ export function buildCaptureAck(
   if (transactions.length === 1) {
     const [transaction] = transactions;
 
-    return {
+    return withNotWritten({
       title: reviewCount > 0 ? 'Нужно проверить' : 'Записал',
       summary: summaryLine(transaction, true),
       details: detailsFor(transaction, today),
       actions: actionsFor(reviewCount),
-    };
+    }, notWritten);
   }
 
-  return {
+  return withNotWritten({
     title: reviewCount > 0
       ? `Записал ${transactions.length} · ${reviewCount} к проверке`
       : `Записал ${transactions.length}`,
     summary: transactions.map(transaction => summaryLine(transaction, false)).join('\n'),
     actions: actionsFor(reviewCount),
-  };
+  }, notWritten);
 }

@@ -1,5 +1,6 @@
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
+import { CaptureNotSavedError } from '../src/modules/voiceProcessing/domain/voiceErrors';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
 import { CreateDebtUseCase } from '../src/modules/debt/application/createDebt';
 import { DebtStatus, DebtType } from '../src/modules/debt/domain/debtEntity';
@@ -517,7 +518,8 @@ describe('ProcessTextInputUseCase', () => {
     });
   });
 
-  it('handles failed transaction creation gracefully', async () => {
+  // #299: this test used to pin the old answer — an empty list, read by every client as «не нашёл операцию»
+  it('a record that could not be written is an error, not an empty list (#299)', async () => {
     const openAIService = {
       analyzeInput: jest.fn().mockResolvedValue({
         transactions: [{
@@ -539,11 +541,12 @@ describe('ProcessTextInputUseCase', () => {
     } as unknown as CreateTransactionUseCase;
 
     const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
-    const result = await useCase.execute('test', 'user1');
+    const failed = await useCase.execute('test', 'user1').catch(error => error);
 
     expect(createTransactionUseCase.execute).toHaveBeenCalled();
-    // Should return empty transactions when creation fails
-    expect(result.transactions).toHaveLength(0);
+    expect(failed).toBeInstanceOf(CaptureNotSavedError);
+    // The cause is for the log, not for the answer
+    expect(failed.message).not.toContain('DB error');
   });
 
   describe('amount magnitude words', () => {
