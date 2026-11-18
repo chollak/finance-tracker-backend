@@ -59,9 +59,14 @@ enum RecordsReply {
     }
 
     /// An account of `api.md`, «Счета (FT-101)», word for word.
-    static func account(id: String = "acc-card", name: String = "Карта", isHidden: Bool = false) -> String {
+    static func account(
+        id: String = "acc-card",
+        name: String = "Карта",
+        currency: String = "UZS",
+        isHidden: Bool = false
+    ) -> String {
         """
-        {"id":"\(id)","name":"\(name)","kind":"card","currency":"UZS","openingBalanceMinor":0,\
+        {"id":"\(id)","name":"\(name)","kind":"card","currency":"\(currency)","openingBalanceMinor":0,\
         "openingDate":"2026-10-16","openingAt":"2026-10-16T05:12:40.118Z","isHidden":\(isHidden),"sortOrder":10,\
         "balanceMinor":12345600,"userId":"user-uuid"}
         """

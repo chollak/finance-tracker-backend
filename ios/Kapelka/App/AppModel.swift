@@ -165,6 +165,14 @@ final class AppModel {
         services.cards.cards
     }
 
+    /// The server's accounts for «Карты → счета» (#415), hidden ones too; the saved cards follow them at once
+    /// (`CardAccountsSource`).
+    func cardAccounts() async -> Result<[RecordAccount], RecordsFailure> {
+        await CardAccountsSource(cards: services.cards) { [feed = services.records] () async throws(RecordsFailure) in
+            try await feed.accounts()
+        }.read()
+    }
+
     /// Every field is checked before any is written. A payment waiting on the phone goes with the new account; a card's
     /// currency counts from the next payment, since a payment's amount is read when it lands in the queue.
     func saveSettings(

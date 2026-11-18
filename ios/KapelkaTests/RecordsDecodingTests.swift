@@ -98,20 +98,20 @@ struct RecordsDecodingTests {
         ])
     }
 
-    @Test("счета из api.md: id и название, скрытые тоже; итог и курс не мешают")
+    @Test("счета из api.md: id, название, валюта и «скрыт»; итог и курс не мешают")
     func accountsFromDocs() async throws {
         let transport = FakeTransport([.http(200, body: RecordsReply.accounts([
             RecordsReply.account(),
             RecordsReply.account(id: "acc-cash", name: "Наличные", isHidden: true),
             #"{"id":"acc-broken","kind":"card"}"#,
-            RecordsReply.account(id: "acc-usd", name: "Доллары"),
+            RecordsReply.account(id: "acc-usd", name: "Доллары", currency: "USD"),
         ]))])
         let accounts = try await client(transport).accounts()
 
         #expect(accounts == [
-            RecordAccount(id: "acc-card", name: "Карта"),
-            RecordAccount(id: "acc-cash", name: "Наличные"),
-            RecordAccount(id: "acc-usd", name: "Доллары"),
+            RecordAccount(id: "acc-card", name: "Карта", currency: "UZS"),
+            RecordAccount(id: "acc-cash", name: "Наличные", currency: "UZS", isHidden: true),
+            RecordAccount(id: "acc-usd", name: "Доллары", currency: "USD"),
         ])
     }
 
